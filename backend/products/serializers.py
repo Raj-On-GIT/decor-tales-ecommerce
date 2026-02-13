@@ -33,7 +33,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ['id', 'title', 'slug', 'description', 'mrp', 'slashed_price', 'discount_percent', 'stock', 'stock_type', 'total_stock', 'category', "allow_custom_image", "custom_image_limit", "allow_custom_text", 'image', 'images', 'variants']
+        fields = ['id', 'title', 'slug', 'description', 'mrp', 'slashed_price', 'discount_percent', 'stock', 'stock_type', 'total_stock', 'created_at', 'category', "allow_custom_image", "custom_image_limit", "allow_custom_text", 'image', 'images', 'variants']
     
     def get_total_stock(self, obj):
         return obj.get_total_stock()

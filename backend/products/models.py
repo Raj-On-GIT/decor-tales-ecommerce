@@ -89,9 +89,11 @@ class Product(models.Model):
     title = models.CharField(max_length=255)
     slug = models.SlugField(unique=True, blank=True)
     description = models.TextField(blank=True)
-    # price = models.DecimalField(max_digits=10, decimal_places=2)
 
-    # "Replaced"
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+    
     mrp = models.DecimalField(
         max_digits=10,
         decimal_places=2,

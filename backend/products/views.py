@@ -54,7 +54,7 @@ def category_detail(request, slug):
         SubCategory.objects
         .filter(category=category)
         .annotate(
-            productCount=Count("products")
+            productCount=Count("products", filter=Q(products__is_active=True))
         )
         .filter(productCount__gt=0)
     )

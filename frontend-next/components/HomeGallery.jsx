@@ -4,6 +4,9 @@ import HomeGalleryClient from "./HomeGalleryClient";
 export default async function HomeGallery() {
   const products = await getProducts();
 
+  console.log(products.map(p => p.created_at));
+
+
   const sortedProducts = products.sort((a, b) => {
     const dateA = new Date(a.created_at || 0);
     const dateB = new Date(b.created_at || 0);
