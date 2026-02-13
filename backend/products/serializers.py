@@ -127,8 +127,8 @@ class SubCategorySerializer(serializers.ModelSerializer):
             "productCount",
         ]
 
-class CategoryProductSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Product
-        fields = ["id", "title", "slug", "image", "mrp", "slashed_price"]
+class CategoryProductSerializer(ProductSerializer):
+    class Meta(ProductSerializer.Meta):
+        fields = ProductSerializer.Meta.fields
+
 

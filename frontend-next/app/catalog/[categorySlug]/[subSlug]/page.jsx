@@ -1,7 +1,7 @@
 // app/catalog/[categorySlug]/[subSlug]/page.jsx
 
-import Link from "next/link";
 import { BACKEND } from "@/lib/api";
+import ProductCard from "@/components/ProductCard";
 
 
 async function getSubcategoryData(category, sub) {
@@ -17,15 +17,16 @@ async function getSubcategoryData(category, sub) {
   return res.json();
 }
 
-export default async function SubcategoryPage({ params }) {
-    const {categorySlug, subSlug} = await params;
-    const data = await getSubcategoryData(
-        categorySlug,
-        subSlug
-    
-    );
 
-  console.log("SUBS →", data.subcategories);
+export default async function SubcategoryPage({ params }) {
+
+  // Params are not async in App Router
+  const { categorySlug, subSlug } = await params;
+
+  const data = await getSubcategoryData(
+    categorySlug,
+    subSlug
+  );
 
   return (
     <section className="max-w-screen-xl mx-auto px-6 py-10">
@@ -39,6 +40,7 @@ export default async function SubcategoryPage({ params }) {
         {data.subcategory}
       </p>
 
+
       {/* PRODUCTS GRID */}
       <div className="
         grid
@@ -49,37 +51,10 @@ export default async function SubcategoryPage({ params }) {
         {data.products.length > 0 ? (
 
           data.products.map((product) => (
-            <Link
+            <ProductCard
               key={product.id}
-              href={`/products/${product.id}`}
-              className="block"
-            >
-              <div className="space-y-3">
-
-                <div className="
-                  aspect-[3/4]
-                  bg-gray-100
-                  rounded-xl
-                  overflow-hidden
-                ">
-                  <img
-                    src={product.image}
-                    alt={product.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                <h3 className="
-                  font-semibold text-sm
-                  whitespace-nowrap
-                  overflow-hidden
-                  text-ellipsis
-                ">
-                  {product.title}
-                </h3>
-
-              </div>
-            </Link>
+              product={product}
+            />
           ))
 
         ) : (

@@ -46,7 +46,6 @@ export default async function CategoryPage({ params }) {
         ">
 
           {data.subcategories
-            .filter((sub) => sub.productCount > 0)   // ✅ FILTER ADDED
             .map((sub) => (
               <Link
                 key={sub.id}
@@ -75,25 +74,27 @@ export default async function CategoryPage({ params }) {
                     "
                   />
 
+                  {/* OVERLAY */}
                   <div className="
                     absolute inset-0
                     bg-black/30
-                    flex items-center justify-center
+                    flex flex-col items-center justify-center
+                    text-center px-3
                   ">
-                    <h2 className="
-                      text-white
-                      font-semibold
-                      text-lg
-                      text-center
-                      px-3
-                    ">
+                    <h2 className="text-white font-semibold text-lg">
                       {sub.name}
                     </h2>
+
+                    <p className="text-white/90 text-sm mt-1">
+                      {sub.productCount}{" "}
+                      {sub.productCount === 1 ? "Product" : "Products"}
+                    </p>
                   </div>
 
                 </div>
               </Link>
-            ))}
+          ))}
+
 
         </div>
 
