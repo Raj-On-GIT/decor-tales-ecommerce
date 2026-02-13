@@ -1,0 +1,47 @@
+{% extends "admin/change_form.html" %}
+{% load admin_urls static admin_modify %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const stockTypeRadios = document.querySelectorAll('input[name="stock_type"]');
+      const stockField = document.getElementById('id_stock');
+      
+      if (!stockField || stockTypeRadios.length === 0) return;
+      
+      const stockFieldRow = stockField.closest('.form-row');
+      
+      let variantInline = null;
+      const inlines = document.querySelectorAll('.inline-group');
+      inlines.forEach(inline => {
+        const h2 = inline.querySelector('h2');
+        if (h2 && h2.textContent.includes('Product variant')) {
+          variantInline = inline;
+        }
+      });
+      
+      // Hide variant inline by default
+      if (variantInline) variantInline.style.display = 'none';
+      if (stockFieldRow) stockFieldRow.style.display = 'none';
+      
+      function toggleFields() {
+        const selectedType = document.querySelector('input[name="stock_type"]:checked')?.value;
+        
+        if (selectedType === 'variants') {
+          if (stockFieldRow) stockFieldRow.style.display = 'none';
+          if (variantInline) variantInline.style.display = 'block';
+        } else if (selectedType === 'main') {
+          if (stockFieldRow) stockFieldRow.style.display = 'block';
+          if (variantInline) variantInline.style.display = 'none';
+        }
+      }
+      
+      toggleFields();
+      
+      stockTypeRadios.forEach(radio => {
+        radio.addEventListener('change', toggleFields);
+      });
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,18 @@
+/* Custom admin styles */
+/* Hide product variant inline by default */
+.inline-group:has(h2:contains("Product variant")) {
+  display: none;
+}
+
+/* Hide pricing fields by default */
+.form-row.field-mrp,
+.form-row.field-slashed_price,
+.form-row.field-stock,
+.form-row.field-discount_percent {
+    display: none;
+}
+
+/* Hide custom_image_limit by default */
+.field-custom_image_limit {
+    display: none;
+}
