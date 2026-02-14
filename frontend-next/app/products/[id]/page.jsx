@@ -77,8 +77,6 @@ export default function ProductDetailPage() {
         }
       }
 
-      // Initialisation complete — AUTO SIZE SWITCH may now run freely
-      isInitialising.current = false;
     }
 
     loadProduct();
@@ -87,6 +85,16 @@ export default function ProductDetailPage() {
 
 
 
+
+  // ================= CLEAR INITIALISING FLAG =================
+  // Flip isInitialising to false only after React has committed the size+color
+  // state that loadProduct() set. This prevents AUTO SIZE SWITCH from running
+  // during the render cycle where the initial values are being applied.
+  useEffect(() => {
+    if (isInitialising.current && (selectedSize !== null || selectedColor !== null)) {
+      isInitialising.current = false;
+    }
+  }, [selectedSize, selectedColor]);
 
   // ================= AUTO SIZE SWITCH ON COLOR CHANGE =================
   // Only reset the size when the currently-selected size does not exist for
@@ -554,7 +562,7 @@ const colors = [
 
                     addToCart({
                       ...product,
-                      price: Number(price),
+                      price: formatPrice(price),
                       variant: selectedVariant,
                       qty,
                       customText,
