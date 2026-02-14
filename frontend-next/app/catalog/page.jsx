@@ -4,11 +4,7 @@ import ProductCard from "@/components/ProductCard";
 export default async function CatalogPage({ searchParams }) {
   const params = await searchParams;
   const category = params?.category;
-  
-  console.log("CatalogPage received category:", category);
-  
   const products = await getProducts({ category });
-  console.log("CatalogPage received products count:", products.length);
 
   const title = category
     ? `Products in ${

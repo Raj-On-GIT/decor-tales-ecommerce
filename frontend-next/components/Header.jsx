@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect  } from "react";
 import { ShoppingBag, Search, Menu } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../context/StoreContext";
@@ -13,8 +13,16 @@ export default function Header() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
 
-  const cartCount = cart.reduce((acc, item) => acc + item.qty, 0);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const cartCount = mounted
+    ? cart.reduce((acc, item) => acc + item.qty, 0)
+    : 0;
+
 
   return (
     <>
@@ -72,11 +80,12 @@ export default function Header() {
             >
               <ShoppingBag size={20} />
 
-              {cartCount > 0 && (
+              {mounted && cartCount > 0 && (
                 <span className="absolute -top-1 -right-1 h-4 w-4 bg-gray-900 text-white text-[10px] font-bold flex items-center justify-center rounded-full">
                   {cartCount}
                 </span>
               )}
+
             </button>
 
             <button

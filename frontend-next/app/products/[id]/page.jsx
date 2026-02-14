@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { ShoppingBag } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
@@ -27,6 +27,12 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedColor, setSelectedColor] = useState(null);
 
+  // ✅ True while loadProduct() is setting the initial size+color so that
+  //    the AUTO SIZE SWITCH effect does not stomp over them.
+  const isInitialising = useRef(true);
+
+
+
   // ================= FETCH PRODUCT =================
   useEffect(() => {
     if (!id) return;
@@ -39,6 +45,40 @@ export default function ProductDetailPage() {
       const data = await res.json();
       setProduct(data);
       setCurrentIndex(0);
+
+      // Initialise variant selection in one place so there are no race
+      // conditions between multiple useEffects firing on the same render.
+      if (data.stock_type === "variants" && data.variants?.length) {
+        // 1️⃣  Prefer whatever the user had selected before the reload
+        const saved = localStorage.getItem(`selectedVariant_${data.id}`);
+
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.size_name)  setSelectedSize(parsed.size_name);
+          if (parsed.color_name) setSelectedColor(parsed.color_name);
+        } else {
+          // 2️⃣  Nothing saved → auto-select the lowest-priced in-stock variant
+          const available = data.variants.filter((v) => v.stock > 0);
+
+          if (available.length) {
+            const lowest = available.reduce((best, cur) => {
+              const bestEffective = parseFloat(best.slashed_price || best.mrp);
+              const curEffective  = parseFloat(cur.slashed_price  || cur.mrp);
+              const bestMrp = parseFloat(best.mrp);
+              const curMrp  = parseFloat(cur.mrp);
+
+              if (curEffective !== bestEffective) return curEffective < bestEffective ? cur : best;
+              if (curMrp !== bestMrp)             return curMrp < bestMrp ? cur : best;
+              return best;
+            });
+            if (lowest.size_name)  setSelectedSize(lowest.size_name);
+            if (lowest.color_name) setSelectedColor(lowest.color_name);
+          }
+        }
+      }
+
+      // Initialisation complete — AUTO SIZE SWITCH may now run freely
+      isInitialising.current = false;
     }
 
     loadProduct();
@@ -46,106 +86,102 @@ export default function ProductDetailPage() {
 
 
 
-  // ================= AUTO-SELECT LOWEST PRICE VARIANT =================
-  useEffect(() => {
-    if (
-      product &&
-      product.stock_type === "variants" &&
-      product.variants?.length > 0
-    ) {
-      // 1️⃣ Only variants with stock
-      const availableVariants = product.variants.filter(
-        v => v.stock > 0
-      );
-
-      if (availableVariants.length === 0) return;
-
-      // 2️⃣ Find lowest price
-      const lowestVariant = availableVariants.reduce(
-        (lowest, current) => {
-          const lowestPrice = parseFloat(
-            lowest.slashed_price || lowest.mrp
-          );
-
-          const currentPrice = parseFloat(
-            current.slashed_price || current.mrp
-          );
-
-          return currentPrice < lowestPrice
-            ? current
-            : lowest;
-        }
-      );
-
-      // 3️⃣ Auto-select it
-      if (lowestVariant.size_name) {
-        setSelectedSize(lowestVariant.size_name);
-      }
-
-      if (lowestVariant.color_name) {
-        setSelectedColor(lowestVariant.color_name);
-      }
-    }
-  }, [product]);
-
 
 
   // ================= AUTO SIZE SWITCH ON COLOR CHANGE =================
+  // Only reset the size when the currently-selected size does not exist for
+  // the newly-selected color. If the size IS available, keep it as-is.
+  // Skip entirely during the initial load — loadProduct() already sets both
+  // color and size atomically, so we must not interfere.
   useEffect(() => {
     if (!selectedColor || !product) return;
+    if (isInitialising.current) return;
 
-    const match = product.variants.find(
-      v => v.color_name === selectedColor
+    // Check whether the current size is valid for this color
+    const currentComboExists = product.variants.some(
+      (v) => v.color_name === selectedColor && v.size_name === selectedSize
     );
 
-    if (match && match.size_name !== selectedSize) {
-      setSelectedSize(match.size_name);
+    if (!currentComboExists) {
+      // Fall back to the first available size for this color
+      const fallback = product.variants.find(
+        (v) => v.color_name === selectedColor && v.stock > 0
+      );
+      if (fallback) setSelectedSize(fallback.size_name);
     }
   }, [selectedColor, product]);
 
 
-
-
-  if (!product) return <h2 className="p-10">Loading...</h2>;
-
-  // ✅ Derive available sizes & colors from variants
-  const sizes = [
-    ...new Set(
-      product.variants?.filter((v) => v.size_name).map((v) => v.size_name),
-    ),
-  ];
-
-  const colors = [
-    ...new Set(
-      product.variants?.filter((v) => v.color_name).map((v) => v.color_name),
-    ),
-  ];
-
-  // ✅ Find selected variant (works for size-only, color-only, both)
+    // ✅ Find selected variant (works for size-only, color-only, both)
   const selectedVariant =
-    product.stock_type === "variants"
+    product?.stock_type === "variants"
       ? product.variants.find(
           (v) =>
             (!selectedSize || v.size_name === selectedSize) &&
             (!selectedColor || v.color_name === selectedColor),
         )
       : null;
+  
+  // ================= SAVE SELECTED VARIANT =================
+  // Only persist once the user (or the initialiser) has actually set a value.
+  // Skipping when both are null prevents overwriting a saved variant before
+  // the fetch initialiser has had a chance to restore it.
+  useEffect(() => {
+    if (!product || product.stock_type !== "variants") return;
+    if (selectedSize === null && selectedColor === null) return;
 
-  const isVariantProduct = product.stock_type === "variants";
+    localStorage.setItem(
+      `selectedVariant_${product.id}`,
+      JSON.stringify({
+        size_name: selectedSize,
+        color_name: selectedColor,
+      })
+    );
+  }, [selectedSize, selectedColor, product]);
 
-  const activeStock = isVariantProduct ? selectedVariant?.stock : product.stock;
+
+  
+
+  // ✅ Derive available sizes & colors from variants
+const sizes = [
+  ...new Set(
+    product?.variants
+      ?.filter((v) => v.size_name)
+      ?.map((v) => v.size_name) || []
+  ),
+];
+
+
+const colors = [
+  ...new Set(
+    product?.variants
+      ?.filter((v) => v.color_name)
+      ?.map((v) => v.color_name) || []
+  ),
+];
+
+
+
+  const isVariantProduct = product?.stock_type === "variants";
+
+  const activeStock = isVariantProduct
+    ? selectedVariant?.stock
+    : product?.stock;
+
 
   const isOutOfStock = activeStock === 0;
 
   const isSizeAvailable = (size) =>
-    product.variants.some(
+    product?.variants.some(
       (v) =>
         v.size_name === size &&
         (!selectedColor || v.color_name === selectedColor),
     );
 
   const isColorAvailable = (color) =>
-    product.variants.some((v) => v.color_name === color);
+    product?.variants.some((v) => v.color_name === color);
+
+  if (!product) return <h2 className="p-10">Loading...</h2>;
 
   // ✅ Combine Main + Gallery Images
   const allImages = [
@@ -518,7 +554,7 @@ export default function ProductDetailPage() {
 
                     addToCart({
                       ...product,
-                      price: formatPrice(price),
+                      price: Number(price),
                       variant: selectedVariant,
                       qty,
                       customText,

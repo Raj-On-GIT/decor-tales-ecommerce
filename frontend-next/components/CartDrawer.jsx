@@ -19,7 +19,6 @@ const normalizeCategory = (category) => {
 
 export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
   const { cart, addToCart, removeFromCart, decreaseQty, total } = useStore();
-  console.log(cart);
   return (
     <AnimatePresence>
       {isCartOpen && (

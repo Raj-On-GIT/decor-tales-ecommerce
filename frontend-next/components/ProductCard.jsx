@@ -223,9 +223,21 @@ export default function ProductCard({ product }) {
               addToCart({
                 id: hasVariants ? primaryVariant.id : product.id,
                 title: product.title,
-                price: price,
+                price: Number(price),
                 image: product.image,
                 category: product.category,
+
+                stock: hasVariants
+                ? primaryVariant?.stock
+                : product.stock,
+
+                stock_type: hasVariants
+                  ? "variant"
+                  : product.stock_type,
+
+                variant: hasVariants
+                  ? primaryVariant
+                  : null,
               });
             }}
 
