@@ -30,6 +30,8 @@ export default function ProductDetailPage() {
   // ✅ True while loadProduct() is setting the initial size+color so that
   //    the AUTO SIZE SWITCH effect does not stomp over them.
   const isInitialising = useRef(true);
+  // ✅ Stores the numeric product id so the cleanup can clear the right sessionStorage key
+  const productIdRef = useRef(null);
 
 
 
@@ -43,6 +45,7 @@ export default function ProductDetailPage() {
       );
 
       const data = await res.json();
+      productIdRef.current = data.id;
       setProduct(data);
       setCurrentIndex(0);
 
@@ -50,7 +53,7 @@ export default function ProductDetailPage() {
       // conditions between multiple useEffects firing on the same render.
       if (data.stock_type === "variants" && data.variants?.length) {
         // 1️⃣  Prefer whatever the user had selected before the reload
-        const saved = localStorage.getItem(`selectedVariant_${data.id}`);
+        const saved = sessionStorage.getItem(`selectedVariant_${data.id}`);
 
         if (saved) {
           const parsed = JSON.parse(saved);
@@ -80,6 +83,12 @@ export default function ProductDetailPage() {
     }
 
     loadProduct();
+
+    // Clear the saved variant when the user leaves this page so that
+    // coming back from the gallery always starts fresh on the lowest-price variant.
+    return () => {
+      if (productIdRef.current) sessionStorage.removeItem(`selectedVariant_${productIdRef.current}`);
+    };
   }, [id]);
 
 
@@ -138,7 +147,7 @@ export default function ProductDetailPage() {
     if (!product || product.stock_type !== "variants") return;
     if (selectedSize === null && selectedColor === null) return;
 
-    localStorage.setItem(
+    sessionStorage.setItem(
       `selectedVariant_${product.id}`,
       JSON.stringify({
         size_name: selectedSize,
@@ -562,7 +571,7 @@ const colors = [
 
                     addToCart({
                       ...product,
-                      price: Number(price),
+                      price: formatPrice(price),
                       variant: selectedVariant,
                       qty,
                       customText,
