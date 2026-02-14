@@ -562,7 +562,7 @@ const colors = [
 
                     addToCart({
                       ...product,
-                      price: formatPrice(price),
+                      price: Number(price),
                       variant: selectedVariant,
                       qty,
                       customText,
