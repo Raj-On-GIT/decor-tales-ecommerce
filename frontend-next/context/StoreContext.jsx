@@ -1,5 +1,7 @@
 "use client";
 
+import { incrementCartAdd } from "@/lib/api";
+
 import {
   createContext,
   useContext,
@@ -100,6 +102,11 @@ export function StoreProvider({ children }) {
           `Maximum ${availableStock} allowed`
         );
       }
+
+      // Fire-and-forget: increment cart_add_count on the backend
+      const trackId = product.variant ? product.variant.id : product.id;
+      const baseProductId = product.id;
+      incrementCartAdd(baseProductId);
 
       return [
         ...prev,

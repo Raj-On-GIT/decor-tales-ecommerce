@@ -130,5 +130,3 @@ class SubCategorySerializer(serializers.ModelSerializer):
 class CategoryProductSerializer(ProductSerializer):
     class Meta(ProductSerializer.Meta):
         fields = ProductSerializer.Meta.fields
-
-

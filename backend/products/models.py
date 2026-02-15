@@ -256,3 +256,29 @@ class ProductImage(models.Model):
     )
     image = models.ImageField(upload_to="products/gallery/")
 
+
+
+class ProductActivity(models.Model):
+    EVENT_VIEW     = "view"
+    EVENT_CART_ADD = "cart_add"
+    EVENT_CHOICES  = [
+        (EVENT_VIEW,     "View"),
+        (EVENT_CART_ADD, "Cart Add"),
+    ]
+
+    product    = models.ForeignKey(
+        Product,
+        related_name="activities",
+        on_delete=models.CASCADE,
+    )
+    event_type = models.CharField(max_length=20, choices=EVENT_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        # Speeds up the 30-day trending query significantly
+        indexes = [
+            models.Index(fields=["product", "event_type", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.product.title} — {self.event_type} @ {self.created_at:%Y-%m-%d %H:%M}"

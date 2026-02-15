@@ -1,14 +1,11 @@
-import { getProducts } from "@/lib/api";
-import HomeGalleryClient from "./HomeGalleryClient";
+import { getTrendingProducts } from "@/lib/api";
+import TrendingClient from "./TrendingClient";
 
-export default async function HomeGallery() {
-  const products = await getProducts();
+export default async function Trending() {
+  const products = await getTrendingProducts();
 
-  const sortedProducts = products.sort((a, b) => {
-    const dateA = new Date(a.created_at || 0);
-    const dateB = new Date(b.created_at || 0);
-    return dateB - dateA;
-  });
+  // Don't render the section at all if there's nothing trending yet
+  if (!products || products.length === 0) return null;
 
   return (
     <section
@@ -36,16 +33,16 @@ export default async function HomeGallery() {
               text-2xl sm:text-3xl md:text-4xl
             "
           >
-            Latest Collection
+            Trending Now
           </h2>
 
           <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">
-            Handcrafted frames for the modern home.
+            Most loved by our customers right now.
           </p>
         </div>
 
         <a
-          href="/latest"
+          href="/trending"
           className="
             text-sm font-bold underline
             self-start sm:self-auto
@@ -56,7 +53,7 @@ export default async function HomeGallery() {
       </div>
 
       {/* Products */}
-      <HomeGalleryClient products={sortedProducts} />
+      <TrendingClient products={products} />
     </section>
   );
 }

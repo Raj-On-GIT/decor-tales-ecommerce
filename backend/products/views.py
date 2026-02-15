@@ -1,9 +1,11 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import generics
-from .models import Product, Category, SubCategory
+from .models import Product, Category, SubCategory, ProductActivity
 from .serializers import ProductSerializer, CategorySerializer, SubCategorySerializer, CategoryProductSerializer
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum, Case, When, IntegerField, Value
+from django.utils import timezone
+from datetime import timedelta
 import logging
 
 
@@ -39,6 +41,57 @@ class ProductDetailView(generics.RetrieveAPIView):
         .prefetch_related("images", "variants")
 
     lookup_field = "id"
+
+    def retrieve(self, request, *args, **kwargs):
+        response = super().retrieve(request, *args, **kwargs)
+        # Record view event asynchronously-safe (simple inline write)
+        try:
+            ProductActivity.objects.create(
+                product_id=kwargs["id"],
+                event_type=ProductActivity.EVENT_VIEW,
+            )
+        except Exception:
+            pass  # Never let tracking break the product page
+        return response
+
+
+class TrendingProductListView(generics.ListAPIView):
+    """
+    Returns up to 8 products ranked by a weighted activity score
+    calculated over the last 30 days only:
+        score = (cart_add_count × 3) + (view_count × 1)
+    """
+    serializer_class = ProductSerializer
+
+    def get_queryset(self):
+        since = timezone.now() - timedelta(days=30)
+
+        return (
+            Product.objects
+            .filter(is_active=True)
+            .select_related("category")
+            .prefetch_related("images", "variants")
+            .annotate(
+                trend_score=Sum(
+                    Case(
+                        When(
+                            activities__event_type=ProductActivity.EVENT_CART_ADD,
+                            activities__created_at__gte=since,
+                            then=Value(3),
+                        ),
+                        When(
+                            activities__event_type=ProductActivity.EVENT_VIEW,
+                            activities__created_at__gte=since,
+                            then=Value(1),
+                        ),
+                        default=Value(0),
+                        output_field=IntegerField(),
+                    )
+                )
+            )
+            .filter(trend_score__gt=0)
+            .order_by("-trend_score")[:20]
+        )
 
 # ================= CATEGORY DETAIL (Subcategory → Product Flow) =================
 
@@ -130,3 +183,22 @@ def subcategory_detail(request, category_slug, sub_slug):
         "products": serializer.data
     })
 
+
+
+# ================= CART ADD ACTIVITY =================
+
+@api_view(["POST"])
+def record_cart_add(request, id):
+    """
+    Called fire-and-forget from the frontend whenever a product
+    is added to the cart for the first time in that session.
+    """
+    try:
+        product = Product.objects.get(pk=id, is_active=True)
+        ProductActivity.objects.create(
+            product=product,
+            event_type=ProductActivity.EVENT_CART_ADD,
+        )
+    except Product.DoesNotExist:
+        pass
+    return Response({"ok": True})

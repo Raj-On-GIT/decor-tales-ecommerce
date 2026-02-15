@@ -122,6 +122,59 @@ export async function getCategories() {
   }
 }
 
+export async function getTrendingProducts() {
+  if (!API_BASE) return [];
+
+  try {
+    const res = await fetch(`${API_BASE}/products/trending/`, {
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const products = await res.json();
+
+    return products.map(product => {
+      const mainImageUrl = (product.image && product.image.startsWith("http"))
+        ? product.image
+        : product.image
+        ? `${BACKEND}${product.image}`
+        : null;
+
+      const galleryImages = [];
+      if (product.image) {
+        galleryImages.push({ id: `main-${product.id}`, image: mainImageUrl });
+      }
+      if (product.images && Array.isArray(product.images)) {
+        product.images.forEach(img => {
+          const url = (img.image && img.image.startsWith("http"))
+            ? img.image
+            : img.image ? `${BACKEND}${img.image}` : null;
+          if (url) galleryImages.push({ ...img, image: url });
+        });
+      }
+
+      return {
+        ...product,
+        image: mainImageUrl || (galleryImages[0]?.image ?? null),
+        images: galleryImages,
+      };
+    });
+  } catch (error) {
+    console.error("Failed to fetch trending products:", error.message);
+    return [];
+  }
+}
+
+export async function incrementCartAdd(productId) {
+  if (!API_BASE) return;
+  try {
+    await fetch(`${API_BASE}/products/${productId}/cart-add/`, {
+      method: "POST",
+    });
+  } catch (_) {
+    // fire-and-forget — never block the UI
+  }
+}
+
 function getMockCategories() {
   return [
     { id: 1, name: "Sunglasses", slug: "sunglasses" },
