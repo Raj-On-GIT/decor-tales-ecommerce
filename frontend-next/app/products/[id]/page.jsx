@@ -5,13 +5,16 @@ import { useParams } from "next/navigation";
 import { ShoppingBag } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { formatPrice } from "@/lib/formatPrice";
-
+// ✅ Import ProductCard (Ensure this path matches your project structure)
+import ProductCard from "@/components/ProductCard";
+import Footer from "@/components/Footer";
 
 export default function ProductDetailPage() {
   const { id } = useParams();
   const { addToCart } = useStore();
 
   const [product, setProduct] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]); // ✅ Related products state
 
   // ✅ Gallery State
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -27,100 +30,130 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedColor, setSelectedColor] = useState(null);
 
-  // ✅ True while loadProduct() is setting the initial size+color so that
-  //    the AUTO SIZE SWITCH effect does not stomp over them.
+  // ✅ True while loadProduct() is setting the initial size+color
   const isInitialising = useRef(true);
-  // ✅ Stores the numeric product id so the cleanup can clear the right sessionStorage key
+  // ✅ Stores the numeric product id
   const productIdRef = useRef(null);
+  const thumbScrollRef = useRef(null);
 
-
+  // ================= SCROLL TO TOP ON MOUNT =================
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [id]);
 
   // ================= FETCH PRODUCT =================
   useEffect(() => {
     if (!id) return;
 
     async function loadProduct() {
-      const res = await fetch(
-        `http://127.0.0.1:8000/api/products/${id}/`
-      );
+      try {
+        // 1. Fetch Main Product
+        const res = await fetch(`http://127.0.0.1:8000/api/products/${id}/`);
+        const data = await res.json();
+        
+        productIdRef.current = data.id;
+        setProduct(data);
+        setCurrentIndex(0);
 
-      const data = await res.json();
-      productIdRef.current = data.id;
-      setProduct(data);
-      setCurrentIndex(0);
+        // 2. Fetch & Filter Related Products
+        // Note: For better performance, consider a backend endpoint like /api/products/?category=...
+        const allRes = await fetch("http://127.0.0.1:8000/api/products/");
+        const allData = await allRes.json();
 
-      // Initialise variant selection in one place so there are no race
-      // conditions between multiple useEffects firing on the same render.
-      if (data.stock_type === "variants" && data.variants?.length) {
-        // 1️⃣  Prefer whatever the user had selected before the reload
-        const saved = sessionStorage.getItem(`selectedVariant_${data.id}`);
+        if (Array.isArray(allData)) {
+            // Prefer subcategory match first, fall back to category
+            const inSubCategory = data.sub_category
+              ? allData.filter(
+                  (p) =>
+                    p.sub_category?.slug === data.sub_category.slug &&
+                    p.id !== data.id
+                )
+              : [];
 
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.size_name)  setSelectedSize(parsed.size_name);
-          if (parsed.color_name) setSelectedColor(parsed.color_name);
-        } else {
-          // 2️⃣  Nothing saved → auto-select the lowest-priced in-stock variant
-          const available = data.variants.filter((v) => v.stock > 0);
+            const inCategory = allData.filter(
+              (p) =>
+                p.category?.slug === data.category?.slug &&
+                p.id !== data.id &&
+                !inSubCategory.find((s) => s.id === p.id)
+            );
 
-          if (available.length) {
-            const lowest = available.reduce((best, cur) => {
-              const bestEffective = parseFloat(best.slashed_price || best.mrp);
-              const curEffective  = parseFloat(cur.slashed_price  || cur.mrp);
-              const bestMrp = parseFloat(best.mrp);
-              const curMrp  = parseFloat(cur.mrp);
+            // Subcategory products first, then fill up with same-category products
+            const pool =
+              inSubCategory.length > 0
+                ? [...inSubCategory, ...inCategory]
+                : inCategory;
 
-              if (curEffective !== bestEffective) return curEffective < bestEffective ? cur : best;
-              if (curMrp !== bestMrp)             return curMrp < bestMrp ? cur : best;
-              return best;
-            });
-            if (lowest.size_name)  setSelectedSize(lowest.size_name);
-            if (lowest.color_name) setSelectedColor(lowest.color_name);
+            const related = pool
+              .sort(
+                (a, b) =>
+                  new Date(b.created_at || 0) - new Date(a.created_at || 0)
+              )
+              .slice(0, 8);
+
+            setRelatedProducts(related);
+        }
+
+        // 3. Initialise Variants
+        if (data.stock_type === "variants" && data.variants?.length) {
+          const saved = sessionStorage.getItem(`selectedVariant_${data.id}`);
+
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.size_name) setSelectedSize(parsed.size_name);
+            if (parsed.color_name) setSelectedColor(parsed.color_name);
+          } else {
+            const available = data.variants.filter((v) => v.stock > 0);
+
+            if (available.length) {
+              const lowest = available.reduce((best, cur) => {
+                const bestEffective = parseFloat(best.slashed_price || best.mrp);
+                const curEffective = parseFloat(cur.slashed_price || cur.mrp);
+                const bestMrp = parseFloat(best.mrp);
+                const curMrp = parseFloat(cur.mrp);
+
+                if (curEffective !== bestEffective)
+                  return curEffective < bestEffective ? cur : best;
+                if (curMrp !== bestMrp) return curMrp < bestMrp ? cur : best;
+                return best;
+              });
+              if (lowest.size_name) setSelectedSize(lowest.size_name);
+              if (lowest.color_name) setSelectedColor(lowest.color_name);
+            }
           }
         }
+      } catch (error) {
+        console.error("Error loading product:", error);
       }
-
     }
 
     loadProduct();
 
-    // Clear the saved variant when the user leaves this page so that
-    // coming back from the gallery always starts fresh on the lowest-price variant.
     return () => {
-      if (productIdRef.current) sessionStorage.removeItem(`selectedVariant_${productIdRef.current}`);
+      if (productIdRef.current)
+        sessionStorage.removeItem(`selectedVariant_${productIdRef.current}`);
     };
   }, [id]);
 
-
-
-
-
   // ================= CLEAR INITIALISING FLAG =================
-  // Flip isInitialising to false only after React has committed the size+color
-  // state that loadProduct() set. This prevents AUTO SIZE SWITCH from running
-  // during the render cycle where the initial values are being applied.
   useEffect(() => {
-    if (isInitialising.current && (selectedSize !== null || selectedColor !== null)) {
+    if (
+      isInitialising.current &&
+      (selectedSize !== null || selectedColor !== null)
+    ) {
       isInitialising.current = false;
     }
   }, [selectedSize, selectedColor]);
 
   // ================= AUTO SIZE SWITCH ON COLOR CHANGE =================
-  // Only reset the size when the currently-selected size does not exist for
-  // the newly-selected color. If the size IS available, keep it as-is.
-  // Skip entirely during the initial load — loadProduct() already sets both
-  // color and size atomically, so we must not interfere.
   useEffect(() => {
     if (!selectedColor || !product) return;
     if (isInitialising.current) return;
 
-    // Check whether the current size is valid for this color
     const currentComboExists = product.variants.some(
       (v) => v.color_name === selectedColor && v.size_name === selectedSize
     );
 
     if (!currentComboExists) {
-      // Fall back to the first available size for this color
       const fallback = product.variants.find(
         (v) => v.color_name === selectedColor && v.stock > 0
       );
@@ -128,21 +161,17 @@ export default function ProductDetailPage() {
     }
   }, [selectedColor, product]);
 
-
-    // ✅ Find selected variant (works for size-only, color-only, both)
+  // ✅ Find selected variant
   const selectedVariant =
     product?.stock_type === "variants"
       ? product.variants.find(
           (v) =>
             (!selectedSize || v.size_name === selectedSize) &&
-            (!selectedColor || v.color_name === selectedColor),
+            (!selectedColor || v.color_name === selectedColor)
         )
       : null;
-  
+
   // ================= SAVE SELECTED VARIANT =================
-  // Only persist once the user (or the initialiser) has actually set a value.
-  // Skipping when both are null prevents overwriting a saved variant before
-  // the fetch initialiser has had a chance to restore it.
   useEffect(() => {
     if (!product || product.stock_type !== "variants") return;
     if (selectedSize === null && selectedColor === null) return;
@@ -156,74 +185,112 @@ export default function ProductDetailPage() {
     );
   }, [selectedSize, selectedColor, product]);
 
+  // ================= THUMBNAIL NAVIGATION =================
 
-  
+  // Arrow buttons: scroll strip by 1 thumb
+  const scrollThumbs = (dir) => {
+    const el = thumbScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * 72, behavior: "smooth" });
+  };
 
-  // ✅ Derive available sizes & colors from variants
-const sizes = [
-  ...new Set(
-    product?.variants
-      ?.filter((v) => v.size_name)
-      ?.map((v) => v.size_name) || []
-  ),
-];
+  // Main carousel nav: scroll strip just enough to bring active thumb into view.
+  // Uses the real copy (middle copy) position for the calculation.
+  const ensureThumbVisible = (index) => {
+    const el = thumbScrollRef.current;
+    if (!el) return;
+    const tw = 72;
+    // No clone offset — just find thumb position directly
+    const thumbLeft  = index * tw;
+    const thumbRight = thumbLeft + tw;
+    const visLeft    = el.scrollLeft;
+    const visRight   = el.scrollLeft + el.clientWidth;
 
+    if (thumbLeft < visLeft) {
+      // Thumb is off the left edge — scroll left to show it
+      el.scrollBy({ left: thumbLeft - visLeft - 8, behavior: "smooth" });
+    } else if (thumbRight > visRight) {
+      // Thumb is off the right edge — scroll right to show it
+      el.scrollBy({ left: thumbRight - visRight + 8, behavior: "smooth" });
+    }
+    // Already visible — do nothing, preserve user's scroll position
+  };
 
-const colors = [
-  ...new Set(
-    product?.variants
-      ?.filter((v) => v.color_name)
-      ?.map((v) => v.color_name) || []
-  ),
-];
+  // ✅ Derive available sizes & colors
+  const sizes = [
+    ...new Set(
+      product?.variants?.filter((v) => v.size_name)?.map((v) => v.size_name) ||
+        []
+    ),
+  ];
 
-
+  const colors = [
+    ...new Set(
+      product?.variants
+        ?.filter((v) => v.color_name)
+        ?.map((v) => v.color_name) || []
+    ),
+  ];
 
   const isVariantProduct = product?.stock_type === "variants";
-
   const activeStock = isVariantProduct
     ? selectedVariant?.stock
     : product?.stock;
-
-
-  const isOutOfStock = activeStock === 0;
 
   const isSizeAvailable = (size) =>
     product?.variants.some(
       (v) =>
         v.size_name === size &&
-        (!selectedColor || v.color_name === selectedColor),
+        (!selectedColor || v.color_name === selectedColor)
     );
 
   const isColorAvailable = (color) =>
     product?.variants.some((v) => v.color_name === color);
 
-  if (!product) return <h2 className="p-10">Loading...</h2>;
+  if (!product) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-5">
+      {/* Spinning ring */}
+      <div className="relative w-16 h-16">
+        <div className="absolute inset-0 rounded-full border-4 border-gray-200 dark:border-gray-700" />
+        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-black dark:border-t-white animate-spin" />
+      </div>
+      {/* Pulsing text */}
+      <p className="text-sm font-medium tracking-widest text-gray-400 dark:text-gray-500 animate-pulse">
+        Loading product …
+      </p>
+    </div>
+  );
 
-  // ✅ Combine Main + Gallery Images
+  // ✅ Combine Main + Gallery Images (deduplicated)
   const allImages = [
     product.image,
     ...(product.images?.map((img) => img.image) || []),
-  ];
+  ].filter((img, idx, arr) => img && arr.indexOf(img) === idx);
 
   // ✅ Infinite Carousel
-  const goNext = () => setCurrentIndex((prev) => (prev + 1) % allImages.length);
-
-  const goPrev = () =>
-    setCurrentIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
+  const goNext = () => {
+    setCurrentIndex((prev) => {
+      const next = (prev + 1) % allImages.length;
+      ensureThumbVisible(next);
+      return next;
+    });
+  };
+  const goPrev = () => {
+    setCurrentIndex((prev) => {
+      const next = prev === 0 ? allImages.length - 1 : prev - 1;
+      ensureThumbVisible(next);
+      return next;
+    });
+  };
 
   // ✅ Swipe Support
   const handleTouchStart = (e) => setTouchStart(e.touches[0].clientX);
-
   const handleTouchEnd = (e) => {
     if (!touchStart) return;
-
     const touchEnd = e.changedTouches[0].clientX;
     const diff = touchStart - touchEnd;
-
     if (diff > 50) goNext();
     if (diff < -50) goPrev();
-
     setTouchStart(null);
   };
 
@@ -234,10 +301,13 @@ const colors = [
     setCustomImages(files);
   };
 
+
+
   return (
-    <div className="max-w-6xl mx-auto px-6 py-5">
+    <>
+    <div className="max-w-screen-xl mx-auto px-4 sm:px-6 pt-5">
       {/* ✅ Center Two-Column Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start px-15 mb-10">
         {/* ================= LEFT: IMAGE VIEWER ================= */}
         <div className="flex flex-col items-center">
           {/* ✅ Main Carousel */}
@@ -268,14 +338,22 @@ const colors = [
                   onClick={goPrev}
                   className="absolute left-1 top-1/2 -translate-y-1/2 bg-white/25 p-2 rounded-full hover:bg-white"
                 >
-                  <img src="/left_arrow.svg" alt="left arrow" className="w-5 h-5"/>
+                  <img
+                    src="/left_arrow.svg"
+                    alt="left arrow"
+                    className="w-5 h-5"
+                  />
                 </button>
 
                 <button
                   onClick={goNext}
                   className="absolute right-1 top-1/2 -translate-y-1/2 bg-white/25 p-2 rounded-full hover:bg-white"
                 >
-                  <img src="/right_arrow.svg" alt="right arrow" className="w-5 h-5"/>
+                  <img
+                    src="/right_arrow.svg"
+                    alt="right arrow"
+                    className="w-5 h-5"
+                  />
                 </button>
               </>
             )}
@@ -283,30 +361,72 @@ const colors = [
 
           {/* ✅ Thumbnails */}
           {allImages.length > 1 && (
-            <div className="flex gap-3 mt-5 flex-wrap justify-center">
-              {allImages.map((img, index) => (
-                <img
-                  key={index}
-                  src={img}
-                  onClick={() => setCurrentIndex(index)}
-                  className={`w-20 h-20 rounded-lg border cursor-pointer object-contain bg-white p-1 ${
-                    index === currentIndex ? "border-black" : "border-gray-300"
-                  }`}
-                  alt="thumbnail"
-                />
-              ))}
+            <div className="relative mt-5 mb-4 w-full flex items-center justify-center gap-2">
+
+              {/* Left arrow — only when > 5 images */}
+              {allImages.length > 5 && (
+                <button
+                  onClick={() => scrollThumbs(-1)}
+                  className="flex-shrink-0 w-8 h-8 flex items-center justify-center
+                             rounded-full bg-white border border-gray-200
+                             shadow hover:shadow-md hover:bg-gray-50 transition"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                       viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 18l-6-6 6-6"/>
+                  </svg>
+                </button>
+              )}
+
+              {/* Scrollable infinite thumbnail strip */}
+              <div
+                ref={thumbScrollRef}
+
+                className="flex gap-3 overflow-x-auto scrollbar-none max-w-sm"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              >
+                {allImages.map((img, index) => (
+                  <img
+                    key={index}
+                    src={img}
+                    onClick={() => setCurrentIndex(index)}
+                    className={`flex-shrink-0 w-15 h-15 rounded-lg border cursor-pointer object-contain bg-white p-1 ${
+                      index === currentIndex ? "border-black" : "border-gray-300"
+                    }`}
+                    alt="thumbnail"
+                  />
+                ))}
+              </div>
+
+              {/* Right arrow — only when > 5 images */}
+              {allImages.length > 5 && (
+                <button
+                  onClick={() => scrollThumbs(1)}
+                  className="flex-shrink-0 w-8 h-8 flex items-center justify-center
+                             rounded-full bg-white border border-gray-200
+                             shadow hover:shadow-md hover:bg-gray-50 transition"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                       viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 18l6-6-6-6"/>
+                  </svg>
+                </button>
+              )}
+
             </div>
           )}
         </div>
 
         {/* ================= RIGHT: PRODUCT DETAILS ================= */}
         <div className="flex flex-col w-full px-2 h-full">
-          {/* ✅ TOP BLOCK (same height as image) */}
+          {/* ✅ TOP BLOCK */}
           <div className="flex flex-col justify-center h-full gap-6">
             {/* Title + Price */}
             <div>
               <h1 className="text-4xl font-bold">{product.title}</h1>
-              <p className="text-gray-700 mt-2">In: {product.category}</p>
+              <p className="text-gray-700 mt-2">In: {product.category?.name}</p>
               <p className="text-gray-600 mt-2 leading-relaxed whitespace-normal text-justify">
                 {product.description}
               </p>
@@ -315,8 +435,6 @@ const colors = [
               {product.allow_custom_image && (
                 <>
                   <h3 className="font-semibold mt-5">Upload Custom Images</h3>
-
-                  {/* ✅ Grid: Max 4 per row */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-1 w-full">
                     {Array.from({ length: product.custom_image_limit }).map(
                       (_, index) => {
@@ -327,7 +445,6 @@ const colors = [
                             key={index}
                             className="flex flex-col items-center"
                           >
-                            {/* ✅ Upload Button */}
                             <label
                               className={`flex items-center justify-center gap-2
                             border rounded-lg cursor-pointer
@@ -340,7 +457,6 @@ const colors = [
                                 : "border-gray-300"
                             }`}
                             >
-                              {/* ✅ Upload Icon */}
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 className="w-4 h-4 text-gray-700"
@@ -355,9 +471,7 @@ const colors = [
                                   d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0l-4 4m4-4l4 4"
                                 />
                               </svg>
-                              {/* ✅ Inline Text */}
                               Upload: {index + 1}
-                              {/* ✅ Hidden File Input */}
                               <input
                                 type="file"
                                 accept="image/*"
@@ -368,7 +482,6 @@ const colors = [
                               />
                             </label>
 
-                            {/* ✅ File Name Display */}
                             {selectedFile && (
                               <p className="text-xs text-gray-700 mt-1 w-full text-center truncate">
                                 {selectedFile.name}
@@ -376,7 +489,7 @@ const colors = [
                             )}
                           </div>
                         );
-                      },
+                      }
                     )}
                   </div>
                 </>
@@ -403,11 +516,9 @@ const colors = [
                 : true) && (
                 <>
                   <div className="flex flex-wrap gap-3">
-                    {/* ================= VARIANT SELECTION ================= */}
                     {product.stock_type === "variants" &&
                       product.variants?.length > 0 && (
                         <div className="mt-5 space-y-3">
-                          {/* ✅ Size Selector */}
                           {sizes.length > 0 && (
                             <div>
                               <h3 className="text-lg font-semibold mb-1">
@@ -439,7 +550,6 @@ const colors = [
                             </div>
                           )}
 
-                          {/* ✅ Color Selector */}
                           {colors.length > 0 && (
                             <div>
                               <h3 className="text-lg font-semibold mb-1">
@@ -477,21 +587,17 @@ const colors = [
               )}
 
               {/* ✅ Stock Availability */}
-
               {activeStock !== undefined &&
                 activeStock !== null &&
                 (activeStock === 0 ? (
-                  /* ❌ Out of stock */
                   <p className="text-sm text-red-700 font-semibold mt-3">
                     Out of stock
                   </p>
                 ) : activeStock <= 3 ? (
-                  /* 🔴 Low stock */
                   <p className="text-sm text-red-600 font-semibold mt-3">
                     Only {activeStock} left
                   </p>
                 ) : (
-                  /* 🟢 Normal stock */
                   <p className="text-sm text-gray-600 mt-3">
                     Available stock: {activeStock}
                   </p>
@@ -507,7 +613,10 @@ const colors = [
                   )}
 
                   <span className="text-black font-bold text-3xl">
-                    ₹{formatPrice(selectedVariant.slashed_price || selectedVariant.mrp)}
+                    ₹
+                    {formatPrice(
+                      selectedVariant.slashed_price || selectedVariant.mrp
+                    )}
                   </span>
 
                   {selectedVariant.discount_percent && (
@@ -531,7 +640,9 @@ const colors = [
                       </span>
                     </div>
                   ) : (
-                    <h2 className="text-3xl font-bold">₹{formatPrice(product.mrp)}</h2>
+                    <h2 className="text-3xl font-bold">
+                      ₹{formatPrice(product.mrp)}
+                    </h2>
                   )}
                 </div>
               )}
@@ -560,10 +671,10 @@ const colors = [
                 {/* ✅ Add to Cart Button */}
                 <button
                   disabled={
-                    (product.stock_type === "variants" && !selectedVariant) || (activeStock === 0)
+                    (product.stock_type === "variants" && !selectedVariant) ||
+                    activeStock === 0
                   }
                   onClick={() => {
-
                     const price =
                       product.stock_type === "variants"
                         ? selectedVariant?.slashed_price || selectedVariant?.mrp
@@ -576,13 +687,13 @@ const colors = [
                       qty,
                       customText,
                       customImages,
-                    })
-
+                    });
                   }}
                   className={`w-full flex-1 flex items-center justify-center gap-2
                   py-3 rounded-xl transition
                   ${
-                    (product.stock_type === "variants" && !selectedVariant) || (activeStock === 0)
+                    (product.stock_type === "variants" && !selectedVariant) ||
+                    activeStock === 0
                       ? "bg-red-600 text-white cursor-not-allowed"
                       : "bg-black text-white hover:bg-gray-800"
                   }
@@ -590,8 +701,7 @@ const colors = [
                 >
                   {activeStock === 0 ? (
                     <>
-                      <span className="font-semibold"> 
-                      Out of Stock</span>
+                      <span className="font-semibold">Out of Stock</span>
                     </>
                   ) : (
                     <>
@@ -606,6 +716,43 @@ const colors = [
           </div>
         </div>
       </div>
+
+      {/* ================= SIMILAR PRODUCTS SECTION ================= */}
+      {relatedProducts.length > 0 && (
+        <section className="mt-20 sm:mt-24 mb-10">
+          {/* Heading Row */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
+            <div>
+              <h2 className="font-serif font-bold text-black text-2xl sm:text-4xl">
+                Similar products you may like
+              </h2>
+              <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">
+                Discover more from {product.category?.name}.
+              </p>
+            </div>
+
+            <a
+              href={
+                product.sub_category
+                  ? `/catalog/${product.category?.slug}/${product.sub_category?.slug}`
+                  : `/catalog/${product.category?.slug}`
+              }
+              className="text-sm font-bold underline self-start sm:self-auto"
+            >
+              View All →
+            </a>
+          </div>
+
+          {/* Product Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-8 md:gap-10">
+            {relatedProducts.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
+    <Footer />
+    </>
   );
 }

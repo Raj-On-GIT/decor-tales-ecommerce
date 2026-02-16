@@ -28,15 +28,26 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
     variants = ProductVariantSerializer(many=True, read_only=True)
-    category = serializers.StringRelatedField()
+    category = serializers.SerializerMethodField()
+    sub_category = serializers.SerializerMethodField()
     total_stock = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ['id', 'title', 'slug', 'description', 'mrp', 'slashed_price', 'discount_percent', 'stock', 'stock_type', 'total_stock', 'created_at', 'category', "allow_custom_image", "custom_image_limit", "allow_custom_text", 'image', 'images', 'variants']
+        fields = ['id', 'title', 'slug', 'description', 'mrp', 'slashed_price', 'discount_percent', 'stock', 'stock_type', 'total_stock', 'created_at', 'category', 'sub_category', "allow_custom_image", "custom_image_limit", "allow_custom_text", 'image', 'images', 'variants']
     
     def get_total_stock(self, obj):
         return obj.get_total_stock()
+
+    def get_category(self, obj):
+        if not obj.category:
+            return None
+        return {"name": obj.category.name, "slug": obj.category.slug}
+
+    def get_sub_category(self, obj):
+        if not obj.sub_category:
+            return None
+        return {"name": obj.sub_category.name, "slug": obj.sub_category.slug}
     
     def validate(self, data):
         """
@@ -130,3 +141,4 @@ class SubCategorySerializer(serializers.ModelSerializer):
 class CategoryProductSerializer(ProductSerializer):
     class Meta(ProductSerializer.Meta):
         fields = ProductSerializer.Meta.fields
+        

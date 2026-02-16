@@ -42,7 +42,7 @@ export default function ProductCard({ product }) {
           <img
             src={product.image}
             alt={product.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+            className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500 ease-out"
           />
         </div>
       </Link>

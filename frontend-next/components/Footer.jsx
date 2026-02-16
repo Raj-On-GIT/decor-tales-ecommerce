@@ -1,7 +1,7 @@
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-white py-12">
-      <div className="max-w-screen-2xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-10">
+    <footer className="bg-gray-900 dark:bg-black text-white py-10">
+      <div className="max-w-screen-2xl mx-auto px-35 grid grid-cols-1 md:grid-cols-4 gap-10">
         
         {/* Brand */}
         <div>
@@ -17,10 +17,10 @@ export default function Footer() {
         <div>
           <h4 className="font-bold mb-4">Shop</h4>
           <ul className="space-y-2 text-gray-400 text-sm">
-            <li>All Frames</li>
-            <li>Wood Collection</li>
-            <li>Minimalist Frames</li>
-            <li>Gift Frames</li>
+            <li><a href="/catalog" className="hover:text-white transition">All Products</a></li>
+            <li><a href="/latest" className="hover:text-white transition">Latest Collection</a></li>
+            <li><a href="/trending" className="hover:text-white transition">Trending Now</a></li>
+            <li><a href="/catalog" className="hover:text-white transition">Browse by Category</a></li>
           </ul>
         </div>
 
@@ -28,10 +28,10 @@ export default function Footer() {
         <div>
           <h4 className="font-bold mb-4">Support</h4>
           <ul className="space-y-2 text-gray-400 text-sm">
-            <li>Shipping & Delivery</li>
-            <li>Returns Policy</li>
-            <li>Track Order</li>
-            <li>Contact Us</li>
+            <li><a href="/shipping" className="hover:text-white transition">Shipping & Delivery</a></li>
+            <li><a href="/returns" className="hover:text-white transition">Returns Policy</a></li>
+            <li><a href="/track" className="hover:text-white transition">Track Order</a></li>
+            <li><a href="/contact" className="hover:text-white transition">Contact Us</a></li>
           </ul>
         </div>
 
