@@ -1,18 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect  } from "react";
+import { useState, useEffect } from "react";
 import { ShoppingBag, Search, Menu } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../context/StoreContext";
 import CartDrawer from "./CartDrawer";
+import SearchBar from "./SearchBar";
 
 export default function Header() {
   const { cart } = useStore();
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -23,7 +24,6 @@ export default function Header() {
     ? cart.reduce((acc, item) => acc + item.qty, 0)
     : 0;
 
-
   return (
     <>
       {/* HEADER */}
@@ -32,7 +32,7 @@ export default function Header() {
                         px-4 sm:px-6 md:px-10 lg:px-20
                         h-14 md:h-16 
                         flex items-center justify-between">
-          
+
           {/* LEFT */}
           <div className="flex items-center space-x-4 md:space-x-8">
             <Link
@@ -41,8 +41,6 @@ export default function Header() {
                          text-lg md:text-2xl
                          font-serif font-bold tracking-tight text-gray-900
                          whitespace-nowrap">
-
-              {/* Logo */}
               <img
                 src="/DECOR_TALES_cropped.svg"
                 alt="LuxeFrames Logo"
@@ -68,10 +66,28 @@ export default function Header() {
           {/* RIGHT */}
           <div className="flex items-center space-x-2 md:space-x-4">
 
-            {/* Search */}
-            <button className="p-2 text-gray-500 hover:text-black transition">
-              <Search size={20} />
-            </button>
+            {/* Search — icon fades out, bar animates in */}
+            <AnimatePresence mode="wait">
+              {isSearchOpen ? (
+                <SearchBar
+                  key="searchbar"
+                  isOpen={isSearchOpen}
+                  onClose={() => setIsSearchOpen(false)}
+                />
+              ) : (
+                <motion.button
+                  key="searchicon"
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.5 }}
+                  transition={{ duration: 0.15 }}
+                  onClick={() => setIsSearchOpen(true)}
+                  className="p-2 text-gray-500 hover:text-black transition"
+                >
+                  <Search size={20} />
+                </motion.button>
+              )}
+            </AnimatePresence>
 
             {/* Cart */}
             <button
@@ -79,13 +95,11 @@ export default function Header() {
               className="relative p-2 text-gray-900 hover:bg-gray-100 rounded-full transition"
             >
               <ShoppingBag size={20} />
-
               {mounted && cartCount > 0 && (
                 <span className="absolute -top-1 -right-1 h-4 w-4 bg-gray-900 text-white text-[10px] font-bold flex items-center justify-center rounded-full">
                   {cartCount}
                 </span>
               )}
-
             </button>
 
             <button
@@ -95,17 +109,14 @@ export default function Header() {
               <Menu size={24} />
             </button>
 
-
           </div>
-
         </div>
       </header>
-      
+
       {/* MOBILE MENU DRAWER */}
       <AnimatePresence>
         {isMenuOpen && (
           <>
-            {/* OVERLAY */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -113,25 +124,15 @@ export default function Header() {
               onClick={() => setIsMenuOpen(false)}
               className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
             />
-
-            {/* DRAWER */}
             <motion.div
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="
-                fixed top-0 right-0 h-full w-72
-                bg-white z-50 shadow-2xl
-                p-6 flex flex-col
-              "
+              className="fixed top-0 right-0 h-full w-72 bg-white z-50 shadow-2xl p-6 flex flex-col"
             >
-              {/* HEADER */}
               <div className="flex items-center justify-between mb-8">
-                <h2 className="text-xl font-serif font-bold">
-                  Menu
-                </h2>
-
+                <h2 className="text-xl font-serif font-bold">Menu</h2>
                 <button
                   onClick={() => setIsMenuOpen(false)}
                   className="p-2 hover:bg-gray-100 rounded-full"
@@ -140,50 +141,24 @@ export default function Header() {
                 </button>
               </div>
 
-              {/* NAV LINKS */}
               <nav className="flex flex-col divide-y">
-
-                <Link
-                  href="/catalog"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="
-                    py-4 text-lg font-medium
-                    text-gray-800 hover:text-black
-                    transition
-                  "
-                >
+                <Link href="/catalog" onClick={() => setIsMenuOpen(false)}
+                  className="py-4 text-lg font-medium text-gray-800 hover:text-black transition">
                   Catalog
                 </Link>
-
-                <Link
-                  href="/tracking"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="
-                    py-4 text-lg font-medium
-                    text-gray-800 hover:text-black
-                    transition
-                  "
-                >
+                <Link href="/tracking" onClick={() => setIsMenuOpen(false)}
+                  className="py-4 text-lg font-medium text-gray-800 hover:text-black transition">
                   Track Order
                 </Link>
-
-                <Link
-                  href="/sale"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="
-                    py-4 text-lg font-semibold
-                    text-rose-600
-                  "
-                >
+                <Link href="/sale" onClick={() => setIsMenuOpen(false)}
+                  className="py-4 text-lg font-semibold text-rose-600">
                   Sale
                 </Link>
-
               </nav>
             </motion.div>
           </>
         )}
       </AnimatePresence>
-
 
       {/* CART DRAWER */}
       <CartDrawer isCartOpen={isCartOpen} setIsCartOpen={setIsCartOpen} />

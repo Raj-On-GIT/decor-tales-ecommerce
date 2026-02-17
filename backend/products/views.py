@@ -1,6 +1,7 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import generics
+from rest_framework.views import APIView
 from .models import Product, Category, SubCategory, ProductActivity
 from .serializers import ProductSerializer, CategorySerializer, SubCategorySerializer, CategoryProductSerializer
 from django.db.models import Count, Q, Sum, Case, When, IntegerField, Value
@@ -202,3 +203,45 @@ def record_cart_add(request, id):
     except Product.DoesNotExist:
         pass
     return Response({"ok": True})
+
+
+class SearchView(APIView):
+    """
+    Search across products, categories, and subcategories
+    GET /api/search/?q=query
+    """
+    def get(self, request):
+        query = request.GET.get('q', '').strip()
+        
+        if not query or len(query) < 2:
+            return Response({
+                'products': [],
+                'categories': [],
+                'subcategories': []
+            })
+        
+        # Search products by title, description, category, subcategory
+        products = Product.objects.filter(
+            Q(title__icontains=query) |
+            Q(description__icontains=query) |
+            Q(category__name__icontains=query) |
+            Q(sub_category__name__icontains=query),
+            is_active=True
+        ).select_related('category', 'sub_category').distinct()[:10]
+        
+        # Search categories
+        categories = Category.objects.filter(
+            name__icontains=query
+        )[:5]
+        
+        # Search subcategories
+        subcategories = SubCategory.objects.filter(
+            name__icontains=query
+        ).select_related('category')[:5]
+        
+        return Response({
+            'products': ProductSerializer(products, many=True, context={'request': request}).data,
+            'categories': CategorySerializer(categories, many=True, context={'request': request}).data,
+            'subcategories': SubCategorySerializer(subcategories, many=True, context={'request': request}).data,
+            'query': query
+        })

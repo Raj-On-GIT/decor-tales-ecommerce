@@ -127,6 +127,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class SubCategorySerializer(serializers.ModelSerializer):
 
     productCount = serializers.IntegerField(read_only=True)
+    category = serializers.SerializerMethodField()
 
     class Meta:
         model = SubCategory
@@ -136,9 +137,17 @@ class SubCategorySerializer(serializers.ModelSerializer):
             "slug",
             "image",
             "productCount",
+            "category"
         ]
+    
+    def get_category(self, obj):  # ← Add this method
+        if not obj.category:
+            return None
+        return {
+            "name": obj.category.name,
+            "slug": obj.category.slug
+        }
 
 class CategoryProductSerializer(ProductSerializer):
     class Meta(ProductSerializer.Meta):
         fields = ProductSerializer.Meta.fields
-        

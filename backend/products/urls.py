@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import TrendingProductListView, record_cart_add
+from .views import TrendingProductListView, record_cart_add, SearchView
 
 urlpatterns = [
     path("products/", views.ProductListView.as_view(), name="product-list"),
@@ -11,4 +11,5 @@ urlpatterns = [
     path("categories/", views.CategoryListView.as_view(), name="category-list"),
     path("categories/<slug:slug>/", views.category_detail, name="category-detail"),
     path("categories/<slug:category_slug>/<slug:sub_slug>/", views.subcategory_detail, name="subcategory-detail"),
+    path('search/', SearchView.as_view(), name='search'),
 ]

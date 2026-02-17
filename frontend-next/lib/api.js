@@ -184,3 +184,32 @@ function getMockCategories() {
 }
 
 export { BACKEND };
+
+export async function searchProducts(query) {
+  if (!query || query.length < 2) {
+    return { products: [], categories: [], subcategories: [], query: '' };
+  }
+  
+  const res = await fetch(
+    `http://127.0.0.1:8000/api/search/?q=${encodeURIComponent(query)}`
+  );
+  const data = await res.json();
+  
+  // Transform image URLs for products (same as getProducts)
+  if (data.products) {
+    data.products = data.products.map(product => ({
+      ...product,
+      image: product.image?.startsWith('http') 
+        ? product.image 
+        : `http://127.0.0.1:8000${product.image}`,
+      images: product.images?.map(img => ({
+        ...img,
+        image: img.image?.startsWith('http')
+          ? img.image
+          : `http://127.0.0.1:8000${img.image}`
+      }))
+    }));
+  }
+  
+  return data;
+}
