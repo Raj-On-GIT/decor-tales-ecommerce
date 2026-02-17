@@ -1,6 +1,7 @@
 import { getProducts, getCategories } from "@/lib/api";
 import ProductCard from "@/components/ProductCard";
 import BrowseByCategoryClient from "@/components/BrowseByCategoryClient";
+import Footer from "@/components/Footer";
 
 export default async function CatalogPage({ searchParams }) {
   const params = await searchParams;
@@ -15,6 +16,7 @@ export default async function CatalogPage({ searchParams }) {
     );
 
     return (
+      <div>
       <section className="max-w-screen-xl mx-auto px-6 py-16">
         <div className="mb-12">
           <h2 className="text-4xl font-serif font-bold text-black">
@@ -26,7 +28,10 @@ export default async function CatalogPage({ searchParams }) {
         </div>
 
         <BrowseByCategoryClient categories={categoriesWithContent} />
+        
       </section>
+      <Footer />
+      </div>
     );
   }
 
@@ -36,6 +41,7 @@ export default async function CatalogPage({ searchParams }) {
   const title = category.charAt(0).toUpperCase() + category.slice(1);
 
   return (
+    <div>
     <section className="max-w-7xl mx-auto px-6 py-16">
       <h2 className="text-3xl font-serif font-bold mb-10">
         {title}
@@ -53,5 +59,7 @@ export default async function CatalogPage({ searchParams }) {
         )}
       </div>
     </section>
+    <Footer />
+    </div>
   );
 }

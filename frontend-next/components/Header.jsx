@@ -27,7 +27,7 @@ export default function Header() {
   return (
     <>
       {/* HEADER */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
+      <header className="sticky top-0 z-40 bg-[#F0FFDF]/80 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-screen-2xl mx-auto 
                         px-4 sm:px-6 md:px-10 lg:px-20
                         h-14 md:h-16 
@@ -46,7 +46,7 @@ export default function Header() {
               <img
                 src="/DECOR_TALES_cropped.svg"
                 alt="LuxeFrames Logo"
-                className="h-8 md:h-10 w-auto"
+                className="h-8 md:h-10 w-auto bg-[#FFECC0] rounded-full"
               />
               Decor Tales
             </Link>

@@ -35,7 +35,7 @@ export default function ProductCard({ product }) {
 
 
   return (
-    <div className="group relative bg-white rounded-2xl p-2 border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.14)] transition-all duration-500 ease-out hover:-translate-y-1 hover:border-gray-200">
+    <div className="group relative bg-white rounded-2xl p-2 border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-200">
       {/* ✅ Clicking opens Product Detail Page */}
       <Link href={`/products/${product.id}`}>
         <div className="aspect-[3/4] rounded-xl overflow-hidden bg-gray-50 relative cursor-pointer">

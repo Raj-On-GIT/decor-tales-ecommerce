@@ -166,8 +166,7 @@ export default function ProductDetailPage() {
     product?.stock_type === "variants"
       ? product.variants.find(
           (v) =>
-            (!selectedSize || v.size_name === selectedSize) &&
-            (!selectedColor || v.color_name === selectedColor)
+            (!selectedSize || v.size_name === selectedSize) && (!selectedColor || v.color_name === selectedColor)
         )
       : null;
 
@@ -250,13 +249,13 @@ export default function ProductDetailPage() {
   if (!product) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-5">
       {/* Spinning ring */}
-      <div className="relative w-16 h-16">
-        <div className="absolute inset-0 rounded-full border-4 border-gray-200 dark:border-gray-700" />
-        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-black dark:border-t-white animate-spin" />
+      <div className="relative w-15 h-15">
+        <div className="absolute inset-0 rounded-full border-10 border-gray-200 dark:border-gray-700" />
+        <div className="absolute inset-0 rounded-full border-10 border-transparent border-t-black dark:border-t-white animate-spin" />
       </div>
       {/* Pulsing text */}
       <p className="text-sm font-medium tracking-widest text-gray-400 dark:text-gray-500 animate-pulse">
-        Loading product …
+        Loading...
       </p>
     </div>
   );
@@ -682,7 +681,7 @@ export default function ProductDetailPage() {
 
                     addToCart({
                       ...product,
-                      price: formatPrice(price),
+                      price: price,
                       variant: selectedVariant,
                       qty,
                       customText,
@@ -724,7 +723,7 @@ export default function ProductDetailPage() {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
             <div>
               <h2 className="font-serif font-bold text-black text-2xl sm:text-4xl">
-                Similar products you may like
+                Similar products
               </h2>
               <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">
                 Discover more from {product.category?.name}.

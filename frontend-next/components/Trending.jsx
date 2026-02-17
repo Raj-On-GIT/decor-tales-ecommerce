@@ -2,7 +2,7 @@ import { getTrendingProducts } from "@/lib/api";
 import TrendingClient from "./TrendingClient";
 
 export default async function Trending() {
-  const products = await getTrendingProducts();
+  const products = await getTrendingProducts(); // Show only top 4 trending products
 
   // Don't render the section at all if there's nothing trending yet
   if (!products || products.length === 0) return null;
@@ -53,7 +53,7 @@ export default async function Trending() {
       </div>
 
       {/* Products */}
-      <TrendingClient products={products} />
+      <TrendingClient products={products.slice(0, 4)} />
     </section>
   );
 }
