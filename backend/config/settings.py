@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 load_dotenv()
 
 
@@ -24,12 +25,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
 
 # Application definition
@@ -45,11 +46,14 @@ INSTALLED_APPS = [
     'rest_framework',
     'products',
     'orders',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',   # move below security
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -114,7 +118,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 
@@ -133,11 +137,165 @@ STATICFILES_DIRS = [
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:3000",
+    "http://localhost:3000",  # Your Next.js dev server
+    "http://127.0.0.1:3000",
 ]
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 
+REST_FRAMEWORK = {
+    # Default authentication classes (in order of priority)
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT (new)
+        'rest_framework.authentication.SessionAuthentication',         # Session (existing)
+    ),
+    
+    # Default permission classes (keep as is or adjust per your needs)
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    #   'rest_framework.permissions.IsAuthenticated',
+    ],
+    
+    # Keep your existing pagination, renderers, etc.
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 100,
+}
+
+
+SIMPLE_JWT = {
+    # ────────────────────────────────────────────────────────────────────
+    # TOKEN LIFECYCLE CONFIGURATION
+    # ────────────────────────────────────────────────────────────────────
+    
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    # Why 15 minutes?
+    # - Balance between security and UX
+    # - If leaked, attacker has limited window
+    # - Short enough to require refresh mechanism
+    # - Long enough to avoid constant token renewal
+    
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # Why 7 days?
+    # - User doesn't need to login daily
+    # - Long enough for good UX
+    # - Short enough to limit compromised token risk
+    # - Forces periodic re-authentication
+    
+    'ROTATE_REFRESH_TOKENS': True,
+    # Why rotate?
+    # - Each token refresh issues NEW refresh token
+    # - Old refresh token becomes invalid
+    # - Limits replay attacks
+    # - Stolen tokens have single-use window
+    
+    'BLACKLIST_AFTER_ROTATION': False,
+    # Set to False for now (no blacklist table yet)
+    # If True, requires simplejwt.token_blacklist in INSTALLED_APPS
+    # We'll enable this in a later phase for logout functionality
+    
+    # ────────────────────────────────────────────────────────────────────
+    # SECURITY CONFIGURATION
+    # ────────────────────────────────────────────────────────────────────
+    
+    'ALGORITHM': 'HS256',
+    # HMAC with SHA-256
+    # - Symmetric encryption (same key signs and verifies)
+    # - Fast and secure for most applications
+    # - Uses Django SECRET_KEY
+    # Alternative: RS256 (asymmetric, public/private keys)
+    
+    'SIGNING_KEY': None,  # Defaults to settings.SECRET_KEY
+    # Uses Django's SECRET_KEY automatically
+    # NEVER commit SECRET_KEY to version control
+    # Use environment variables in production
+    
+    'VERIFYING_KEY': None,
+    # Not needed for HS256 (symmetric)
+    # Required for RS256 (public key)
+    
+    'AUDIENCE': None,
+    'ISSUER': None,
+    # Optional JWT standard claims
+    # Can be used for multi-service architectures
+    # Leave None for single-backend systems
+    
+    # ────────────────────────────────────────────────────────────────────
+    # TOKEN PAYLOAD CONFIGURATION
+    # ────────────────────────────────────────────────────────────────────
+    
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    # Expected format: Authorization: Bearer <token>
+    # Standard for JWT in HTTP headers
+    # Case-insensitive
+    
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    # Django HTTP header name (with HTTP_ prefix)
+    # Maps to Authorization header from client
+    
+    'USER_ID_FIELD': 'id',
+    # Django user model primary key field
+    # Used to identify user in token payload
+    
+    'USER_ID_CLAIM': 'user_id',
+    # JWT payload key for user identification
+    # Token will contain: {"user_id": 123, ...}
+    
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+    # Function that validates user still exists and is active
+    # Checks: user.is_active == True
+    
+    # ────────────────────────────────────────────────────────────────────
+    # TOKEN TYPE CONFIGURATION
+    # ────────────────────────────────────────────────────────────────────
+    
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    # Types of tokens accepted for authentication
+    # Access tokens only (refresh tokens should not authenticate requests)
+    
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    # Distinguishes access vs refresh in payload
+    # Payload contains: {"token_type": "access", ...}
+    
+    # ────────────────────────────────────────────────────────────────────
+    # ADDITIONAL CLAIMS
+    # ────────────────────────────────────────────────────────────────────
+    
+    'JTI_CLAIM': 'jti',
+    # JWT ID - unique identifier for each token
+    # Used for token blacklisting and tracking
+    
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    # Not used in standard access/refresh pattern
+    # Relevant for sliding token strategy (single token that extends)
+    
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+    # Sliding token settings (alternative strategy)
+    # We're using access/refresh pattern, so these are not active
+    
+    # ────────────────────────────────────────────────────────────────────
+    # TOKEN RESPONSE CUSTOMIZATION
+    # ────────────────────────────────────────────────────────────────────
+    
+    'UPDATE_LAST_LOGIN': False,
+    # Whether to update User.last_login on token creation
+    # False = better performance, stateless
+    # True = accurate last_login tracking
+    # Set True if you need login analytics
+}
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',  # ← JWT Bearer token
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
