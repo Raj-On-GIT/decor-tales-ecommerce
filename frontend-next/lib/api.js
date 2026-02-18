@@ -1,3 +1,5 @@
+import { getAccessToken, refreshToken, clearTokens } from './auth';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -17,17 +19,20 @@ export async function getProducts(filters = {}) {
       params.set("category_slug", filters.category);
     }
     const url = `${API_BASE}/products/?${params.toString()}`;
-    console.log("Fetching from:", url);
     const res = await fetch(url, {
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
-    const products = await res.json();
-    
-    console.log("Raw API response:", products);
-    
-    // Transform image URLs to full paths
+    const data = await res.json();
+
+    // ✅ Handle paginated response
+    const products = Array.isArray(data)
+      ? data
+      : data.results || [];
+
+    // Transform image URLs
     return products.map(product => {
+
       // The main image for the card should be product.image
       const mainImageUrl = (product.image && product.image.startsWith("http"))
         ? product.image
@@ -98,7 +103,6 @@ export async function getCategories() {
 
   try {
     const url = `${API_BASE}/categories/`;
-    console.log("Fetching categories from:", url);
     const res = await fetch(url, {
       cache: "no-store",
     });
@@ -108,9 +112,14 @@ export async function getCategories() {
       console.warn("Backend categories endpoint not found, using mock data");
       return getMockCategories();
     }
-    const categories = await res.json();
-    console.log("Categories fetched successfully:", categories);
+    const data = await res.json();
+
+    const categories = Array.isArray(data)
+      ? data
+      : data.results || [];
+
     return categories.map((category) => {
+
       if (category.image && !category.image.startsWith("http")) {
         category.image = `${BACKEND}${category.image}`;
       }
@@ -130,9 +139,14 @@ export async function getTrendingProducts() {
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
-    const products = await res.json();
+      const data = await res.json();
 
-    return products.map(product => {
+      const products = Array.isArray(data)
+        ? data
+        : data.results || [];
+
+      return products.map(product => {
+
       const mainImageUrl = (product.image && product.image.startsWith("http"))
         ? product.image
         : product.image
@@ -212,4 +226,51 @@ export async function searchProducts(query) {
   }
   
   return data;
+}
+
+async function fetchWithAuth(url, options = {}) {
+  const token = getAccessToken();
+  
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+  
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  
+  // Handle token expiry
+  if (response.status === 401) {
+    // Try to refresh
+    const refreshToken = localStorage.getItem('refresh_token');
+    const newTokens = await refreshToken(refreshToken);
+    
+    if (newTokens) {
+      setTokens(newTokens.access, newTokens.refresh);
+      // Retry original request
+      return fetchWithAuth(url, options);
+    } else {
+      // Refresh failed, redirect to login
+      clearTokens();
+      window.location.href = '/login';
+      throw new Error('Session expired');
+    }
+  }
+  
+  return response;
+}
+
+// Use in existing functions
+export async function addToCart(productId, quantity) {
+  const response = await fetchWithAuth('http://127.0.0.1:8000/api/cart/add/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({product_id: productId, quantity})
+  });
+  
+  return response.json();
 }

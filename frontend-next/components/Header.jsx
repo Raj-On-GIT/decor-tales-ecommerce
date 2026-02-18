@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { ShoppingBag, Search, Menu } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ShoppingBag, Search, Menu, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../context/StoreContext";
 import CartDrawer from "./CartDrawer";
@@ -14,11 +14,27 @@ export default function Header() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const profileRef = useRef(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setIsProfileOpen(false);
+      }
+    };
+    if (isProfileOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isProfileOpen]);
 
   const cartCount = mounted
     ? cart.reduce((acc, item) => acc + item.qty, 0)
@@ -77,9 +93,9 @@ export default function Header() {
               ) : (
                 <motion.button
                   key="searchicon"
-                  initial={{ opacity: 0, scale: 0.5 }}
+                  initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.5 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
                   transition={{ duration: 0.15 }}
                   onClick={() => setIsSearchOpen(true)}
                   className="p-2 text-gray-500 hover:text-black transition"
@@ -102,6 +118,66 @@ export default function Header() {
               )}
             </button>
 
+            {/* Profile Dropdown */}
+            <div ref={profileRef} className="relative">
+              <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="p-2 text-gray-900 hover:bg-gray-100 rounded-full transition"
+              >
+                <User size={20} />
+              </button>
+
+              {/* Dropdown Card */}
+              <AnimatePresence>
+                {isProfileOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="absolute right-0 mt-3 w-64
+                               bg-white border-2 border-red-500 rounded-lg shadow-2xl
+                               overflow-hidden z-50"
+                  >
+                    {/* Header */}
+                    <div className="px-5 pt-5 pb-4">
+                      <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide">
+                        YOUR ACCOUNT
+                      </h3>
+                      <div className="mt-2 h-1 w-12 bg-red-500"></div>
+                    </div>
+
+                    {/* Buttons */}
+                    <div className="px-5 pb-5 space-y-3">
+                      <p className="text-gray-500 text-sm mb-1 px-1">Existing User?</p>
+                      <Link
+                        href="/login"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="block w-full py-3 px-4 
+                                   bg-[#FF7444] hover:bg-[#E76F1C]
+                                   text-white text-center font-semibold text-base
+                                   rounded transition-colors"
+                      >
+                        Login
+                      </Link>
+                      <p className="text-gray-500 text-sm mb-1 px-1">New to DC?</p>
+                      <Link
+                        href="/signup"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="block w-full py-3 px-4 
+                                   bg-slate-700 hover:bg-slate-800
+                                   text-white text-center font-semibold text-base
+                                   rounded transition-colors"
+                      >
+                        Register
+                      </Link>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Mobile Menu */}
             <button
               onClick={() => setIsMenuOpen(true)}
               className="md:hidden p-2"

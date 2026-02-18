@@ -20,8 +20,6 @@ export function StoreProvider({ children }) {
     }
     return [];
   });
-  console.log("Cart Items:", cart);
-
 
   /* ---------------------------------- */
   /* TOAST STATE                        */
