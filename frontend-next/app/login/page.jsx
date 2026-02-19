@@ -1,65 +1,81 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
-
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';  // ← IMPORT useAuth
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();  // ← GET login function from context
+
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
-    password: "",
+    email: '',
+    password: '',
   });
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    setError("");
 
     try {
-        const response = await fetch('http://127.0.0.1:8000/api/auth/login/', {
+      // Step 1: Call login API
+      const response = await fetch('http://127.0.0.1:8000/api/auth/login/', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-            username: formData.email,  // Can be email or username
-            password: formData.password
-        })
-        });
+          username: formData.email,
+          password: formData.password,
+        }),
+      });
 
-        if (!response.ok) {
+      if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.non_field_errors?.[0] || 'Login failed');
-        }
+        throw new Error(
+          errorData.non_field_errors?.[0] || 'Login failed. Please try again.'
+        );
+      }
 
-        const data = await response.json();
-        
-        // Store tokens
-        localStorage.setItem('access_token', data.access);
-        localStorage.setItem('refresh_token', data.refresh);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // Redirect to home
-        router.push('/');
-        
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+      // Step 2: Get tokens from response
+      const data = await response.json();
+      // data = { access: "...", refresh: "...", user: {...} }
 
+      // ──────────────────────────────────────────────────────────────────
+      // Step 3: Store tokens and update auth state
+      // ──────────────────────────────────────────────────────────────────
+      
+      login({
+        access: data.access,
+        refresh: data.refresh,
+      });
 
+      // ──────────────────────────────────────────────────────────────────
+      // Step 4: Redirect to homepage
+      // ──────────────────────────────────────────────────────────────────
+      
+      router.push('/');
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Rest of your component stays the same
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] 
                     flex items-center justify-center px-4 py-12">
       
-      {/* Back Button */}
       <Link
         href="/"
         className="absolute top-6 left-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
@@ -71,13 +87,11 @@ export default function LoginPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1 }}
+        transition={{ duration: 0.5 }}
         className="w-full max-w-md"
       >
-        {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
           
-          {/* Header */}
           <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-8 py-8 text-center">
             <h1 className="text-3xl font-bold text-white mb-2">
               Welcome Back
@@ -87,11 +101,10 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Form */}
           <div className="px-8 py-8">
             <form onSubmit={handleSubmit} className="space-y-5">
               
-              {/* Email */}
+              {/* Email Field */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Email Address
@@ -111,7 +124,7 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Password */}
+              {/* Password Field */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Password
@@ -119,7 +132,7 @@ export default function LoginPage() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
-                    type={showPassword ? "text" : "password"}
+                    type={showPassword ? 'text' : 'password'}
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className="w-full pl-10 pr-12 py-3 border-2 border-gray-200 rounded-lg
@@ -164,7 +177,7 @@ export default function LoginPage() {
                            py-3 rounded-lg transition-colors disabled:opacity-50
                            disabled:cursor-not-allowed"
               >
-                {loading ? "Logging in..." : "Log In"}
+                {loading ? 'Logging in...' : 'Log In'}
               </button>
             </form>
 
@@ -178,7 +191,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Social Login Buttons */}
+            {/* Social Login */}
             <div className="space-y-3">
               <button
                 type="button"
@@ -196,9 +209,9 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {/* Sign Up Link */}
+            {/* Signup Link */}
             <p className="mt-6 text-center text-sm text-gray-600">
-              Don't have an account?{" "}
+              Don't have an account?{' '}
               <Link href="/signup" className="font-semibold text-gray-900 hover:underline">
                 Sign up
               </Link>
@@ -209,3 +222,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

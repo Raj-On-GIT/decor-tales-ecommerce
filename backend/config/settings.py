@@ -206,13 +206,12 @@ SIMPLE_JWT = {
     # - Uses Django SECRET_KEY
     # Alternative: RS256 (asymmetric, public/private keys)
     
-    'SIGNING_KEY': None,  # Defaults to settings.SECRET_KEY
+      # Defaults to settings.SECRET_KEY
     # Uses Django's SECRET_KEY automatically
     # NEVER commit SECRET_KEY to version control
     # Use environment variables in production
     
-    'VERIFYING_KEY': None,
-    # Not needed for HS256 (symmetric)
+        # Not needed for HS256 (symmetric)
     # Required for RS256 (public key)
     
     'AUDIENCE': None,

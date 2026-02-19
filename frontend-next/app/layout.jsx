@@ -1,20 +1,28 @@
 import "./globals.css";
-import Providers from "../components/Providers";
 import Header from "../components/Header";
+import { StoreProvider } from '@/context/StoreContext';  // Your existing context
+import { AuthProvider } from '@/context/AuthContext';    // New auth context
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: "LuxeFrames Storefront",
-  description: "Premium photo frames ecommerce site",
+  title: 'Decor Tales - Home Decor & Frames',
+  description: 'Premium home decor and frames for your space',
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body>
-        <Providers>
-          <Header />
-          {children}
-        </Providers>
+        <StoreProvider>
+          <AuthProvider>
+          
+            <Header />
+            <main className="min-h-screen">{children}</main>
+    
+          </AuthProvider>
+        </StoreProvider>
       </body>
     </html>
   );

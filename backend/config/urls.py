@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from accounts.views import signup_view, login_view
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -28,24 +29,13 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    # POST /api/auth/token/
-    # Request: {"username": "user", "password": "pass"}
-    # Response: {"access": "<token>", "refresh": "<token>"}
-    # Purpose: Obtain access and refresh tokens using credentials
     
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    # POST /api/auth/token/refresh/
-    # Request: {"refresh": "<refresh_token>"}
-    # Response: {"access": "<new_access_token>", "refresh": "<new_refresh_token>"}
-    # Purpose: Get new access token using valid refresh token
-    # Note: If ROTATE_REFRESH_TOKENS=True, also returns new refresh token
     
     path('api/auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
-    # POST /api/auth/token/verify/
-    # Request: {"token": "<access_or_refresh_token>"}
-    # Response: {} (empty) if valid, 401 if invalid
-    # Purpose: Check if a token is valid without making an actual API call
-    # Useful for frontend token validation before requests
+
+    path('api/auth/signup/', signup_view, name='signup'),
+    path('api/auth/login/', login_view, name='login'),
 
     path("api/", include("products.urls")),
     path("api/orders/", include("orders.urls")),

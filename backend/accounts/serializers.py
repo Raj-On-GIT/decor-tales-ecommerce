@@ -12,7 +12,7 @@ class SignupSerializer(serializers.ModelSerializer):
         
     email = serializers.EmailField(
         required=True,
-        help_text="User's email address (must be unique)"
+        help_text="User's email address"
     )
     
     password = serializers.CharField(
@@ -32,30 +32,14 @@ class SignupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'password', 'password2', 'first_name', 'last_name')
-        extra_kwargs = {
-            'first_name': {'required': False},
-            'last_name': {'required': False},
-        }
-
-    def validate_username(self, value):
-        
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError(
-                "A user with this username already exists."
-            )
-        return value
+        fields = ('email', 'password', 'password2', 'first_name', 'last_name')
 
     def validate_email(self, value):
-        
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError(
-                "A user with this email already exists."
-            )
-        return value.lower()  # Normalize email to lowercase
-
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value.lower()
+    
     def validate_password(self, value):
-        
         try:
             validate_password(value)
         except ValidationError as e:
@@ -63,29 +47,31 @@ class SignupSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-    
-        if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({
-                "password2": "Password fields didn't match."
-            })
+        if attrs["password"] != attrs["password2"]:
+            raise serializers.ValidationError({"password2": "Passwords do not match."})
         return attrs
 
     def create(self, validated_data):
-        # Remove password2 from data
-        validated_data.pop('password2')
-        
-        # Extract password
-        password = validated_data.pop('password')
-        
-        # Create user with hashed password
+        validated_data.pop("password2")
+        password = validated_data.pop("password")
+        email = validated_data["email"]
+
+        base_username = email.split("@")[0]
+        username = base_username
+        counter = 1
+
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}{counter}"
+            counter += 1
+
         user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=password,  # create_user() hashes this automatically
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', '')
+            username=username,
+            email=email,
+            password=password,
+            first_name=validated_data.get("first_name", ""),
+            last_name=validated_data.get("last_name", ""),
         )
-        
+
         return user
 
 

@@ -1,15 +1,27 @@
-"use client";
+// Phase 6: JWT Token Storage + Global Auth State
+// Header Component - Auth State Integration
 
-import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
-import { ShoppingBag, Search, Menu, User } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useStore } from "../context/StoreContext";
-import CartDrawer from "./CartDrawer";
-import SearchBar from "./SearchBar";
+/**
+ * File: components/Header.jsx
+ * 
+ * Header component that shows different UI based on authentication state.
+ * Uses useAuth() hook to access global auth state.
+ */
+
+'use client';
+
+import Link from 'next/link';
+import { useState, useEffect, useRef } from 'react';
+import { ShoppingBag, Search, Menu, User } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useStore } from '../context/StoreContext';
+import { useAuth } from '../context/AuthContext';  // ← IMPORT useAuth
+import CartDrawer from './CartDrawer';
+import SearchBar from './SearchBar';
 
 export default function Header() {
   const { cart } = useStore();
+  const { isAuthenticated, logout, loading } = useAuth();  // ← GET auth state
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -31,14 +43,26 @@ export default function Header() {
       }
     };
     if (isProfileOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside);
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isProfileOpen]);
 
   const cartCount = mounted
     ? cart.reduce((acc, item) => acc + item.qty, 0)
     : 0;
+
+  /**
+   * Handle logout
+   * Calls logout() from AuthContext which:
+   * - Clears tokens from localStorage
+   * - Resets auth state
+   * - Redirects to homepage
+   */
+  const handleLogout = () => {
+    logout();
+    setIsProfileOpen(false);
+  };
 
   return (
     <>
@@ -49,7 +73,7 @@ export default function Header() {
                         h-14 md:h-16 
                         flex items-center justify-between">
 
-          {/* LEFT */}
+          {/* LEFT - Logo & Nav */}
           <div className="flex items-center space-x-4 md:space-x-8">
             <Link
               href="/"
@@ -59,7 +83,7 @@ export default function Header() {
                          whitespace-nowrap">
               <img
                 src="/DECOR_TALES_cropped.svg"
-                alt="LuxeFrames Logo"
+                alt="Decor Tales Logo"
                 className="h-8 md:h-10 w-auto bg-[#FFECC0] rounded-full"
               />
               Decor Tales
@@ -79,10 +103,10 @@ export default function Header() {
             </nav>
           </div>
 
-          {/* RIGHT */}
+          {/* RIGHT - Search, Cart, Profile */}
           <div className="flex items-center space-x-2 md:space-x-4">
 
-            {/* Search — icon fades out, bar animates in */}
+            {/* Search Button */}
             <AnimatePresence mode="wait">
               {isSearchOpen ? (
                 <SearchBar
@@ -105,7 +129,7 @@ export default function Header() {
               )}
             </AnimatePresence>
 
-            {/* Cart */}
+            {/* Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
               className="relative p-2 text-gray-900 hover:bg-gray-100 rounded-full transition"
@@ -118,8 +142,12 @@ export default function Header() {
               )}
             </button>
 
-            {/* Profile Dropdown */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* PROFILE BUTTON - AUTH-AWARE */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            
             <div ref={profileRef} className="relative">
+              {/* Profile Icon */}
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="p-2 text-gray-900 hover:bg-gray-100 rounded-full transition"
@@ -127,57 +155,105 @@ export default function Header() {
                 <User size={20} />
               </button>
 
-              {/* Dropdown Card */}
+              {/* Profile Dropdown */}
               <AnimatePresence>
                 {isProfileOpen && (
                   <motion.div
                     initial={{ opacity: 0, y: -10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
                     className="absolute right-0 mt-3 w-64
                                bg-white border-2 border-red-500 rounded-lg shadow-2xl
                                overflow-hidden z-50"
                   >
-                    {/* Header */}
-                    <div className="px-5 pt-5 pb-4">
-                      <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide">
-                        YOUR ACCOUNT
-                      </h3>
-                      <div className="mt-2 h-1 w-12 bg-red-500"></div>
-                    </div>
+                    {loading ? (
+                      /* LOADING STATE */
+                      <div className="px-5 py-8 text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                        <p className="text-sm text-gray-500 mt-2">Loading...</p>
+                      </div>
+                    ) : isAuthenticated ? (
+                      /* LOGGED IN STATE */
+                      <>
+                        <div className="px-5 pt-5 pb-4 border-b border-gray-200">
+                          <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide">
+                            YOUR ACCOUNT
+                          </h3>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Logged in
+                          </p>
+                        </div>
 
-                    {/* Buttons */}
-                    <div className="px-5 pb-5 space-y-3">
-                      <p className="text-gray-500 text-sm mb-1 px-1">Existing User?</p>
-                      <Link
-                        href="/login"
-                        onClick={() => setIsProfileOpen(false)}
-                        className="block w-full py-3 px-4 
-                                   bg-[#FF7444] hover:bg-[#E76F1C]
-                                   text-white text-center font-semibold text-base
-                                   rounded transition-colors"
-                      >
-                        Login
-                      </Link>
-                      <p className="text-gray-500 text-sm mb-1 px-1">New to DC?</p>
-                      <Link
-                        href="/signup"
-                        onClick={() => setIsProfileOpen(false)}
-                        className="block w-full py-3 px-4 
-                                   bg-slate-700 hover:bg-slate-800
-                                   text-white text-center font-semibold text-base
-                                   rounded transition-colors"
-                      >
-                        Register
-                      </Link>
-                    </div>
+                        <div className="py-2">
+                          <Link
+                            href="/account"
+                            onClick={() => setIsProfileOpen(false)}
+                            className="block px-5 py-3 text-sm font-medium text-gray-700
+                                       hover:bg-gray-50 transition"
+                          >
+                            My Account
+                          </Link>
+                          <Link
+                            href="/orders"
+                            onClick={() => setIsProfileOpen(false)}
+                            className="block px-5 py-3 text-sm font-medium text-gray-700
+                                       hover:bg-gray-50 transition"
+                          >
+                            My Orders
+                          </Link>
+                        </div>
+
+                        <div className="border-t border-gray-200">
+                          <button
+                            onClick={handleLogout}
+                            className="w-full px-5 py-3 text-left text-sm font-medium text-red-600
+                                       hover:bg-red-50 transition"
+                          >
+                            Logout
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      /* LOGGED OUT STATE */
+                      <>
+                        <div className="px-5 pt-5 pb-4">
+                          <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide">
+                            YOUR ACCOUNT
+                          </h3>
+                          <div className="mt-2 h-1 w-12 bg-red-500"></div>
+                        </div>
+
+                        <div className="px-5 pb-5 space-y-3">
+                          <Link
+                            href="/login"
+                            onClick={() => setIsProfileOpen(false)}
+                            className="block w-full py-3 px-4 
+                                       bg-red-500 hover:bg-red-600
+                                       text-white text-center font-semibold text-base
+                                       rounded transition-colors"
+                          >
+                            Login
+                          </Link>
+                          <Link
+                            href="/signup"
+                            onClick={() => setIsProfileOpen(false)}
+                            className="block w-full py-3 px-4 
+                                       bg-slate-700 hover:bg-slate-800
+                                       text-white text-center font-semibold text-base
+                                       rounded transition-colors"
+                          >
+                            Register
+                          </Link>
+                        </div>
+                      </>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
-            {/* Mobile Menu */}
+            {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMenuOpen(true)}
               className="md:hidden p-2"
@@ -189,7 +265,7 @@ export default function Header() {
         </div>
       </header>
 
-      {/* MOBILE MENU DRAWER */}
+      {/* MOBILE MENU */}
       <AnimatePresence>
         {isMenuOpen && (
           <>
@@ -201,10 +277,10 @@ export default function Header() {
               className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
             />
             <motion.div
-              initial={{ x: "100%" }}
+              initial={{ x: '100%' }}
               animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="fixed top-0 right-0 h-full w-72 bg-white z-50 shadow-2xl p-6 flex flex-col"
             >
               <div className="flex items-center justify-between mb-8">
@@ -230,6 +306,38 @@ export default function Header() {
                   className="py-4 text-lg font-semibold text-rose-600">
                   Sale
                 </Link>
+                
+                {isAuthenticated ? (
+                  <>
+                    <Link href="/account" onClick={() => setIsMenuOpen(false)}
+                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition">
+                      My Account
+                    </Link>
+                    <Link href="/orders" onClick={() => setIsMenuOpen(false)}
+                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition">
+                      My Orders
+                    </Link>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsMenuOpen(false);
+                      }}
+                      className="py-4 text-lg font-medium text-red-600 text-left">
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/login" onClick={() => setIsMenuOpen(false)}
+                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition">
+                      Login
+                    </Link>
+                    <Link href="/signup" onClick={() => setIsMenuOpen(false)}
+                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition">
+                      Sign Up
+                    </Link>
+                  </>
+                )}
               </nav>
             </motion.div>
           </>
@@ -241,3 +349,45 @@ export default function Header() {
     </>
   );
 }
+
+/**
+ * KEY CHANGES SUMMARY
+ * ═══════════════════════════════════════════════════════════════════════
+ * 
+ * ADDED (3 lines):
+ * ────────────────────────────────────────────────────────────────────────
+ * 1. Import: import { useAuth } from '../context/AuthContext';
+ * 2. Hook: const { isAuthenticated, logout, loading } = useAuth();
+ * 3. Handler: const handleLogout = () => { logout(); setIsProfileOpen(false); };
+ * 
+ * 
+ * UPDATED:
+ * ────────────────────────────────────────────────────────────────────────
+ * Profile dropdown now shows 3 states:
+ * 1. loading → Spinner
+ * 2. isAuthenticated → My Account + Logout
+ * 3. !isAuthenticated → Login + Register
+ * 
+ * 
+ * BEHAVIOR:
+ * ────────────────────────────────────────────────────────────────────────
+ * Initial Load:
+ *   - loading = true → Shows spinner (prevents flash)
+ *   - AuthProvider checks localStorage
+ *   - loading = false → Shows correct state
+ * 
+ * After Login:
+ *   - isAuthenticated = true
+ *   - Header updates instantly (no refresh needed)
+ *   - Shows "My Account" and "Logout"
+ * 
+ * After Logout:
+ *   - isAuthenticated = false
+ *   - Header updates instantly
+ *   - Shows "Login" and "Register"
+ * 
+ * After Page Refresh:
+ *   - AuthProvider rehydrates from localStorage
+ *   - State restored correctly
+ *   - Header shows correct state
+ */
