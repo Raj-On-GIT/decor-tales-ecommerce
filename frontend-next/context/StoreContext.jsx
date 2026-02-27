@@ -1,7 +1,5 @@
 "use client";
 
-import { incrementCartAdd } from "@/lib/api";
-
 import {
   createContext,
   useContext,
@@ -9,6 +7,12 @@ import {
   useCallback,
   useEffect,
 } from "react";
+import {
+  getCart,
+  removeFromCart as removeFromCartAPI,
+  updateCartItem,
+} from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 const StoreContext = createContext(null);
 
@@ -20,7 +24,27 @@ export function StoreProvider({ children }) {
     }
     return [];
   });
+  const { isAuthenticated } = useAuth();
 
+  useEffect(() => {
+  if (!isAuthenticated) return;
+
+  async function loadServerCart() {
+    try {
+      const data = await getCart();
+      if (!data?.items) return;
+
+      // ✅ No remapping — already shaped in api.js
+      setCart(data.items);
+      localStorage.setItem("cart", JSON.stringify(data.items));
+
+    } catch (err) {
+      console.error("Failed to load server cart:", err);
+    }
+  }
+
+  loadServerCart();
+}, [isAuthenticated]);
   /* ---------------------------------- */
   /* TOAST STATE                        */
   /* ---------------------------------- */
@@ -56,6 +80,8 @@ export function StoreProvider({ children }) {
       const availableStock =
         getAvailableStock(product);
 
+      console.log("Available stock:", availableStock);
+      
       const found = prev.find(
         (x) =>
           x.id === product.id &&
@@ -101,11 +127,6 @@ export function StoreProvider({ children }) {
         );
       }
 
-      // Fire-and-forget: increment cart_add_count on the backend
-      const trackId = product.variant ? product.variant.id : product.id;
-      const baseProductId = product.id;
-      incrementCartAdd(baseProductId);
-
       return [
         ...prev,
         {
@@ -124,7 +145,16 @@ export function StoreProvider({ children }) {
   /* ---------------------------------- */
   /* REMOVE ITEM                        */
   /* ---------------------------------- */
-  function removeFromCart(product) {
+  async function removeFromCart(product) {
+    if (isAuthenticated) {
+      try {
+        await removeFromCartAPI(product.id); // cart_item.id
+      } catch (err) {
+        console.error("Backend remove failed:", err);
+        return;
+      }
+    }
+
     setCart((prev) =>
       prev.filter(
         (x) =>
@@ -140,19 +170,50 @@ export function StoreProvider({ children }) {
   /* ---------------------------------- */
   /* DECREASE QTY                       */
   /* ---------------------------------- */
-  function decreaseQty(product) {
-    setCart((prev) =>
-      prev
-        .map((x) =>
-          x.id === product.id &&
-          (x.variant?.id || null) ===
-            (product.variant?.id || null)
-            ? { ...x, qty: x.qty - 1 }
-            : x
-        )
-        .filter((x) => x.qty > 0)
-    );
+  async function decreaseQty(product) {
+  const existing = cart.find(
+    (x) =>
+      x.id === product.id &&
+      (x.variant?.id || null) ===
+        (product.variant?.id || null)
+  );
+
+  if (!existing) return;
+
+  const newQty = existing.qty - 1;
+
+  if (isAuthenticated) {
+    try {
+      if (newQty <= 0) {
+        await removeFromCartAPI(product.id);
+      } else {
+        await updateCartItem(product.id, newQty);
+      }
+
+      // 🔥 After backend update, reload cart
+      const data = await getCart();
+      replaceCart(data.items);
+
+    } catch (err) {
+      console.error("Decrease failed:", err);
+    }
+
+    return;
   }
+
+  // Guest logic (local only)
+  setCart((prev) =>
+    prev
+      .map((x) =>
+        x.id === product.id &&
+        (x.variant?.id || null) ===
+          (product.variant?.id || null)
+          ? { ...x, qty: x.qty - 1 }
+          : x
+      )
+      .filter((x) => x.qty > 0)
+  );
+}
 
   /* ---------------------------------- */
   /* CLEAR CART                         */
@@ -162,6 +223,19 @@ export function StoreProvider({ children }) {
     localStorage.removeItem("cart");
   }, []);
 
+  /* ---------------------------------- */
+  /* REPLACE CART (SERVER SYNC)         */
+  /* ---------------------------------- */
+  function replaceCart(newCartItems) {
+    setCart(newCartItems || []);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "cart",
+        JSON.stringify(newCartItems || [])
+      );
+    }
+  }
 
   /* ---------------------------------- */
   /* TOTAL                              */
@@ -176,6 +250,18 @@ export function StoreProvider({ children }) {
     localStorage.setItem("cart", JSON.stringify(cart));
   }, [cart]);
 
+  useEffect(() => {
+    function handleLogout() {
+      setCart([]);
+      localStorage.removeItem("cart");
+    }
+
+    window.addEventListener("user-logout", handleLogout);
+
+    return () => {
+      window.removeEventListener("user-logout", handleLogout);
+    };
+  }, []);
 
   /* ---------------------------------- */
   /* PROVIDER                           */
@@ -188,6 +274,7 @@ export function StoreProvider({ children }) {
         removeFromCart,
         decreaseQty,
         clearCart,
+        replaceCart,
         total,
       }}
     >

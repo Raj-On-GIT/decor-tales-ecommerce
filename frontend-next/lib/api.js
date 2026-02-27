@@ -1,4 +1,4 @@
-import { getAccessToken, refreshToken, clearTokens } from './auth';
+import { getAccessToken, refreshAccessToken, clearTokens } from './auth';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -18,7 +18,7 @@ export async function getProducts(filters = {}) {
     if (filters.category) {
       params.set("category_slug", filters.category);
     }
-    const url = `${API_BASE}/products/?${params.toString()}`;
+    const url = `${API_BASE}/api/products/?${params.toString()}`;
     const res = await fetch(url, {
       cache: "no-store",
     });
@@ -82,13 +82,20 @@ export async function getProducts(filters = {}) {
 
 export async function createOrder(orderData) {
   try {
-    const res = await fetch(`${API_BASE}/orders/create/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(orderData),
-    });
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
-    return res.json();
+    const response = await fetchWithAuth(
+      `${API_BASE}/api/orders/create/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderData),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to create order");
+    }
+
+    return response.json();
   } catch (error) {
     console.error("Failed to create order:", error);
     throw error;
@@ -102,7 +109,7 @@ export async function getCategories() {
   }
 
   try {
-    const url = `${API_BASE}/categories/`;
+    const url = `${API_BASE}/api/categories/`;
     const res = await fetch(url, {
       cache: "no-store",
     });
@@ -135,7 +142,7 @@ export async function getTrendingProducts() {
   if (!API_BASE) return [];
 
   try {
-    const res = await fetch(`${API_BASE}/products/trending/`, {
+    const res = await fetch(`${API_BASE}/api/products/trending/`, {
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -178,16 +185,6 @@ export async function getTrendingProducts() {
   }
 }
 
-export async function incrementCartAdd(productId) {
-  if (!API_BASE) return;
-  try {
-    await fetch(`${API_BASE}/products/${productId}/cart-add/`, {
-      method: "POST",
-    });
-  } catch (_) {
-    // fire-and-forget — never block the UI
-  }
-}
 
 function getMockCategories() {
   return [
@@ -205,7 +202,7 @@ export async function searchProducts(query) {
   }
   
   const res = await fetch(
-    `http://127.0.0.1:8000/api/search/?q=${encodeURIComponent(query)}`
+    `${API_BASE}/api/search/?q=${encodeURIComponent(query)}`
   );
   const data = await res.json();
   
@@ -215,12 +212,12 @@ export async function searchProducts(query) {
       ...product,
       image: product.image?.startsWith('http') 
         ? product.image 
-        : `http://127.0.0.1:8000${product.image}`,
+        : `${BACKEND}${product.image}`,
       images: product.images?.map(img => ({
         ...img,
         image: img.image?.startsWith('http')
           ? img.image
-          : `http://127.0.0.1:8000${img.image}`
+          : `${BACKEND}${img.image}`
       }))
     }));
   }
@@ -229,48 +226,193 @@ export async function searchProducts(query) {
 }
 
 async function fetchWithAuth(url, options = {}) {
-  const token = getAccessToken();
-  
+  let token = getAccessToken();
+
   if (!token) {
-    throw new Error('Not authenticated');
+    throw new Error("Not authenticated");
   }
-  
-  const response = await fetch(url, {
+
+  let response = await fetch(url, {
     ...options,
     headers: {
       ...options.headers,
-      'Authorization': `Bearer ${token}`
-    }
+      Authorization: `Bearer ${token}`,
+    },
   });
-  
-  // Handle token expiry
+
+  // If token expired → try refresh once
   if (response.status === 401) {
-    // Try to refresh
-    const refreshToken = localStorage.getItem('refresh_token');
-    const newTokens = await refreshToken(refreshToken);
-    
-    if (newTokens) {
-      setTokens(newTokens.access, newTokens.refresh);
-      // Retry original request
-      return fetchWithAuth(url, options);
-    } else {
-      // Refresh failed, redirect to login
-      clearTokens();
-      window.location.href = '/login';
-      throw new Error('Session expired');
-    }
+  const refreshed = await refreshAccessToken();
+
+  if (refreshed) {
+    token = getAccessToken();
+
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } else {
+    clearTokens();
+    window.location.href = "/login";
+    throw new Error("Session expired");
   }
-  
+}
+
   return response;
 }
 
 // Use in existing functions
-export async function addToCart(productId, quantity) {
-  const response = await fetchWithAuth('http://127.0.0.1:8000/api/cart/add/', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({product_id: productId, quantity})
+export async function addToCart(
+  productId,
+  quantity = 1,
+  variantId = null
+) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/orders/cart/add/`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        product_id: productId,
+        quantity,
+        variant_id: variantId,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(
+      "Add to cart failed:",
+      response.status,
+      errorText
+    );
+    throw new Error(
+      `Add to cart failed: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function getCart() {
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/orders/cart/`
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch cart");
+  }
+
+  const data = await response.json();
+
+  // 🧠 Transform server cart → UI cart
+  const transformedItems = (data.items || []).map((item) => {
+    const product = item.product || {};
+    const variant = item.variant || null;
+    console.log("RAW CART DATA:", data);
+    return {
+      id: item.id,
+      product_id: product.id,
+      title: product.title,
+
+      price: Number(product.price || 0),
+
+      image: product.image?.startsWith("http")
+        ? product.image
+        : `${process.env.NEXT_PUBLIC_BACKEND_URL}${product.image}`,
+
+      category: product.category?.name || "Uncategorized",
+      stock: product.stock,
+      stock_type: product.stock_type,
+      qty: item.quantity,
+
+      variant: variant
+        ? {
+            id: variant.id,
+            size_name: variant.size_name,
+            color_name: variant.color_name,
+            stock: variant.stock,
+          }
+        : null,
+    };
   });
-  
+
+  return {
+    items: transformedItems,
+    total: data.total,
+    count: data.count,
+  };
+}
+
+export async function removeFromCart(itemId) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/orders/cart/remove/${itemId}/`,
+    { method: "DELETE" }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to remove item");
+  }
+
+  return response.json();
+}
+
+export async function updateCartItem(itemId, quantity) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/orders/cart/update/${itemId}/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quantity }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to update cart");
+  }
+
+  return response.json();
+}
+
+export async function clearCart() {
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/orders/cart/clear/`,
+    { method: "DELETE" }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to clear cart");
+  }
+
+  return response.json();
+}
+
+export async function getMyOrders() {
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/orders/my-orders/`
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch orders");
+  }
+
+  return response.json();
+}
+
+export async function getOrderDetail(orderId) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/orders/${orderId}/`
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch order detail");
+  }
+
   return response.json();
 }

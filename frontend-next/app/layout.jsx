@@ -13,16 +13,14 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" data-qb-installed="true">
       <body>
-        <StoreProvider>
-          <AuthProvider>
-          
+        <AuthProvider>
+          <StoreProvider>
             <Header />
             <main className="min-h-screen">{children}</main>
-    
-          </AuthProvider>
-        </StoreProvider>
+          </StoreProvider>
+        </AuthProvider>
       </body>
     </html>
   );

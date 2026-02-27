@@ -6,8 +6,12 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';  // ← IMPORT useAuth
+import { getCart } from "@/lib/api";
+import { useStore } from "@/context/StoreContext";
+
 
 export default function LoginPage() {
+  const { replaceCart } = useStore();
   const router = useRouter();
   const { login } = useAuth();  // ← GET login function from context
 
@@ -52,17 +56,18 @@ export default function LoginPage() {
       // ──────────────────────────────────────────────────────────────────
       // Step 3: Store tokens and update auth state
       // ──────────────────────────────────────────────────────────────────
-      
-      login({
-        access: data.access,
-        refresh: data.refresh,
-      });
 
-      // ──────────────────────────────────────────────────────────────────
-      // Step 4: Redirect to homepage
-      // ──────────────────────────────────────────────────────────────────
-      
-      router.push('/');
+      // After login success:
+      login({ access: data.access, refresh: data.refresh });
+
+      try {
+        const serverCart = await getCart();
+        replaceCart(serverCart.items); // Replace local cart with DB cart
+      } catch (err) {
+        console.error("Failed to sync server cart:", err);
+      }
+
+      router.push("/");
 
     } catch (err) {
       setError(err.message);

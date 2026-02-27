@@ -3,16 +3,7 @@ const API_BASE = 'http://127.0.0.1:8000';
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 
-/**
- * Check if we're in a browser environment
- * Prevents errors during SSR
- */
-
 const isBrowser = typeof window !== 'undefined';
-
-// ============================================================================
-// API FUNCTIONS (signup, login, refreshToken API calls)
-// ============================================================================
 
 export async function signup(userData) {
   const response = await fetch(`${API_BASE}/api/auth/signup/`, {
@@ -122,10 +113,6 @@ export function hasTokens() {
   return !!(getAccessToken() && getRefreshToken());
 }
 
-// ============================================================================
-// JWT DECODING FUNCTIONS
-// ============================================================================
-
 /**
  * Decode JWT token payload (client-side only)
  * 
@@ -221,9 +208,6 @@ export function shouldRefreshToken() {
   return timeUntilExpiry < REFRESH_THRESHOLD;
 }
 
-// ============================================================================
-// TOKEN REFRESH FUNCTION
-// ============================================================================
 
 /**
  * Refresh access token using refresh token
@@ -269,9 +253,6 @@ export async function refreshAccessToken() {
   }
 }
 
-// ============================================================================
-// AUTHENTICATED FETCH WRAPPER
-// ============================================================================
 
 /**
  * Fetch with automatic JWT authentication

@@ -1,13 +1,3 @@
-// Phase 6: JWT Token Storage + Global Auth State
-// Complete Authentication Context Provider
-
-/**
- * File: context/AuthContext.jsx
- * 
- * Global authentication state management using React Context API.
- * Provides persistent login state across page refreshes.
- */
-
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
@@ -189,15 +179,17 @@ export function AuthProvider({ children }) {
    */
   const logout = () => {
     try {
-      // Clear tokens from localStorage
+      // Clear tokens
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
 
-      // Reset authentication state
+      // 🔥 Trigger global logout event
+      window.dispatchEvent(new Event("user-logout"));
+
+      // Reset auth state
       setUser(null);
       setIsAuthenticated(false);
 
-      // Redirect to homepage
       router.push('/');
 
       console.log('✅ User logged out successfully');
@@ -309,115 +301,5 @@ function isTokenExpired(payload) {
 
   return payload.exp < currentTime;
 }
-
-// ============================================================================
-// USAGE EXAMPLES
-// ============================================================================
-
-/**
- * EXAMPLE 1: Wrap Application
- * ─────────────────────────────────────────────────────────────────────
- * 
- * // app/layout.js
- * import { AuthProvider } from '@/context/AuthContext';
- * 
- * export default function RootLayout({ children }) {
- *   return (
- *     <html lang="en">
- *       <body>
- *         <AuthProvider>
- *           <Header />
- *           <main>{children}</main>
- *         </AuthProvider>
- *       </body>
- *     </html>
- *   );
- * }
- * 
- * 
- * EXAMPLE 2: Login Page
- * ─────────────────────────────────────────────────────────────────────
- * 
- * 'use client';
- * import { useAuth } from '@/context/AuthContext';
- * 
- * export default function LoginPage() {
- *   const { login } = useAuth();
- *   const router = useRouter();
- *   
- *   const handleSubmit = async (e) => {
- *     e.preventDefault();
- *     
- *     // Call API
- *     const response = await fetch('http://127.0.0.1:8000/api/auth/login/', {
- *       method: 'POST',
- *       headers: {'Content-Type': 'application/json'},
- *       body: JSON.stringify(credentials)
- *     });
- *     
- *     const data = await response.json();
- *     
- *     // Store tokens and update state
- *     login({ access: data.access, refresh: data.refresh });
- *     
- *     // Redirect
- *     router.push('/');
- *   };
- * }
- * 
- * 
- * EXAMPLE 3: Header Component
- * ─────────────────────────────────────────────────────────────────────
- * 
- * 'use client';
- * import { useAuth } from '@/context/AuthContext';
- * 
- * export default function Header() {
- *   const { isAuthenticated, logout, loading } = useAuth();
- *   
- *   if (loading) {
- *     return <div>Loading...</div>;
- *   }
- *   
- *   return (
- *     <header>
- *       {isAuthenticated ? (
- *         <div>
- *           <button>My Account</button>
- *           <button onClick={logout}>Logout</button>
- *         </div>
- *       ) : (
- *         <div>
- *           <Link href="/login">Login</Link>
- *           <Link href="/signup">Signup</Link>
- *         </div>
- *       )}
- *     </header>
- *   );
- * }
- * 
- * 
- * EXAMPLE 4: Check Auth Status
- * ─────────────────────────────────────────────────────────────────────
- * 
- * 'use client';
- * import { useAuth } from '@/context/AuthContext';
- * 
- * export default function MyComponent() {
- *   const { user, isAuthenticated, loading } = useAuth();
- *   
- *   if (loading) {
- *     return <div>Loading...</div>;
- *   }
- *   
- *   if (!isAuthenticated) {
- *     return <div>Please login to continue</div>;
- *   }
- *   
- *   return <div>Welcome, User {user.id}!</div>;
- * }
- */
-
-console.log('✅ AuthContext loaded');
 
 export default AuthContext;
