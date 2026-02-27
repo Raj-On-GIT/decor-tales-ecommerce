@@ -27,8 +27,6 @@ def get_product_price(product):
 @permission_classes([IsAuthenticated])
 def add_to_cart(request):
     try:
-        print("=== ADD API HIT ===")
-
         product_id = request.data.get("product_id")
         quantity = int(request.data.get("quantity", 1))
 
@@ -50,8 +48,7 @@ def add_to_cart(request):
             product=product,
             variant=variant,
         )
-        print("CURRENT DB QTY:", cart_item.quantity)
-        print("REQUESTED ADD QTY:", quantity)
+        
         if created:
             new_quantity = quantity
         else:

@@ -8,6 +8,7 @@ import { formatPrice } from "@/lib/formatPrice";
 import ProductCard from "@/components/ProductCard";
 import { addToCart as addToCartAPI, getCart } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useGlobalToast } from "@/context/ToastContext";
 import Footer from "@/components/Footer";
 
 export default function ProductDetailPage() {
@@ -38,6 +39,7 @@ export default function ProductDetailPage() {
   const productIdRef = useRef(null);
   const thumbScrollRef = useRef(null);
 
+  const { error } = useGlobalToast();
   // ================= SCROLL TO TOP ON MOUNT =================
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -704,7 +706,7 @@ export default function ProductDetailPage() {
                       replaceCart(data.items);
 
                     } catch (err) {
-                      console.error("Server cart add failed:", err);
+                      error(err.message || "Unable to add item to cart");
                     }
                   }}
                   className={`w-full flex-1 flex items-center justify-center gap-2

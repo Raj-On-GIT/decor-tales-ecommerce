@@ -2,9 +2,11 @@
 
 import { X, ShoppingBag, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useStore } from "../context/StoreContext";
 import Link from "next/link";
 import { formatPrice } from "@/lib/formatPrice";
+import { getCart } from "@/lib/api";
+import { useStore } from "@/context/StoreContext";
+import { useGlobalToast } from "@/context/ToastContext";
 
 import {
   addToCart as addToCartAPI,
@@ -12,6 +14,7 @@ import {
 } from "@/lib/api";
 
 import { useAuth } from "@/context/AuthContext";
+
 
 const normalizeCategory = (category) => {
   if (!category) {
@@ -32,11 +35,12 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
     addToCart,
     removeFromCart,
     decreaseQty,
+    replaceCart,
     total,
   } = useStore();
 
   const { isAuthenticated } = useAuth();
-
+  const { error } = useGlobalToast();
   return (
     <AnimatePresence>
       {isCartOpen && (
@@ -194,7 +198,10 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                             const availableStock =
                               item.variant?.stock ?? item.stock ?? 0;
 
-                            if (item.qty >= availableStock) return;
+                            if (item.qty >= availableStock) {
+                              error(`Only ${availableStock} items available in stock.`);
+                              return;
+                            }
 
                             if (!isAuthenticated) {
                               addToCart({ ...item, qty: 1 });

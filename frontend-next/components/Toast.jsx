@@ -101,10 +101,36 @@ export function ToastContainer({ toasts, removeToast }) {
 export function useToast() {
   const [toasts, setToasts] = useState([]);
 
-  const showToast = (message, type = 'info', duration = 3000) => {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type, duration }]);
-  };
+  const showToast = (message, type = "info", duration = 3000) => {
+  setToasts((prev) => {
+    // 🔍 Check if same toast already exists
+    const existing = prev.find(
+      (t) => t.message === message && t.type === type
+    );
+
+    if (existing) {
+      // 🔁 Reset timer by replacing it with new ID
+      const newId = crypto.randomUUID();
+
+      return prev.map((t) =>
+        t.id === existing.id
+          ? { ...t, id: newId } // new ID resets AnimatePresence + timer
+          : t
+      );
+    }
+
+    // ✅ Otherwise create new toast
+    return [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        message,
+        type,
+        duration,
+      },
+    ];
+  });
+};
 
   const removeToast = (id) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));

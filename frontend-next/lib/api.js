@@ -286,16 +286,17 @@ export async function addToCart(
   );
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error(
-      "Add to cart failed:",
-      response.status,
-      errorText
-    );
-    throw new Error(
-      `Add to cart failed: ${response.status}`
-    );
+  let message = "Failed to add item to cart";
+
+  try {
+    const errorData = await response.json();
+    message = errorData.error || message;
+  } catch (_) {
+    // ignore JSON parse errors
   }
+
+  throw new Error(message);
+}
 
   return response.json();
 }
@@ -315,7 +316,7 @@ export async function getCart() {
   const transformedItems = (data.items || []).map((item) => {
     const product = item.product || {};
     const variant = item.variant || null;
-    console.log("RAW CART DATA:", data);
+    
     return {
       id: item.id,
       product_id: product.id,

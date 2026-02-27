@@ -13,10 +13,12 @@ import {
   updateCartItem,
 } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useGlobalToast } from "@/context/ToastContext";
 
 const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
+  const { error } = useGlobalToast();
   const [cart, setCart] = useState(() => {
     if (typeof window !== "undefined") {
       const savedCart = localStorage.getItem("cart");
@@ -45,15 +47,7 @@ export function StoreProvider({ children }) {
 
   loadServerCart();
 }, [isAuthenticated]);
-  /* ---------------------------------- */
-  /* TOAST STATE                        */
-  /* ---------------------------------- */
-  const [toast, setToast] = useState(null);
-
-  function showToast(message) {
-    setToast(message);
-    setTimeout(() => setToast(null), 2500);
-  }
+  
 
   /* ---------------------------------- */
   /* STOCK RESOLVER (YOUR EXISTING ONE) */
@@ -74,71 +68,65 @@ export function StoreProvider({ children }) {
   /* ADD TO CART (QTY CAPPED)           */
   /* ---------------------------------- */
   function addToCart(product) {
-    setCart((prev) => {
-      const variantId = product.variant?.id || null;
+  const variantId = product.variant?.id || null;
+  const availableStock = getAvailableStock(product);
 
-      const availableStock =
-        getAvailableStock(product);
-      
-      const found = prev.find(
-        (x) =>
-          x.id === product.id &&
-          (x.variant?.id || null) === variantId
-      );
+  const existing = cart.find(
+    (x) =>
+      x.id === product.id &&
+      (x.variant?.id || null) === variantId
+  );
 
-      /* ---------- EXISTING ITEM ---------- */
-      if (found) {
-        const newQty =
-          found.qty + (product.qty || 1);
+  let exceededStock = false;
+  let finalQty;
 
-        // ✅ CAP INSTEAD OF BLOCK
-        const finalQty = Math.min(
-          newQty,
-          availableStock
-        );
+  if (existing) {
+    const newQty = existing.qty + (product.qty || 1);
 
-        if (newQty > availableStock) {
-          showToast(
-            `Maximum ${availableStock} allowed`
-          );
-        }
+    if (newQty > availableStock) {
+      exceededStock = true;
+    }
 
-        return prev.map((x) =>
-          x.id === product.id &&
-          (x.variant?.id || null) === variantId
-            ? { ...x, qty: finalQty }
-            : x
-        );
-      }
+    finalQty = Math.min(newQty, availableStock);
 
-      /* ---------- NEW ITEM ---------- */
-      const initialQty = product.qty || 1;
+    setCart((prev) =>
+      prev.map((x) =>
+        x.id === product.id &&
+        (x.variant?.id || null) === variantId
+          ? { ...x, qty: finalQty }
+          : x
+      )
+    );
+  } else {
+    const initialQty = product.qty || 1;
 
-      const finalQty = Math.min(
-        initialQty,
-        availableStock
-      );
+    if (initialQty > availableStock) {
+      exceededStock = true;
+    }
 
-      if (initialQty > availableStock) {
-        showToast(
-          `Maximum ${availableStock} allowed`
-        );
-      }
+    finalQty = Math.min(initialQty, availableStock);
 
-      return [
-        ...prev,
-        {
-          price: Number(
-            String(product.price)
-              .replace(/,/g, "") // remove commas
-              .trim()
-          ),
-          ...product,
-          qty: finalQty,
-        },
-      ];
-    });
+    setCart((prev) => [
+      ...prev,
+      {
+        price: Number(
+          String(product.price).replace(/,/g, "").trim()
+        ),
+        ...product,
+        qty: finalQty,
+      },
+    ]);
   }
+
+  // ✅ Now this is reliable
+  if (exceededStock) {
+    error(
+      `Only ${availableStock} item${
+        availableStock > 1 ? "s" : ""
+      } available in stock.`
+    );
+  }
+}
 
   /* ---------------------------------- */
   /* REMOVE ITEM                        */
@@ -277,13 +265,6 @@ export function StoreProvider({ children }) {
       }}
     >
       {children}
-
-      {/* 🔔 MINIMAL TOAST POPUP */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 bg-black text-white px-4 py-2 rounded-lg shadow-lg text-sm z-50">
-          {toast}
-        </div>
-      )}
     </StoreContext.Provider>
   );
 }

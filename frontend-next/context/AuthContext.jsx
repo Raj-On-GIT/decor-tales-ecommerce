@@ -157,7 +157,6 @@ export function AuthProvider({ children }) {
           iat: userData.iat,
         });
         setIsAuthenticated(true);
-        console.log('✅ User logged in successfully');
       } else {
         console.error('Failed to decode token');
       }
