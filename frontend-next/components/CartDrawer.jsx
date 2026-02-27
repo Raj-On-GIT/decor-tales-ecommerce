@@ -191,36 +191,31 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                         {/* INCREASE */}
                         <button
                           onClick={async () => {
-                            console.log("PLUS CLICKED", item);
-  const availableStock =
-    item.variant?.stock ??
-    item.stock ??
-    0;
-  console.log("Qty:", item.qty);
-  console.log("Stock:", item.variant?.stock, item.stock);
-  console.log("Sending product_id:", item.product_id);
-  // 🚫 Block if already at max
-  if (item.qty >= availableStock) {
-    return;
-  }
+                            const availableStock =
+                              item.variant?.stock ?? item.stock ?? 0;
 
-  if (!isAuthenticated) {
-    addToCart(item);
-    return;
-  }
+                            if (item.qty >= availableStock) return;
 
-  try {
-    await addToCartAPI(
-      item.product_id,
-      1,
-      item.variant?.id || null
-    );
+                            if (!isAuthenticated) {
+                              addToCart({ ...item, qty: 1 });
+                              return;
+                            }
 
-    addToCart(item);
-  } catch (err) {
-    console.error("Qty increase failed:", err);
-  }
-}}
+                            try {
+                              await addToCartAPI(
+                                item.product_id,
+                                1,
+                                item.variant?.id || null
+                              );
+
+                              // 🔥 DO NOT increment locally
+                              const data = await getCart();
+                              replaceCart(data.items);
+
+                            } catch (err) {
+                              console.error("Qty increase failed:", err);
+                            }
+                          }}
                           className="w-8 h-8 border rounded-full hover:bg-gray-200"
                         >
                           +

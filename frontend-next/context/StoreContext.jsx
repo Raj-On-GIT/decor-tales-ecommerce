@@ -79,8 +79,6 @@ export function StoreProvider({ children }) {
 
       const availableStock =
         getAvailableStock(product);
-
-      console.log("Available stock:", availableStock);
       
       const found = prev.find(
         (x) =>

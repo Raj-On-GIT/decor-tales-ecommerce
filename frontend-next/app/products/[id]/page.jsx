@@ -5,13 +5,15 @@ import { useParams } from "next/navigation";
 import { ShoppingBag } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { formatPrice } from "@/lib/formatPrice";
-// ✅ Import ProductCard (Ensure this path matches your project structure)
 import ProductCard from "@/components/ProductCard";
+import { addToCart as addToCartAPI, getCart } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import Footer from "@/components/Footer";
 
 export default function ProductDetailPage() {
+  const { isAuthenticated } = useAuth();
   const { id } = useParams();
-  const { addToCart } = useStore();
+  const { addToCart, replaceCart } = useStore();
 
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]); // ✅ Related products state
@@ -673,20 +675,37 @@ export default function ProductDetailPage() {
                     (product.stock_type === "variants" && !selectedVariant) ||
                     activeStock === 0
                   }
-                  onClick={() => {
+                  onClick={async () => {
                     const price =
                       product.stock_type === "variants"
                         ? selectedVariant?.slashed_price || selectedVariant?.mrp
                         : product.slashed_price || product.mrp;
 
-                    addToCart({
-                      ...product,
-                      price: price,
-                      variant: selectedVariant,
-                      qty,
-                      customText,
-                      customImages,
-                    });
+                    if (!isAuthenticated) {
+                      addToCart({
+                        ...product,
+                        price,
+                        variant: selectedVariant,
+                        qty,
+                        customText,
+                        customImages,
+                      });
+                      return;
+                    }
+
+                    try {
+                      await addToCartAPI(
+                        product.id,
+                        qty,
+                        selectedVariant?.id || null
+                      );
+
+                      const data = await getCart();
+                      replaceCart(data.items);
+
+                    } catch (err) {
+                      console.error("Server cart add failed:", err);
+                    }
                   }}
                   className={`w-full flex-1 flex items-center justify-center gap-2
                   py-3 rounded-xl transition

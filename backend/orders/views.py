@@ -27,54 +27,62 @@ def get_product_price(product):
 @permission_classes([IsAuthenticated])
 def add_to_cart(request):
     try:
+        print("=== ADD API HIT ===")
+
         product_id = request.data.get("product_id")
         quantity = int(request.data.get("quantity", 1))
 
         product = get_object_or_404(Product, id=product_id)
-
         cart, _ = Cart.objects.get_or_create(user=request.user)
 
-        # Get variant if provided
         variant_id = request.data.get("variant_id")
         variant = None
 
         if variant_id:
             variant = get_object_or_404(ProductVariant, id=variant_id)
 
-        # Get or create cart item
+        # Determine stock
+        available_stock = variant.stock if variant else product.stock
+
+        # ONLY ONE get_or_create
         cart_item, created = CartItem.objects.get_or_create(
             cart=cart,
             product=product,
             variant=variant,
-            defaults={"quantity": quantity},
         )
+        print("CURRENT DB QTY:", cart_item.quantity)
+        print("REQUESTED ADD QTY:", quantity)
+        if created:
+            new_quantity = quantity
+        else:
+            new_quantity = cart_item.quantity + quantity
 
-        if not created:
-            cart_item.quantity += quantity
-            cart_item.save()
-        
-        print("ADD API CALLED:", product_id, quantity)
-        print("NEW BACKEND QTY:", cart_item.quantity)
+        if new_quantity > available_stock:
+            return Response({
+                "error": f"Only {available_stock} items available in stock."
+            }, status=400)
 
-        price = get_product_price(product)
+        cart_item.quantity = new_quantity
+        cart_item.save()
+
+        price = (
+            variant.slashed_price or variant.mrp
+            if variant
+            else get_product_price(product)
+        )
 
         return Response({
             "message": "Product added to cart",
             "cart_item": {
                 "id": cart_item.id,
-                "product": {
-                    "id": product.id,
-                    "title": product.title,
-                    "price": str(price),
-                },
                 "quantity": cart_item.quantity,
                 "total": str(cart_item.quantity * price)
             }
-        }, status=status.HTTP_201_CREATED)
+        }, status=201)
 
     except Exception as e:
+        print("ADD TO CART ERROR:", str(e))
         return Response({"error": str(e)}, status=400)
-
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -92,14 +100,25 @@ def get_cart(request):
         cart_items = (
             CartItem.objects
             .filter(cart=cart)
-            .select_related("product", "variant")
+            .select_related("product", "variant", "variant__size", "variant__color")
         )
 
         items = []
         total = 0
 
         for item in cart_items:
-            price = get_product_price(item.product)
+
+            # ✅ Variant-aware safe pricing
+            if item.variant:
+                price = (
+                    item.variant.slashed_price
+                    or item.variant.mrp
+                    or 0
+                )
+            else:
+                price = get_product_price(item.product) or 0
+
+            price = float(price)
             item_total = price * item.quantity
             total += item_total
 
@@ -109,7 +128,7 @@ def get_cart(request):
                 "product": {
                     "id": item.product.id,
                     "title": item.product.title,
-                    "price": str(item.product.mrp),
+                    "price": str(price),
 
                     "image": (
                         item.product.image.url
@@ -122,17 +141,14 @@ def get_cart(request):
                         "slug": item.product.category.slug,
                     } if item.product.category else None,
 
-                    # 🔥 Added fields
                     "stock": item.product.stock,
                     "stock_type": item.product.stock_type,
                 },
 
                 "variant": {
                     "id": item.variant.id,
-                    "size_name": item.variant.size_name,
-                    "color_name": item.variant.color_name,
-
-                    # 🔥 Added field
+                    "size_name": item.variant.size.name if item.variant.size else None,
+                    "color_name": item.variant.color.name if item.variant.color else None,
                     "stock": item.variant.stock,
                 } if item.variant else None,
 
@@ -146,6 +162,7 @@ def get_cart(request):
         })
 
     except Exception as e:
+        print("GET CART ERROR:", str(e))
         return Response({"error": str(e)}, status=400)
 
 
@@ -172,15 +189,30 @@ def update_cart_item(request, item_id):
         return Response({"error": "Invalid quantity"}, status=400)
 
     cart = Cart.objects.filter(user=request.user).first()
-
     if not cart:
         return Response({"error": "Cart not found"}, status=404)
 
     cart_item = get_object_or_404(CartItem, id=item_id, cart=cart)
+
+    # 🔥 Enforce stock limit
+    if cart_item.variant:
+        available_stock = cart_item.variant.stock
+    else:
+        available_stock = cart_item.product.stock
+
+    if quantity > available_stock:
+        return Response({
+            "error": f"Only {available_stock} items available in stock."
+        }, status=400)
+
     cart_item.quantity = quantity
     cart_item.save()
 
-    price = get_product_price(cart_item.product)
+    # 🔥 Correct price handling
+    if cart_item.variant:
+        price = cart_item.variant.slashed_price or cart_item.variant.mrp
+    else:
+        price = get_product_price(cart_item.product)
 
     return Response({
         "message": "Cart updated",
@@ -190,7 +222,6 @@ def update_cart_item(request, item_id):
             "total": str(cart_item.quantity * price)
         }
     })
-
 
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
