@@ -62,37 +62,55 @@ export default function OrderDetailPage() {
 
         {/* Items */}
         <div>
-          <p className="text-sm text-gray-500 mb-3">Items</p>
-          <div className="space-y-3">
+        <p className="text-sm text-gray-500 mb-3">Items</p>
+
+        <div className="space-y-4">
             {order.items.map((item, index) => (
-              <div
+            <div
                 key={index}
-                className="flex justify-between items-center border-b pb-3"
-              >
+                className="flex justify-between items-center border-b pb-4"
+            >
                 <div className="flex items-center gap-4">
-                  {item.product.image && (
+
+                {/* Product Thumbnail */}
+                {item.product.image && (
                     <img
-                      src={item.product.image}
-                      className="w-16 h-16 object-cover rounded"
-                      alt=""
+                    src={item.product.image}
+                    className="w-16 h-16 object-cover rounded-md"
+                    alt={item.product.title}
                     />
-                  )}
-                  <div>
+                )}
+
+                <div>
                     <p className="font-medium">
-                      {item.product.title}
+                    {item.product.title}
                     </p>
+
+                    {/* Variant Info */}
+                    {item.variant && (
                     <p className="text-sm text-gray-500">
-                      Qty: {item.quantity}
+                        {item.variant.size_name && `Size: ${item.variant.size_name}`}
+                        {item.variant.color_name && ` | Color: ${item.variant.color_name}`}
                     </p>
-                  </div>
+                    )}
+
+                    <p className="text-sm text-gray-500">
+                    Qty: {item.quantity}
+                    </p>
+                </div>
                 </div>
 
-                <div className="font-semibold">
-                  ₹{item.total}
+                <div className="text-right">
+                <p className="font-semibold">
+                    ₹{item.total}
+                </p>
+                <p className="text-sm text-gray-500">
+                    ₹{item.price} each
+                </p>
                 </div>
-              </div>
+            </div>
             ))}
-          </div>
+        </div>
         </div>
 
         {/* Total */}

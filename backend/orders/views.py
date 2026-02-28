@@ -360,12 +360,22 @@ def get_order_detail(request, order_id):
         "product": {
             "id": i.product.id,
             "title": i.product.title,
-            "image": i.product.image.url if i.product.image else None,
+            "image": (
+                request.build_absolute_uri(i.product.image.url)
+                if i.product.image else None
+            ),
+            "category": {
+                "name": i.product.category.name,
+            } if i.product.category else None,
         },
+        "variant": {
+            "size_name": i.variant.size.name if i.variant and i.variant.size else None,
+            "color_name": i.variant.color.name if i.variant and i.variant.color else None,
+        } if i.variant else None,
         "quantity": i.quantity,
         "price": str(i.price),
         "total": str(i.price * i.quantity)
-    } for i in order.items.all()]
+    } for i in order.items.select_related("product", "variant", "variant__size", "variant__color")]
 
     return Response({
         "order": {
