@@ -55,9 +55,7 @@ def add_to_cart(request):
             new_quantity = cart_item.quantity + quantity
 
         if new_quantity > available_stock:
-            return Response({
-                "error": f"Only {available_stock} items available in stock."
-            }, status=400)
+            new_quantity = available_stock
 
         cart_item.quantity = new_quantity
         cart_item.save()

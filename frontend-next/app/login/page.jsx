@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';  // ← IMPORT useAuth
-import { getCart } from "@/lib/api";
+import { getCart, addToCart as addToCartAPI } from "@/lib/api";
 import { useStore } from "@/context/StoreContext";
 
 
@@ -60,11 +60,44 @@ export default function LoginPage() {
       // After login success:
       login({ access: data.access, refresh: data.refresh });
 
+      // ─────────────────────────────────────────────
+      // STEP 3A: Capture guest cart BEFORE overwrite
+      // ─────────────────────────────────────────────
+      let guestCart = [];
+
+      if (typeof window !== "undefined") {
+        const storedCart = localStorage.getItem("cart");
+        guestCart = storedCart ? JSON.parse(storedCart) : [];
+      }
+
+      // ─────────────────────────────────────────────
+      // STEP 3B: Replay guest cart into backend
+      // ─────────────────────────────────────────────
+      if (guestCart.length > 0) {
+        for (const item of guestCart) {
+          try {
+            await addToCartAPI(
+              item.product_id || item.id,
+              item.qty || 1,
+              item.variant?.id || null
+            );
+          } catch (err) {
+            console.error("Merge item failed:", err.message);
+          }
+        }
+
+        // ✅ CLEAR guest cart AFTER replay finishes
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("cart");
+        }
+      }
+
+      // STEP 3C: Fetch final merged server cart
       try {
         const serverCart = await getCart();
-        replaceCart(serverCart.items); // Replace local cart with DB cart
+        replaceCart(serverCart.items);
       } catch (err) {
-        console.error("Failed to sync server cart:", err);
+        console.error("Failed to sync merged cart:", err);
       }
 
       router.push("/");
