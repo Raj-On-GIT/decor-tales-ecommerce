@@ -13,6 +13,7 @@ export default function SignupPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    phone: "",
     password: "",
     confirmPassword: "",
   });
@@ -36,12 +37,12 @@ export default function SignupPage() {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-            username: formData.name,  // Or separate username field
             email: formData.email,
             password: formData.password,
             password2: formData.confirmPassword,
-            first_name: formData.name.split(' ')[0],  // Optional
-            last_name: formData.name.split(' ')[1] || ''  // Optional
+            phone: formData.phone,   // 🔥 REQUIRED
+            first_name: formData.name.split(' ')[0] || '',
+            last_name: formData.name.split(' ').slice(1).join(' ') || ''
         })
         });
 
@@ -144,7 +145,22 @@ export default function SignupPage() {
                   />
                 </div>
               </div>
-
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg
+                            focus:outline-none focus:border-gray-900 transition
+                            text-gray-900 placeholder:text-gray-400"
+                  placeholder="Enter your phone number"
+                  required
+                />
+              </div>
               {/* Password */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">

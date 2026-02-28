@@ -35,6 +35,8 @@ urlpatterns = [
     path('api/auth/signup/', signup_view, name='signup'),
     path('api/auth/login/', login_view, name='login'),
 
+    path("api/accounts/", include("accounts.urls")),
+
     path("api/", include("products.urls")),
     path("api/orders/", include("orders.urls")),
 ]

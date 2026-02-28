@@ -3,6 +3,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
+from .models import UserProfile, Address
+import os
 
 # ============================================================================
 # SIGNUP SERIALIZER
@@ -15,6 +17,12 @@ class SignupSerializer(serializers.ModelSerializer):
         help_text="User's email address"
     )
     
+    phone = serializers.CharField(
+        required=True,
+        max_length=20,
+        help_text="User's phone number"
+    )
+
     password = serializers.CharField(
         write_only=True,
         required=True,
@@ -32,7 +40,7 @@ class SignupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('email', 'password', 'password2', 'first_name', 'last_name')
+        fields = ('email', 'password', 'password2', 'first_name', 'last_name', 'phone')
 
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
@@ -54,8 +62,9 @@ class SignupSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop("password2")
         password = validated_data.pop("password")
+        phone = validated_data.pop("phone")   # 🔥 IMPORTANT
         email = validated_data["email"]
-
+        print("PHONE RECEIVED:", phone)
         base_username = email.split("@")[0]
         username = base_username
         counter = 1
@@ -72,8 +81,11 @@ class SignupSerializer(serializers.ModelSerializer):
             last_name=validated_data.get("last_name", ""),
         )
 
-        return user
+        # 🔥 Save phone in profile
+        user.profile.phone = phone
+        user.profile.save()
 
+        return user
 
 # ============================================================================
 # LOGIN SERIALIZER
@@ -150,3 +162,69 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'username', 'email', 'first_name', 'last_name', 'date_joined')
         read_only_fields = fields
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ("phone", "avatar")
+
+class ProfileSerializer(serializers.ModelSerializer):
+    profile = UserProfileSerializer()
+
+    class Meta:
+        model = User
+        fields = ("id", "email", "first_name", "last_name", "profile")
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop("profile", {})
+
+        # -----------------------------
+        # Update User fields
+        # -----------------------------
+        instance.first_name = validated_data.get("first_name", instance.first_name)
+        instance.last_name = validated_data.get("last_name", instance.last_name)
+        instance.save()
+
+        # -----------------------------
+        # Update Profile fields
+        # -----------------------------
+        profile = instance.profile
+
+        # 🔥 Handle avatar replacement safely
+        new_avatar = profile_data.get("avatar")
+
+        if new_avatar:
+            # Delete old avatar file if it exists
+            if profile.avatar and os.path.isfile(profile.avatar.path):
+                os.remove(profile.avatar.path)
+
+            profile.avatar = new_avatar
+
+        # Update phone
+        profile.phone = profile_data.get("phone", profile.phone)
+
+        profile.save()
+
+        return instance
+    
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = (
+            "id",
+            "full_name",
+            "phone",
+            "address_line_1",
+            "address_line_2",
+            "city",
+            "state",
+            "postal_code",
+            "country",
+            "is_default",
+            "created_at",
+        )
+        read_only_fields = ("country", "created_at")
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+        return Address.objects.create(user=user, **validated_data)

@@ -1,12 +1,12 @@
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from django.contrib.auth.models import User
 from rest_framework.views import APIView
-
-
-from .serializers import SignupSerializer, LoginSerializer, UserSerializer
+from .serializers import ProfileSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
+from .serializers import SignupSerializer, LoginSerializer, UserSerializer, AddressSerializer
+from .models import Address
 
 
 # ============================================================================
@@ -125,3 +125,68 @@ class LoginView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_profile(request):
+    serializer = ProfileSerializer(request.user)
+    return Response(serializer.data)
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
+def update_profile(request):
+    serializer = ProfileSerializer(
+        request.user,
+        data=request.data,
+        partial=True
+    )
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+
+    return Response(serializer.errors, status=400)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_addresses(request):
+    addresses = Address.objects.filter(user=request.user).order_by("-is_default", "-created_at")
+    serializer = AddressSerializer(addresses, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_address(request):
+    serializer = AddressSerializer(data=request.data, context={"request": request})
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=201)
+    return Response(serializer.errors, status=400)
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def update_address(request, address_id):
+    try:
+        address = Address.objects.get(id=address_id, user=request.user)
+    except Address.DoesNotExist:
+        return Response({"error": "Address not found"}, status=404)
+
+    serializer = AddressSerializer(address, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=400)
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_address(request, address_id):
+    try:
+        address = Address.objects.get(id=address_id, user=request.user)
+    except Address.DoesNotExist:
+        return Response({"error": "Address not found"}, status=404)
+
+    address.delete()
+    return Response({"message": "Address deleted"})

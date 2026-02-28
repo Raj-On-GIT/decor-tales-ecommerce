@@ -417,3 +417,80 @@ export async function getOrderDetail(orderId) {
 
   return response.json();
 }
+
+export async function getProfile() {
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/accounts/profile/`
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch profile");
+  }
+
+  const data = await response.json();
+
+  // 🔥 Fix avatar URL
+  if (data.profile?.avatar && !data.profile.avatar.startsWith("http")) {
+    data.profile.avatar = `${process.env.NEXT_PUBLIC_BACKEND_URL}${data.profile.avatar}`;
+  }
+
+  return data;
+}
+
+export async function updateProfile(formData) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/accounts/profile/update/`,
+    {
+      method: "PATCH",
+      body: formData, // multipart
+    }
+  );
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error("Failed to update profile");
+  }
+
+  return response.json();
+}
+
+export async function getAddresses() {
+  const res = await fetchWithAuth(`${API_BASE}/api/accounts/addresses/`);
+  if (!res.ok) throw new Error();
+  return res.json();
+}
+
+export async function createAddress(data) {
+  const res = await fetchWithAuth(
+    `${API_BASE}/api/accounts/addresses/create/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }
+  );
+  if (!res.ok) throw new Error();
+  return res.json();
+}
+
+export async function updateAddress(id, data) {
+  const res = await fetchWithAuth(
+    `${API_BASE}/api/accounts/addresses/${id}/update/`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }
+  );
+  if (!res.ok) throw new Error();
+  return res.json();
+}
+
+export async function deleteAddress(id) {
+  const res = await fetchWithAuth(
+    `${API_BASE}/api/accounts/addresses/${id}/delete/`,
+    { method: "DELETE" }
+  );
+  if (!res.ok) throw new Error();
+  return res.json();
+}
