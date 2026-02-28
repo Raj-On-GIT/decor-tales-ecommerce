@@ -494,3 +494,21 @@ export async function deleteAddress(id) {
   if (!res.ok) throw new Error();
   return res.json();
 }
+
+export async function createOrderWithAddress(addressId) {
+  const res = await fetchWithAuth(
+    `${API_BASE}/api/orders/create/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address_id: addressId }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Order failed");
+  }
+
+  return res.json();
+}

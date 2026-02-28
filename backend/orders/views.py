@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 
 from .models import Order, Cart, CartItem, OrderItem
 from products.models import Product, ProductVariant
@@ -235,6 +236,7 @@ def clear_cart(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def create_order(request):
     try:
         cart = Cart.objects.filter(user=request.user).first()
@@ -242,38 +244,78 @@ def create_order(request):
         if not cart or not CartItem.objects.filter(cart=cart).exists():
             return Response({"error": "Cart is empty"}, status=400)
 
-        shipping_address = request.data.get("shipping_address")
-        city = request.data.get("city")
-        postal_code = request.data.get("postal_code")
-        phone = request.data.get("phone")
+        address_id = request.data.get("address_id")
 
-        if not all([shipping_address, city, postal_code, phone]):
-            return Response({"error": "Missing shipping details"}, status=400)
+        if not address_id:
+            return Response({"error": "Address required"}, status=400)
 
-        cart_items = CartItem.objects.filter(cart=cart).select_related("product")
+        from accounts.models import Address
+        address = get_object_or_404(Address, id=address_id, user=request.user)
 
-        total_amount = sum(
-            get_product_price(item.product) * item.quantity
-            for item in cart_items
-        )
+        cart_items = CartItem.objects.select_related(
+            "product", "variant"
+        ).filter(cart=cart)
 
+        total_amount = 0
+
+        # 🔥 STOCK VALIDATION + PRICE CALCULATION
+        for item in cart_items:
+
+            product = item.product
+            variant = item.variant
+
+            if product.stock_type == "variants":
+                available_stock = variant.stock
+                price = variant.slashed_price or variant.mrp
+            else:
+                available_stock = product.stock
+                price = get_product_price(product)
+
+            if item.quantity > available_stock:
+                return Response({
+                    "error": f"{product.title} has only {available_stock} left in stock."
+                }, status=400)
+
+            total_amount += price * item.quantity
+
+        # ✅ Create Order
         order = Order.objects.create(
             user=request.user,
             total_amount=total_amount,
-            shipping_address=shipping_address,
-            city=city,
-            postal_code=postal_code,
-            phone=phone,
+            shipping_address=f"{address.address_line_1}, {address.address_line_2}",
+            city=address.city,
+            postal_code=address.postal_code,
+            phone=address.phone,
             status="pending"
         )
 
-        for cart_item in cart_items:
+        # 🔥 Create Order Items + Reduce Stock
+        for item in cart_items:
+
+            product = item.product
+            variant = item.variant
+
+            if product.stock_type == "variants":
+                price = variant.slashed_price or variant.mrp
+            else:
+                price = get_product_price(product)
+
+            # ✅ Save variant in OrderItem
             OrderItem.objects.create(
                 order=order,
-                product=cart_item.product,
-                quantity=cart_item.quantity,
-                price=get_product_price(cart_item.product)
+                product=product,
+                variant=variant,
+                quantity=item.quantity,
+                price=price
             )
+
+            # 🔥 Reduce correct stock
+            if product.stock_type == "variants":
+                variant.stock -= item.quantity
+                variant.save()
+            else:
+                product.stock -= item.quantity
+                product.save()
 
         cart_items.delete()
 
