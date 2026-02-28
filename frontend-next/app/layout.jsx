@@ -14,7 +14,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" data-qb-installed="true">
+    <html lang="en">
       <body>
         <ToastProvider>
           <AuthProvider>
