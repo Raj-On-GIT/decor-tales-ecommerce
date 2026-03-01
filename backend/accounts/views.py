@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes, parser_class
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .serializers import ProfileSerializer
+from .serializers import ProfileSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, ChangePasswordSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
 from .serializers import SignupSerializer, LoginSerializer, UserSerializer, AddressSerializer
 from .models import Address
@@ -190,3 +190,61 @@ def delete_address(request, address_id):
 
     address.delete()
     return Response({"message": "Address deleted"})
+
+# ============================================================================
+# FORGOT PASSWORD VIEW
+# ============================================================================
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def forgot_password_view(request):
+    serializer = ForgotPasswordSerializer(data=request.data)
+
+    if serializer.is_valid():
+        return Response(
+            {"message": "Password reset link sent to your email."},
+            status=200,
+        )
+
+    return Response(serializer.errors, status=400)
+
+
+# ============================================================================
+# RESET PASSWORD VIEW
+# ============================================================================
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def reset_password_view(request):
+    serializer = ResetPasswordSerializer(data=request.data)
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response(
+            {"message": "Password has been reset successfully."},
+            status=200,
+        )
+
+    return Response(serializer.errors, status=400)
+
+
+# ============================================================================
+# CHANGE PASSWORD VIEW
+# ============================================================================
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def change_password_view(request):
+    serializer = ChangePasswordSerializer(
+        data=request.data,
+        context={"request": request},
+    )
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response(
+            {"message": "Password changed successfully."},
+            status=200,
+        )
+
+    return Response(serializer.errors, status=400)

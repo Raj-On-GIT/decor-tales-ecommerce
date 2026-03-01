@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from accounts.views import signup_view, login_view
+from accounts.views import reset_password_view, signup_view, login_view, forgot_password_view
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -39,6 +39,9 @@ urlpatterns = [
 
     path("api/", include("products.urls")),
     path("api/orders/", include("orders.urls")),
+
+    path("api/auth/forgot-password/", forgot_password_view),
+    path("api/auth/reset-password/", reset_password_view),
 ]
 
 if settings.DEBUG:

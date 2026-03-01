@@ -14,7 +14,10 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from datetime import timedelta
-load_dotenv()
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env")
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -212,3 +215,23 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+# ===============================
+# EMAIL CONFIGURATION (GMAIL)
+# ===============================
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+
+DEFAULT_FROM_EMAIL = f"DecorTales <{EMAIL_HOST_USER}>"
+
+PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
+
+# Frontend URL (important for reset link)
+FRONTEND_URL = "http://localhost:3000"

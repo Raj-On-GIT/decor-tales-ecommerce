@@ -28,7 +28,12 @@ export default function AccountLayout({ children }) {
           <Link href="/account/addresses" className={linkClass("/account/addresses")}>
             Addresses
           </Link>
+
+          <Link href="/account/change-password" className={linkClass("/account/change-password")}>
+            Change Password
+          </Link>
         </div>
+        
 
         {/* Content */}
         <div className="flex-1">
