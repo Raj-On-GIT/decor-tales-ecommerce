@@ -12,6 +12,7 @@ export default function ProductImageModal({ product, isOpen, onClose }) {
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [customText, setCustomText] = useState("");
+  const [isImageLoading, setIsImageLoading] = useState(true);
   const carouselRef = useRef(null);
   
   const images = product.images || [];
@@ -26,6 +27,10 @@ export default function ProductImageModal({ product, isOpen, onClose }) {
       setCustomText("");
     }
   }, [isOpen, product]);
+
+  useEffect(() => {
+    setIsImageLoading(true);
+  }, [currentImageIndex]);
 
   const handleNext = () => {
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
@@ -158,10 +163,24 @@ export default function ProductImageModal({ product, isOpen, onClose }) {
               className="bg-gray-50 rounded-lg overflow-hidden relative group cursor-grab active:cursor-grabbing"
             >
               <div className="relative w-full pt-[100%]">
+
+                {/* Loader */}
+                {isImageLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                    <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin"></div>
+                  </div>
+                )}
+
                 <img
                   src={currentImage?.image}
-                  alt={currentImage?.alt_text || `${product.title} ${currentImageIndex + 1}`}
-                  className="absolute inset-0 w-full h-full object-cover"
+                  alt={
+                    currentImage?.alt_text ||
+                    `${product.title} ${currentImageIndex + 1}`
+                  }
+                  onLoad={() => setIsImageLoading(false)}
+                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                    isImageLoading ? "opacity-0" : "opacity-100"
+                  }`}
                 />
               </div>
 

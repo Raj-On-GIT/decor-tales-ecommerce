@@ -1,33 +1,24 @@
-// Phase 6: JWT Token Storage + Global Auth State
-// Header Component - Auth State Integration
+"use client";
 
-/**
- * File: components/Header.jsx
- * 
- * Header component that shows different UI based on authentication state.
- * Uses useAuth() hook to access global auth state.
- */
-
-'use client';
-
-import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
-import { ShoppingBag, Search, Menu, User } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useStore } from '../context/StoreContext';
-import { useAuth } from '../context/AuthContext';  // ← IMPORT useAuth
-import CartDrawer from './CartDrawer';
-import SearchBar from './SearchBar';
+import Link from "next/link";
+import { useState, useEffect, useRef } from "react";
+import { ShoppingBag, Search, Menu, User } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useStore } from "../context/StoreContext";
+import { useAuth } from "../context/AuthContext";
+import CartDrawer from "./CartDrawer";
+import SearchBar from "./SearchBar";
 
 export default function Header() {
   const { cart } = useStore();
-  const { isAuthenticated, logout, loading } = useAuth();  // ← GET auth state
+  const { isAuthenticated, logout, loading } = useAuth();
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  
 
   const profileRef = useRef(null);
 
@@ -43,14 +34,15 @@ export default function Header() {
       }
     };
     if (isProfileOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isProfileOpen]);
 
-  const cartCount = mounted
-    ? cart.reduce((acc, item) => acc + item.qty, 0)
-    : 0;
+  useEffect(() => {
+    console.log("Search open state:", isSearchOpen);
+  }, [isSearchOpen]);
+  const cartCount = mounted ? cart.reduce((acc, item) => acc + item.qty, 0) : 0;
 
   /**
    * Handle logout
@@ -68,11 +60,12 @@ export default function Header() {
     <>
       {/* HEADER */}
       <header className="sticky top-0 z-40 bg-[#F0FFDF]/80 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-screen-2xl mx-auto 
+        <div
+          className="max-w-screen-2xl mx-auto 
                         px-4 sm:px-6 md:px-10 lg:px-20
                         h-14 md:h-16 
-                        flex items-center justify-between">
-
+                        flex items-center justify-between"
+        >
           {/* LEFT - Logo & Nav */}
           <div className="flex items-center space-x-4 md:space-x-8">
             <Link
@@ -80,7 +73,8 @@ export default function Header() {
               className="flex items-center gap-2 md:gap-3
                          text-lg md:text-2xl
                          font-serif font-bold tracking-tight text-gray-900
-                         whitespace-nowrap">
+                         whitespace-nowrap"
+            >
               <img
                 src="/DECOR_TALES_cropped.svg"
                 alt="Decor Tales Logo"
@@ -90,10 +84,16 @@ export default function Header() {
             </Link>
 
             <nav className="hidden md:flex space-x-6 text-sm font-medium text-gray-600">
-              <Link href="/catalog" className="hover:text-black transition-colors">
+              <Link
+                href="/catalog"
+                className="hover:text-black transition-colors"
+              >
                 Catalog
               </Link>
-              <Link href="/tracking" className="hover:text-black transition-colors">
+              <Link
+                href="/tracking"
+                className="hover:text-black transition-colors"
+              >
                 Track Order
               </Link>
               <span className="text-gray-300">|</span>
@@ -105,7 +105,7 @@ export default function Header() {
 
           {/* RIGHT - Search, Cart, Profile */}
           <div className="flex items-center space-x-2 md:space-x-4">
-
+            {/* Search Button */}
             {/* Search Button */}
             <AnimatePresence mode="wait">
               {isSearchOpen ? (
@@ -145,14 +145,21 @@ export default function Header() {
             {/* ═══════════════════════════════════════════════════════════ */}
             {/* PROFILE BUTTON - AUTH-AWARE */}
             {/* ═══════════════════════════════════════════════════════════ */}
-            
+
             <div ref={profileRef} className="relative">
               {/* Profile Icon */}
               <button
-                onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="p-2 text-gray-900 hover:bg-gray-100 rounded-full transition"
+                disabled={loading}
+                onClick={() => {
+                  if (!loading) setIsProfileOpen(!isProfileOpen);
+                }}
+                className="p-2 text-gray-900 hover:bg-gray-100 rounded-full transition disabled:opacity-50"
               >
-                <User size={20} />
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-gray-300 border-t-black rounded-full animate-spin" />
+                ) : (
+                  <User size={20} />
+                )}
               </button>
 
               {/* Profile Dropdown */}
@@ -162,7 +169,7 @@ export default function Header() {
                     initial={{ opacity: 0, y: -10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
                     className="absolute right-0 mt-3 w-64
                                bg-white border-2 border-red-500 rounded-lg shadow-2xl
                                overflow-hidden z-50"
@@ -260,7 +267,6 @@ export default function Header() {
             >
               <Menu size={24} />
             </button>
-
           </div>
         </div>
       </header>
@@ -277,10 +283,10 @@ export default function Header() {
               className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
             />
             <motion.div
-              initial={{ x: '100%' }}
+              initial={{ x: "100%" }}
               animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
               className="fixed top-0 right-0 h-full w-72 bg-white z-50 shadow-2xl p-6 flex flex-col"
             >
               <div className="flex items-center justify-between mb-8">
@@ -294,27 +300,42 @@ export default function Header() {
               </div>
 
               <nav className="flex flex-col divide-y">
-                <Link href="/catalog" onClick={() => setIsMenuOpen(false)}
-                  className="py-4 text-lg font-medium text-gray-800 hover:text-black transition">
+                <Link
+                  href="/catalog"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
+                >
                   Catalog
                 </Link>
-                <Link href="/tracking" onClick={() => setIsMenuOpen(false)}
-                  className="py-4 text-lg font-medium text-gray-800 hover:text-black transition">
+                <Link
+                  href="/tracking"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
+                >
                   Track Order
                 </Link>
-                <Link href="/sale" onClick={() => setIsMenuOpen(false)}
-                  className="py-4 text-lg font-semibold text-rose-600">
+                <Link
+                  href="/sale"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="py-4 text-lg font-semibold text-rose-600"
+                >
                   Sale
                 </Link>
-                
+
                 {isAuthenticated ? (
                   <>
-                    <Link href="/account" onClick={() => setIsMenuOpen(false)}
-                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition">
+                    <Link
+                      href="/account"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
+                    >
                       My Account
                     </Link>
-                    <Link href="/orders" onClick={() => setIsMenuOpen(false)}
-                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition">
+                    <Link
+                      href="/orders"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
+                    >
                       My Orders
                     </Link>
                     <button
@@ -322,18 +343,25 @@ export default function Header() {
                         handleLogout();
                         setIsMenuOpen(false);
                       }}
-                      className="py-4 text-lg font-medium text-red-600 text-left">
+                      className="py-4 text-lg font-medium text-red-600 text-left"
+                    >
                       Logout
                     </button>
                   </>
                 ) : (
                   <>
-                    <Link href="/login" onClick={() => setIsMenuOpen(false)}
-                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition">
+                    <Link
+                      href="/login"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
+                    >
                       Login
                     </Link>
-                    <Link href="/signup" onClick={() => setIsMenuOpen(false)}
-                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition">
+                    <Link
+                      href="/signup"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
+                    >
                       Sign Up
                     </Link>
                   </>
@@ -349,45 +377,3 @@ export default function Header() {
     </>
   );
 }
-
-/**
- * KEY CHANGES SUMMARY
- * ═══════════════════════════════════════════════════════════════════════
- * 
- * ADDED (3 lines):
- * ────────────────────────────────────────────────────────────────────────
- * 1. Import: import { useAuth } from '../context/AuthContext';
- * 2. Hook: const { isAuthenticated, logout, loading } = useAuth();
- * 3. Handler: const handleLogout = () => { logout(); setIsProfileOpen(false); };
- * 
- * 
- * UPDATED:
- * ────────────────────────────────────────────────────────────────────────
- * Profile dropdown now shows 3 states:
- * 1. loading → Spinner
- * 2. isAuthenticated → My Account + Logout
- * 3. !isAuthenticated → Login + Register
- * 
- * 
- * BEHAVIOR:
- * ────────────────────────────────────────────────────────────────────────
- * Initial Load:
- *   - loading = true → Shows spinner (prevents flash)
- *   - AuthProvider checks localStorage
- *   - loading = false → Shows correct state
- * 
- * After Login:
- *   - isAuthenticated = true
- *   - Header updates instantly (no refresh needed)
- *   - Shows "My Account" and "Logout"
- * 
- * After Logout:
- *   - isAuthenticated = false
- *   - Header updates instantly
- *   - Shows "Login" and "Register"
- * 
- * After Page Refresh:
- *   - AuthProvider rehydrates from localStorage
- *   - State restored correctly
- *   - Header shows correct state
- */

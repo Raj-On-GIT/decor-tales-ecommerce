@@ -10,58 +10,76 @@ export default function SearchBar({ isOpen, onClose }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
+
   const inputRef = useRef(null);
   const containerRef = useRef(null);
+  const latestQueryRef = useRef("");
   const router = useRouter();
 
-  // Focus input after animation completes
+  // Focus input
   useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 200);
-      return () => clearTimeout(timer);
-    }
+    if (!isOpen) return;
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 200);
+    return () => clearTimeout(timer);
   }, [isOpen]);
 
-  // Debounced search
+  // Debounced search with race protection
   useEffect(() => {
     if (!query || query.length < 3) {
       setResults(null);
       return;
     }
+
+    latestQueryRef.current = query;
     setLoading(true);
+
     const timer = setTimeout(async () => {
       try {
         const data = await searchProducts(query);
-        setResults(data);
+        if (latestQueryRef.current === query) {
+          setResults(data);
+        }
       } catch (error) {
         console.error("Search error:", error);
       } finally {
-        setLoading(false);
+        if (latestQueryRef.current === query) {
+          setLoading(false);
+        }
       }
     }, 300);
+
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Close on click outside
+  // Close on outside click
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target)) {
         handleClose();
       }
     };
-    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
   // Close on escape
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleEscape = (e) => {
       if (e.key === "Escape") handleClose();
     };
-    if (isOpen) document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
+
+    document.addEventListener("keydown", handleEscape);
+    return () =>
+      document.removeEventListener("keydown", handleEscape);
   }, [isOpen]);
 
   const handleClose = () => {
@@ -76,17 +94,22 @@ export default function SearchBar({ isOpen, onClose }) {
   };
 
   const handleSubcategoryClick = (subcategory) => {
-    const categorySlug = typeof subcategory.category === "object"
-      ? subcategory.category?.slug
-      : null;
+    const categorySlug =
+      typeof subcategory.category === "object"
+        ? subcategory.category?.slug
+        : null;
+
     const path = categorySlug
       ? `/catalog/${categorySlug}/${subcategory.slug}`
       : `/catalog/all/${subcategory.slug}`;
+
     navigate(path);
   };
 
   const totalResults = results
-    ? results.products.length + results.categories.length + results.subcategories.length
+    ? (results.products?.length || 0) +
+      (results.categories?.length || 0) +
+      (results.subcategories?.length || 0)
     : 0;
 
   return (
@@ -100,7 +123,6 @@ export default function SearchBar({ isOpen, onClose }) {
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className="flex items-center gap-2 overflow-hidden border-b-2 border-gray-900 pb-1 origin-right"
       >
-        {/* Search icon inside input */}
         <motion.div
           initial={{ opacity: 0, x: 10 }}
           animate={{ opacity: 1, x: 0 }}
@@ -123,7 +145,6 @@ export default function SearchBar({ isOpen, onClose }) {
                      text-sm font-medium w-full"
         />
 
-        {/* Clear button */}
         <AnimatePresence>
           {query && (
             <motion.button
@@ -131,7 +152,11 @@ export default function SearchBar({ isOpen, onClose }) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.5 }}
               transition={{ duration: 0.15 }}
-              onClick={() => { setQuery(""); setResults(null); inputRef.current?.focus(); }}
+              onClick={() => {
+                setQuery("");
+                setResults(null);
+                inputRef.current?.focus();
+              }}
               className="text-gray-400 hover:text-gray-600 flex-shrink-0"
             >
               <X size={14} />
@@ -139,7 +164,6 @@ export default function SearchBar({ isOpen, onClose }) {
           )}
         </AnimatePresence>
 
-        {/* Close button */}
         <motion.button
           initial={{ opacity: 0, rotate: -90 }}
           animate={{ opacity: 1, rotate: 0 }}
@@ -164,17 +188,18 @@ export default function SearchBar({ isOpen, onClose }) {
                        max-h-96 overflow-y-auto z-50"
           >
             {loading ? (
-              <div className="p-6 text-center text-gray-500 text-sm">
-                Searching...
-              </div>
-            ) : totalResults === 0 ? (
+            <div className="p-6 flex items-center justify-center gap-3 text-gray-500 text-sm">
+              <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin"></div>
+              <span>Searching...</span>
+            </div>
+          ) : totalResults === 0 ? (
               <div className="p-6 text-center text-gray-500 text-sm">
                 No results for "{query}"
               </div>
             ) : (
               <>
                 {/* Products */}
-                {results.products.length > 0 && (
+                {results.products?.length > 0 && (
                   <div>
                     <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-black/5 border-b border-gray-200">
                       Products
@@ -211,7 +236,7 @@ export default function SearchBar({ isOpen, onClose }) {
                 )}
 
                 {/* Categories */}
-                {results.categories.length > 0 && (
+                {results.categories?.length > 0 && (
                   <div>
                     <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-black/5 border-b border-gray-200">
                       Categories
@@ -225,15 +250,19 @@ export default function SearchBar({ isOpen, onClose }) {
                         onClick={() => navigate(`/catalog/${category.slug}`)}
                         className="w-full px-4 py-2.5 text-left hover:bg-white/60 transition border-b border-gray-100 last:border-0"
                       >
-                        <div className="font-medium text-gray-900 text-sm">{category.name}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{category.productCount} products</div>
+                        <div className="font-medium text-gray-900 text-sm">
+                          {category.name}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {category.productCount} products
+                        </div>
                       </motion.button>
                     ))}
                   </div>
                 )}
 
                 {/* Subcategories */}
-                {results.subcategories.length > 0 && (
+                {results.subcategories?.length > 0 && (
                   <div>
                     <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-black/5 border-b border-gray-200">
                       Subcategories
@@ -247,9 +276,12 @@ export default function SearchBar({ isOpen, onClose }) {
                         onClick={() => handleSubcategoryClick(subcategory)}
                         className="w-full px-4 py-2.5 text-left hover:bg-white/60 transition border-b border-gray-100 last:border-0"
                       >
-                        <div className="font-medium text-gray-900 text-sm">{subcategory.name}</div>
+                        <div className="font-medium text-gray-900 text-sm">
+                          {subcategory.name}
+                        </div>
                         <div className="text-xs text-gray-500 mt-0.5">
-                          {typeof subcategory.category === "object" && subcategory.category?.name
+                          {typeof subcategory.category === "object" &&
+                          subcategory.category?.name
                             ? `in ${subcategory.category.name}`
                             : "View products"}
                         </div>

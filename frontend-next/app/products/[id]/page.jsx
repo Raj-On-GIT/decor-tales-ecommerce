@@ -9,6 +9,7 @@ import ProductCard from "@/components/ProductCard";
 import { addToCart as addToCartAPI, getCart } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalToast } from "@/context/ToastContext";
+import PageLoader from "@/components/ui/PageLoader";
 import Footer from "@/components/Footer";
 
 export default function ProductDetailPage() {
@@ -253,20 +254,13 @@ export default function ProductDetailPage() {
   const isColorAvailable = (color) =>
     product?.variants.some((v) => v.color_name === color);
 
-  if (!product)
+  if (!product) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-5">
-        {/* Spinning ring */}
-        <div className="relative w-15 h-15">
-          <div className="absolute inset-0 rounded-full border-10 border-gray-200 dark:border-gray-700" />
-          <div className="absolute inset-0 rounded-full border-10 border-transparent border-t-black dark:border-t-white animate-spin" />
-        </div>
-        {/* Pulsing text */}
-        <p className="text-sm font-medium tracking-widest text-gray-400 dark:text-gray-500 animate-pulse">
-          Loading...
-        </p>
+      <div className="min-h-screen bg-white">
+        <PageLoader />
       </div>
     );
+  }
 
   // ✅ Combine Main + Gallery Images (deduplicated)
   const allImages = [
