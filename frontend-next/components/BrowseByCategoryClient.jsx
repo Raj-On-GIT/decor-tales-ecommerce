@@ -22,20 +22,20 @@ export default function BrowseByCategoryClient({ categories }) {
         >
           <div className="group cursor-pointer">
             {/* Category Card */}
-            <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow h-64 flex flex-col items-center justify-between p-4 relative">
+            <div className="bg-[#F0FFDF] rounded-2xl overflow-hidden h-64 flex flex-col items-center justify-between p-4 relative border border-gray-200 shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-300">
               {/* Image */}
-              <div className="w-full h-40 relative mb-4">
+              <div className="w-full h-40 relative mb-4 rounded-lg overflow-hidden bg-gray-50">
                 {category.image ? (
                   <Image
                     src={category.image}
                     alt={category.name}
                     fill
-                    style={{objectFit: "cover"}}
-                    className="rounded-lg"
+                    style={{ objectFit: "cover" }}
+                    className="group-hover:scale-103 transition-transform duration-500 ease-out"
                     unoptimized={true}
                   />
                 ) : (
-                  <div className="w-full h-full bg-gray-200 rounded-lg flex items-center justify-center">
+                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                     <span className="text-gray-500">No Image</span>
                   </div>
                 )}

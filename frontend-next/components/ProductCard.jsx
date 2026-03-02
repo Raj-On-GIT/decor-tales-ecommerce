@@ -95,7 +95,7 @@ const handleAddToCart = async () => {
   }
 };
 
-return ( <div className="group relative bg-white rounded-2xl p-2 border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-200">
+return ( <div className="group relative bg-[#F0FFDF] rounded-2xl p-2 border border-gray-200 shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-300">
 
   {/* Product Link */}
   <Link href={`/products/${product.id}`}>

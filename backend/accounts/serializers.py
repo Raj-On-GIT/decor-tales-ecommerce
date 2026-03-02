@@ -195,15 +195,22 @@ class ProfileSerializer(serializers.ModelSerializer):
         # -----------------------------
         profile = instance.profile
 
-        # 🔥 Handle avatar replacement safely
-        new_avatar = profile_data.get("avatar")
+        # 🔥 Detect if avatar key was sent at all
+        if "avatar" in profile_data:
+            new_avatar = profile_data.get("avatar")
 
-        if new_avatar:
-            # Delete old avatar file if it exists
-            if profile.avatar and os.path.isfile(profile.avatar.path):
-                os.remove(profile.avatar.path)
+            # CASE 1: Avatar removed
+            if not new_avatar:
+                if profile.avatar:
+                    if os.path.isfile(profile.avatar.path):
+                        os.remove(profile.avatar.path)
+                    profile.avatar = None
 
-            profile.avatar = new_avatar
+            # CASE 2: Avatar replaced
+            else:
+                if profile.avatar and os.path.isfile(profile.avatar.path):
+                    os.remove(profile.avatar.path)
+                profile.avatar = new_avatar
 
         # Update phone
         profile.phone = profile_data.get("phone", profile.phone)
