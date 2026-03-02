@@ -77,6 +77,16 @@ export function StoreProvider({ children }) {
       (x.variant?.id || null) === variantId
   );
 
+  // 🔥 ADD THIS BLOCK (safe early guard)
+  if (existing && existing.qty >= availableStock) {
+    error(
+      `Only ${availableStock} item${
+        availableStock > 1 ? "s" : ""
+      } available in stock.`
+    );
+    return; // do not proceed further
+  }
+
   let exceededStock = false;
   let finalQty;
 
