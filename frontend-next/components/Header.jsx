@@ -8,6 +8,8 @@ import { useStore } from "../context/StoreContext";
 import { useAuth } from "../context/AuthContext";
 import CartDrawer from "./CartDrawer";
 import SearchBar from "./SearchBar";
+import { useGlobalToast } from "@/context/ToastContext";
+import { useRouter } from "next/navigation";
 
 export default function Header() {
   const { cart } = useStore();
@@ -18,7 +20,8 @@ export default function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  
+  const toast = useGlobalToast();
+  const router = useRouter();
 
   const profileRef = useRef(null);
 
@@ -52,8 +55,15 @@ export default function Header() {
    * - Redirects to homepage
    */
   const handleLogout = () => {
-    logout();
+    logout(); // clears auth state
     setIsProfileOpen(false);
+
+    toast.info("You’ve been signed out! See you soon 👋", 2500);
+
+    // Small delay so toast renders before navigation
+    setTimeout(() => {
+      router.push("/");
+    }, 200);
   };
 
   return (

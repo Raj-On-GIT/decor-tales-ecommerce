@@ -2,12 +2,9 @@ export default function Footer() {
   return (
     <footer className="bg-gray-900 dark:bg-black text-white py-10">
       <div className="max-w-screen-2xl mx-auto px-35 grid grid-cols-1 md:grid-cols-4 gap-10">
-        
         {/* Brand */}
         <div>
-          <h3 className="text-2xl font-serif font-bold mb-4">
-            LuxeFrames
-          </h3>
+          <h3 className="text-2xl font-serif font-bold mb-4">LuxeFrames</h3>
           <p className="text-gray-400 text-sm">
             Premium handcrafted photo frames for modern homes.
           </p>
@@ -17,10 +14,26 @@ export default function Footer() {
         <div>
           <h4 className="font-bold mb-4">Shop</h4>
           <ul className="space-y-2 text-gray-400 text-sm">
-            <li><a href="/catalog" className="hover:text-white transition">All Products</a></li>
-            <li><a href="/latest" className="hover:text-white transition">Latest Collection</a></li>
-            <li><a href="/trending" className="hover:text-white transition">Trending Now</a></li>
-            <li><a href="/catalog" className="hover:text-white transition">Browse by Category</a></li>
+            <li>
+              <a href="/catalog" className="hover:text-white transition">
+                All Products
+              </a>
+            </li>
+            <li>
+              <a href="/latest" className="hover:text-white transition">
+                Latest Collection
+              </a>
+            </li>
+            <li>
+              <a href="/trending" className="hover:text-white transition">
+                Trending Now
+              </a>
+            </li>
+            <li>
+              <a href="/catalog" className="hover:text-white transition">
+                Browse by Category
+              </a>
+            </li>
           </ul>
         </div>
 
@@ -28,19 +41,33 @@ export default function Footer() {
         <div>
           <h4 className="font-bold mb-4">Support</h4>
           <ul className="space-y-2 text-gray-400 text-sm">
-            <li><a href="/shipping" className="hover:text-white transition">Shipping & Delivery</a></li>
-            <li><a href="/returns" className="hover:text-white transition">Returns Policy</a></li>
-            <li><a href="/track" className="hover:text-white transition">Track Order</a></li>
-            <li><a href="/contact" className="hover:text-white transition">Contact Us</a></li>
+            <li>
+              <a href="/shipping" className="hover:text-white transition">
+                Shipping & Delivery
+              </a>
+            </li>
+            <li>
+              <a href="/returns" className="hover:text-white transition">
+                Returns Policy
+              </a>
+            </li>
+            <li>
+              <a href="/track" className="hover:text-white transition">
+                Track Order
+              </a>
+            </li>
+            <li>
+              <a href="/contact" className="hover:text-white transition">
+                Contact Us
+              </a>
+            </li>
           </ul>
         </div>
 
         {/* Newsletter */}
         <div>
           <h4 className="font-bold mb-4">Newsletter</h4>
-          <p className="text-gray-400 text-sm mb-3">
-            Get updates & offers.
-          </p>
+          <p className="text-gray-400 text-sm mb-3">Get updates & offers.</p>
           <div className="flex">
             <input
               placeholder="Email"
@@ -54,7 +81,7 @@ export default function Footer() {
       </div>
 
       <p className="text-center text-gray-500 text-xs mt-12">
-        © {new Date().getFullYear()} LuxeFrames. All rights reserved.
+        © {new Date().getFullYear()} Decor Tales. All rights reserved.
       </p>
     </footer>
   );
