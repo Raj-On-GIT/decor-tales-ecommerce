@@ -5,11 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { useStore } from "@/context/StoreContext";
-import {
-  getAddresses,
-  getCart,
-  createOrderWithAddress,
-} from "@/lib/api";
+import { getAddresses, getCart, createOrderWithAddress } from "@/lib/api";
 import { useGlobalToast } from "@/context/ToastContext";
 
 export default function CheckoutPage() {
@@ -52,7 +48,7 @@ export default function CheckoutPage() {
 
   const total = cart.reduce(
     (sum, item) => sum + item.qty * Number(item.price),
-    0
+    0,
   );
 
   async function handlePlaceOrder() {
@@ -88,18 +84,43 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-6 py-16">
       <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-16">
-
         {/* LEFT – Address Section */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white/90 backdrop-blur rounded-3xl shadow-xl p-10"
         >
-          <h2 className="text-3xl font-serif font-semibold mb-8">
-            Shipping Address
-          </h2>
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-3xl font-serif font-semibold">
+              Shipping Address
+            </h2>
+
+            {addresses.length > 0 && (
+              <button
+                onClick={() => router.push("/account/addresses")}
+                className="text-sm px-4 py-2 rounded-full bg-black text-white hover:opacity-90"
+              >
+                + Add Address
+              </button>
+            )}
+          </div>
 
           <div className="space-y-5">
+            {addresses.length === 0 && (
+              <div className="text-center py-10 bg-gray-50 rounded-2xl">
+                <p className="text-gray-600 mb-4">
+                  No shipping address added yet.
+                </p>
+
+                <button
+                  onClick={() => router.push("/account/addresses")}
+                  className="px-6 py-2 bg-black text-white rounded-full hover:opacity-90"
+                >
+                  Add Address
+                </button>
+              </div>
+            )}
+
             {addresses.map((addr) => (
               <label
                 key={addr.id}
@@ -155,10 +176,7 @@ export default function CheckoutPage() {
 
           <div className="space-y-6">
             {cart.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between"
-              >
+              <div key={item.id} className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   {item.image && (
                     <img
@@ -168,11 +186,21 @@ export default function CheckoutPage() {
                     />
                   )}
                   <div>
-                    <div className="font-medium">{item.title}</div>
-                    <div className="text-sm text-gray-500">
-                      Qty: {item.qty}
-                    </div>
-                  </div>
+  <div className="font-medium">{item.title}</div>
+
+  {/* Variant Info */}
+  {item.variant && (
+    <div className="text-sm text-gray-500">
+      {item.variant.size_name && `Size: ${item.variant.size_name}`}
+      {item.variant.color_name &&
+        `${item.variant.size_name ? " | " : ""}Color: ${item.variant.color_name}`}
+    </div>
+  )}
+
+  <div className="text-sm text-gray-500">
+    Qty: {item.qty}
+  </div>
+</div>
                 </div>
 
                 <div className="font-medium">
@@ -195,7 +223,6 @@ export default function CheckoutPage() {
             {placing ? "Placing Order..." : "Confirm & Place Order"}
           </button>
         </motion.div>
-
       </div>
     </div>
   );

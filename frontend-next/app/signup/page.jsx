@@ -33,40 +33,38 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
 
   const googleSignup = useGoogleLogin({
-  flow: "implicit",
+    flow: "implicit",
 
-  onSuccess: async (tokenResponse) => {
-    try {
+    onSuccess: async (tokenResponse) => {
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/auth/google/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            access_token: tokenResponse.access_token,
+          }),
+        });
 
-      const res = await fetch("http://127.0.0.1:8000/api/auth/google/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          access_token: tokenResponse.access_token,
-        }),
-      });
+        if (!res.ok) throw new Error("Google signup failed");
 
-      if (!res.ok) throw new Error("Google signup failed");
+        const data = await res.json();
 
-      const data = await res.json();
+        authLogin({
+          access: data.access,
+          refresh: data.refresh,
+        });
 
-      authLogin({
-        access: data.access,
-        refresh: data.refresh,
-      });
+        router.refresh();
+        router.replace("/");
+      } catch (err) {
+        setError("Google signup failed");
+      }
+    },
 
-      router.refresh();
-      router.replace("/");
-
-    } catch (err) {
-      setError("Google signup failed");
-    }
-  },
-
-  onError: () => setError("Google signup failed"),
-});
+    onError: () => setError("Google signup failed"),
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
