@@ -107,6 +107,7 @@ export function AuthProvider({ children }) {
         iat: userData.iat,
       });
       setIsAuthenticated(true);
+      window.dispatchEvent(new Event("user-login"));
       setLoading(false);
 
     } catch (error) {

@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from accounts.views import reset_password_view, signup_view, login_view, forgot_password_view
+from accounts.views import reset_password_view, signup_view, login_view, forgot_password_view, google_auth_view
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -34,6 +34,7 @@ urlpatterns = [
 
     path('api/auth/signup/', signup_view, name='signup'),
     path('api/auth/login/', login_view, name='login'),
+    path('api/auth/google/', google_auth_view),
 
     path("api/accounts/", include("accounts.urls")),
 

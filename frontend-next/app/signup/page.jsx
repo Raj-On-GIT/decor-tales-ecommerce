@@ -14,9 +14,12 @@ import {
   Phone,
   Shield,
 } from "lucide-react";
+import { useGoogleLogin } from "@react-oauth/google";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SignupPage() {
   const router = useRouter();
+  const { login: authLogin } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -28,6 +31,42 @@ export default function SignupPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const googleSignup = useGoogleLogin({
+  flow: "implicit",
+
+  onSuccess: async (tokenResponse) => {
+    try {
+
+      const res = await fetch("http://127.0.0.1:8000/api/auth/google/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          access_token: tokenResponse.access_token,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Google signup failed");
+
+      const data = await res.json();
+
+      authLogin({
+        access: data.access,
+        refresh: data.refresh,
+      });
+
+      router.refresh();
+      router.replace("/");
+
+    } catch (err) {
+      setError("Google signup failed");
+    }
+  },
+
+  onError: () => setError("Google signup failed"),
+});
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -258,10 +297,17 @@ export default function SignupPage() {
 
             {/* Google */}
             <button
+              onClick={() => googleSignup()}
               type="button"
-              className="w-full flex items-center justify-center gap-3
-                       border border-gray-300 py-3 rounded-full
-                       hover:bg-gray-50 transition"
+              className="
+              w-full
+              border border-gray-300
+              py-3
+              rounded-full
+              flex items-center justify-center gap-3
+              hover:bg-gray-50
+              transition
+            "
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path

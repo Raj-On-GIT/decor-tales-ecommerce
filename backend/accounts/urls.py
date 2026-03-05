@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import get_profile, update_profile, get_addresses, create_address, update_address, delete_address,change_password_view
+from .views import get_profile, update_profile, get_addresses, create_address, update_address, delete_address, change_password_view, google_auth_view
 
 urlpatterns = [
     path("profile/", get_profile),
@@ -9,4 +9,5 @@ urlpatterns = [
     path("addresses/<int:address_id>/update/", update_address),
     path("addresses/<int:address_id>/delete/", delete_address),
     path("change-password/", change_password_view),
+    path("google/", google_auth_view),
 ]

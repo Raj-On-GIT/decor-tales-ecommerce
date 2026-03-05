@@ -7,6 +7,11 @@ from .serializers import ProfileSerializer, ForgotPasswordSerializer, ResetPassw
 from rest_framework.parsers import MultiPartParser, FormParser
 from .serializers import SignupSerializer, LoginSerializer, UserSerializer, AddressSerializer
 from .models import Address
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from django.contrib.auth.models import User
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.conf import settings
 
 
 # ============================================================================
@@ -248,3 +253,57 @@ def change_password_view(request):
         )
 
     return Response(serializer.errors, status=400)
+
+# ============================================================================
+# GOOGLE LOGIN VIEW
+# ============================================================================
+
+import requests
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_auth_view(request):
+    print("REQUEST DATA:", request.data)
+
+    access_token = request.data.get("access_token")
+
+    if not access_token:
+        return Response({"error": "Access token missing"}, status=400)
+
+    try:
+        # Verify token with Google
+        google_response = requests.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        if google_response.status_code != 200:
+            return Response({"error": "Invalid Google token"}, status=400)
+
+        user_info = google_response.json()
+
+        email = user_info.get("email")
+        first_name = user_info.get("given_name", "")
+        last_name = user_info.get("family_name", "")
+
+        # Create or get user
+        user, created = User.objects.get_or_create(
+            username=email,
+            defaults={
+                "email": email,
+                "first_name": first_name,
+                "last_name": last_name
+            }
+        )
+
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "user": UserSerializer(user).data
+        })
+
+    except Exception as e:
+        print("GOOGLE AUTH ERROR:", str(e))
+        return Response({"error": str(e)}, status=400)

@@ -46,7 +46,15 @@ export default function Header() {
     console.log("Search open state:", isSearchOpen);
   }, [isSearchOpen]);
   const cartCount = mounted ? cart.reduce((acc, item) => acc + item.qty, 0) : 0;
+  useEffect(() => {
+  const handleLogin = () => {
+    setIsProfileOpen(false);
+  };
 
+  window.addEventListener("user-login", handleLogin);
+
+  return () => window.removeEventListener("user-login", handleLogin);
+}, []);
   /**
    * Handle logout
    * Calls logout() from AuthContext which:

@@ -235,3 +235,5 @@ PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
 
 # Frontend URL (important for reset link)
 FRONTEND_URL = "http://localhost:3000"
+
+GOOGLE_CLIENT_ID="11874164412-vf8tecipv4itq1ae5kevkm6ukib9ru0a.apps.googleusercontent.com"
