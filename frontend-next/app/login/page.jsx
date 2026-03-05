@@ -301,7 +301,7 @@ export default function LoginPage() {
 
           {/* Blurred Image Layer */}
           <div
-            className="absolute inset-0 bg-cover bg-center opacity-20 blur-xl scale-110"
+            className="absolute inset-0 bg-cover bg-center opacity-70 blur-xl scale-110"
             style={{ backgroundImage: "url('/login-bg.jpg')" }}
           />
 

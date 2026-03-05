@@ -47,14 +47,14 @@ export default function Header() {
   }, [isSearchOpen]);
   const cartCount = mounted ? cart.reduce((acc, item) => acc + item.qty, 0) : 0;
   useEffect(() => {
-  const handleLogin = () => {
-    setIsProfileOpen(false);
-  };
+    const handleLogin = () => {
+      setIsProfileOpen(false);
+    };
 
-  window.addEventListener("user-login", handleLogin);
+    window.addEventListener("user-login", handleLogin);
 
-  return () => window.removeEventListener("user-login", handleLogin);
-}, []);
+    return () => window.removeEventListener("user-login", handleLogin);
+  }, []);
   /**
    * Handle logout
    * Calls logout() from AuthContext which:
@@ -188,9 +188,11 @@ export default function Header() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                     transition={{ duration: 0.15, ease: "easeOut" }}
-                    className="absolute right-0 mt-3 w-64
-                               bg-white border-2 border-red-500 rounded-lg shadow-2xl
-                               overflow-hidden z-50"
+                    className="absolute right-0 mt-3 w-72
+                              bg-white/95 backdrop-blur
+                              border border-gray-200
+                              rounded-2xl shadow-xl
+                              overflow-hidden z-50"
                   >
                     {loading ? (
                       /* LOADING STATE */
@@ -202,9 +204,11 @@ export default function Header() {
                       /* LOGGED IN STATE */
                       <>
                         <div className="px-5 pt-5 pb-4 border-b border-gray-200">
-                          <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide">
-                            YOUR ACCOUNT
-                          </h3>
+                          <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+                            <h3 className="text-lg font-serif font-semibold text-gray-900 tracking-wide">
+                              Your Account
+                            </h3>
+                          </div>
                           <p className="text-sm text-gray-600 mt-1">
                             Logged in
                           </p>
@@ -243,30 +247,30 @@ export default function Header() {
                       /* LOGGED OUT STATE */
                       <>
                         <div className="px-5 pt-5 pb-4">
-                          <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide">
-                            YOUR ACCOUNT
+                          <h3 className="text-lg font-bold text-gray-900 tracking-wide">
+                            Your Account
                           </h3>
-                          <div className="mt-2 h-1 w-12 bg-red-500"></div>
+                          <div className="mt-2 h-1 w-12 bg-teal-500"></div>
                         </div>
 
-                        <div className="px-5 pb-5 space-y-3">
+                        <div className="px-6 py-5 space-y-3">
                           <Link
                             href="/login"
                             onClick={() => setIsProfileOpen(false)}
-                            className="block w-full py-3 px-4 
-                                       bg-red-500 hover:bg-red-600
-                                       text-white text-center font-semibold text-base
-                                       rounded transition-colors"
+                            className="block w-full py-3 px-4
+           bg-[#002424] hover:bg-[#004c4c] hover:text-white
+           text-white text-center font-medium text-base
+           rounded-xl transition"
                           >
                             Login
                           </Link>
                           <Link
                             href="/signup"
                             onClick={() => setIsProfileOpen(false)}
-                            className="block w-full py-3 px-4 
-                                       bg-slate-700 hover:bg-slate-800
-                                       text-white text-center font-semibold text-base
-                                       rounded transition-colors"
+                            className="block w-full py-3 px-4
+           bg-[#b2d8d8] hover:bg-[#74baba]
+           text-black text-center font-medium text-base
+           rounded-xl transition"
                           >
                             Register
                           </Link>

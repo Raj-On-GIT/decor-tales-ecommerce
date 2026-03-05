@@ -349,8 +349,8 @@ export default function SignupPage() {
 
           {/* Optional Soft Image Texture (same as login) */}
           <div
-            className="absolute inset-0 bg-cover bg-center opacity-20 blur-lg scale-110"
-            style={{ backgroundImage: "url('/login-bg.jpg')" }}
+            className="absolute inset-0 bg-cover bg-center opacity-80 blur-lg scale-110"
+            style={{ backgroundImage: "url('/signup.jpg')" }}
           />
 
           {/* Soft Overlay for Depth */}
