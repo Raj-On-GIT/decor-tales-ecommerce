@@ -178,7 +178,7 @@ export function AuthProvider({ children }) {
               item.qty,
               item.variant?.id || null,
               item.customText || null,
-              item.customImages?.[0] || null,
+              item.customImages || item.custom_images || null,
             );
           } catch (err) {
             console.error("Guest cart merge failed:", err);

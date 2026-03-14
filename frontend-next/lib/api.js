@@ -265,9 +265,14 @@ export async function addToCart(
   quantity = 1,
   variantId = null,
   customText = null,
-  customImage = null,
+  customImages = null,
 ) {
   const formData = new FormData();
+  const normalizedImages = Array.isArray(customImages)
+    ? customImages.filter(Boolean)
+    : customImages
+      ? [customImages]
+      : [];
 
   formData.append("product_id", productId);
   formData.append("quantity", quantity);
@@ -280,8 +285,8 @@ export async function addToCart(
     formData.append("custom_text", customText);
   }
 
-  if (customImage) {
-    formData.append("custom_image", customImage);
+  for (const image of normalizedImages) {
+    formData.append("custom_images", image);
   }
 
   const response = await fetchWithAuth(`${API_BASE}/api/orders/cart/add/`, {
@@ -316,6 +321,7 @@ export async function getCart() {
   const transformedItems = (data.items || []).map((item) => {
     const product = item.product || {};
     const variant = item.variant || null;
+    const customImages = item.custom_images || [];
 
     return {
       cart_item_id: item.id, // unique cart row id
@@ -347,12 +353,13 @@ export async function getCart() {
         : null,
 
       custom_text: item.custom_text || null,
+      custom_images: customImages,
 
       custom_image: item.custom_image
         ? item.custom_image.startsWith("http")
           ? item.custom_image
           : `${process.env.NEXT_PUBLIC_BACKEND_URL}${item.custom_image}`
-        : null,
+        : customImages[0] || null,
     };
   });
 

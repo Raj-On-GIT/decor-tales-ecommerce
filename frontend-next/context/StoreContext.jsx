@@ -1,22 +1,28 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-} from "react";
-import {
-  getCart,
-  removeFromCart as removeFromCartAPI,
-  updateCartItem,
-} from "@/lib/api";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { getCart, removeFromCart as removeFromCartAPI, updateCartItem } from "@/lib/api";
 import { addToCart as addToCartAPI } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalToast } from "@/context/ToastContext";
 
 const StoreContext = createContext(null);
+
+function getCustomImageIdentity(item) {
+  const images = item?.customImages ?? item?.custom_images ?? [];
+
+  if (!Array.isArray(images) || images.length === 0) {
+    return item?.custom_image ?? null;
+  }
+
+  return images
+    .map((image) => {
+      if (typeof image === "string") return image;
+      return image?.name ?? image?.url ?? null;
+    })
+    .filter(Boolean)
+    .join("|");
+}
 
 function getCartRowId(item) {
   return item?.cart_item_id ?? item?.cartItemId ?? null;
@@ -27,7 +33,7 @@ function getCartIdentity(item) {
     item?.id ?? item?.product_id ?? null,
     item?.variant?.id ?? null,
     item?.customText ?? item?.custom_text ?? null,
-    item?.customImages?.[0]?.name ?? item?.custom_image ?? null,
+    getCustomImageIdentity(item),
   ].join("::");
 }
 
@@ -148,7 +154,7 @@ export function StoreProvider({ children }) {
           product.qty || 1,
           product.variant?.id || null,
           product.customText || null,
-          product.customImages?.[0] || null,
+          product.customImages || product.custom_images || null,
         );
 
         const data = await getCart();

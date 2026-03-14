@@ -1,8 +1,243 @@
 from django.contrib import admin
-from .models import Order, OrderItem, Cart, CartItem
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
+
+from .models import Order, OrderItem, OrderItemImage, Cart, CartItem, CartItemImage
 
 
-admin.site.register(Cart)
-admin.site.register(CartItem)
-admin.site.register(Order)
-admin.site.register(OrderItem)
+class CartItemImageInline(admin.TabularInline):
+    model = CartItemImage
+    extra = 0
+    fields = ("image",)
+
+
+@admin.register(CartItem)
+class CartItemAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "cart",
+        "product",
+        "variant",
+        "quantity",
+        "is_customized",
+        "custom_image_count",
+    )
+    search_fields = ("product__title", "cart__user__username", "cart__user__email")
+    list_filter = ("product", "variant")
+    inlines = [CartItemImageInline]
+
+    @admin.display(boolean=True, description="Customized")
+    def is_customized(self, obj):
+        return bool(obj.custom_text or obj.custom_image or obj.custom_images.exists())
+
+    @admin.display(description="Image Count")
+    def custom_image_count(self, obj):
+        count = obj.custom_images.count()
+        return count if count else (1 if obj.custom_image else 0)
+
+
+@admin.register(CartItemImage)
+class CartItemImageAdmin(admin.ModelAdmin):
+    list_display = ("id", "cart_item", "image_preview")
+    search_fields = ("cart_item__product__title", "cart_item__cart__user__email")
+
+    @admin.display(description="Preview")
+    def image_preview(self, obj):
+        if not obj.image:
+            return "-"
+        return format_html(
+            '<a href="{}" target="_blank" rel="noopener noreferrer">'
+            '<img src="{}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;" />'
+            "</a>",
+            obj.image.url,
+            obj.image.url,
+        )
+
+
+class OrderItemInline(admin.StackedInline):
+    model = OrderItem
+    extra = 0
+    fields = (
+        "product",
+        "variant",
+        "quantity",
+        "price",
+        "customized_status",
+        "custom_text",
+        "custom_images_preview",
+    )
+    readonly_fields = ("customized_status", "custom_images_preview")
+    show_change_link = True
+
+    @admin.display(description="Customized")
+    def customized_status(self, obj):
+        return "Yes" if obj and (obj.custom_text or obj.custom_image or obj.custom_images.exists()) else "No"
+
+    @admin.display(description="Customization Images")
+    def custom_images_preview(self, obj):
+        if not obj:
+            return "-"
+
+        images = []
+        if obj.custom_images.exists():
+            images = [image.image.url for image in obj.custom_images.all() if image.image]
+        elif obj.custom_image:
+            images = [obj.custom_image.url]
+
+        if not images:
+            return "No images"
+
+        return mark_safe(
+            "".join(
+                '<a href="{0}" target="_blank" rel="noopener noreferrer">'
+                '<img src="{0}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;margin-right:8px;border:1px solid #444;" />'
+                "</a>".format(image_url)
+                for image_url in images
+            )
+        )
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = (
+        "order_number",
+        "customer_name",
+        "customer_email",
+        "username",
+        "status",
+        "total_amount",
+        "items_count",
+        "city",
+        "phone",
+        "created_at",
+    )
+    search_fields = (
+        "order_number",
+        "user__username",
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+        "phone",
+        "city",
+        "shipping_address",
+    )
+    list_filter = ("status", "created_at", "city")
+    readonly_fields = ("created_at", "updated_at")
+    inlines = [OrderItemInline]
+
+    @admin.display(description="Customer Name")
+    def customer_name(self, obj):
+        full_name = obj.user.get_full_name().strip()
+        return full_name or "-"
+
+    @admin.display(description="Customer Email")
+    def customer_email(self, obj):
+        return obj.user.email or "-"
+
+    @admin.display(description="Username")
+    def username(self, obj):
+        return obj.user.username
+
+    @admin.display(description="Items")
+    def items_count(self, obj):
+        return obj.items.count()
+
+
+class OrderItemImageInline(admin.TabularInline):
+    model = OrderItemImage
+    extra = 0
+    fields = ("image",)
+
+
+@admin.register(OrderItem)
+class OrderItemAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "order",
+        "product",
+        "variant",
+        "quantity",
+        "price",
+        "is_customized",
+        "custom_image_count",
+    )
+    search_fields = (
+        "order__order_number",
+        "product__title",
+        "order__user__username",
+        "order__user__email",
+        "custom_text",
+    )
+    list_filter = ("variant", "order__status")
+    inlines = [OrderItemImageInline]
+    readonly_fields = ("custom_images_preview",)
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "order",
+                    "product",
+                    "variant",
+                    "quantity",
+                    "price",
+                    "custom_text",
+                    "custom_image",
+                    "custom_images_preview",
+                )
+            },
+        ),
+    )
+
+    @admin.display(boolean=True, description="Customized")
+    def is_customized(self, obj):
+        return bool(obj.custom_text or obj.custom_image or obj.custom_images.exists())
+
+    @admin.display(description="Image Count")
+    def custom_image_count(self, obj):
+        count = obj.custom_images.count()
+        return count if count else (1 if obj.custom_image else 0)
+
+    @admin.display(description="Customization Images")
+    def custom_images_preview(self, obj):
+        images = []
+        if obj.custom_images.exists():
+            images = [image.image.url for image in obj.custom_images.all() if image.image]
+        elif obj.custom_image:
+            images = [obj.custom_image.url]
+
+        if not images:
+            return "No images"
+
+        return mark_safe(
+            "".join(
+                '<a href="{0}" target="_blank" rel="noopener noreferrer">'
+                '<img src="{0}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;margin-right:8px;border:1px solid #444;" />'
+                "</a>".format(image_url)
+                for image_url in images
+            )
+        )
+
+
+@admin.register(OrderItemImage)
+class OrderItemImageAdmin(admin.ModelAdmin):
+    list_display = ("id", "order_item", "image_preview")
+    search_fields = ("order_item__order__order_number", "order_item__product__title")
+
+    @admin.display(description="Preview")
+    def image_preview(self, obj):
+        if not obj.image:
+            return "-"
+        return format_html(
+            '<a href="{}" target="_blank" rel="noopener noreferrer">'
+            '<img src="{}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;" />'
+            "</a>",
+            obj.image.url,
+            obj.image.url,
+        )
+
+
+@admin.register(Cart)
+class CartAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "created_at", "updated_at")
+    search_fields = ("user__username", "user__email")

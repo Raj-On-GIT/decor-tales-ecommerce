@@ -712,6 +712,13 @@ export default function ProductDetailPage() {
 
                       // ✅ Guest → use local logic
                       if (!isAuthenticated) {
+                        if (customImages.length > 0) {
+                          error(
+                            "Please log in before adding products with custom image uploads.",
+                          );
+                          return;
+                        }
+
                         addToCart(cartPayload);
                         setCustomText("");
                         setCustomImages([]);
@@ -757,8 +764,6 @@ export default function ProductDetailPage() {
                         );
                       }
 
-                      const imageToSend =
-                        customImages.length > 0 ? customImages[0] : null;
                       const textToSend = customText?.trim() || null;
                       // ✅ Authenticated → rely ONLY on backend
                       try {
@@ -767,7 +772,7 @@ export default function ProductDetailPage() {
                           quantityToAdd,
                           selectedVariant?.id || null,
                           textToSend,
-                          imageToSend,
+                          customImages,
                         );
 
                         const data = await getCart();

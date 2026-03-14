@@ -41,6 +41,18 @@ class CartItem(models.Model):
     class Meta:
         ordering = ["-id"]
 
+
+class CartItemImage(models.Model):
+    cart_item = models.ForeignKey(
+        CartItem,
+        on_delete=models.CASCADE,
+        related_name="custom_images",
+    )
+    image = models.ImageField(upload_to="custom_orders/")
+
+    class Meta:
+        ordering = ["id"]
+
         
 class Order(models.Model):
     STATUS_CHOICES = [
@@ -86,5 +98,18 @@ class OrderItem(models.Model):
         blank=True,
         null=True
     )
+
     def __str__(self):
         return f"{self.quantity}x {self.product.title}"
+
+
+class OrderItemImage(models.Model):
+    order_item = models.ForeignKey(
+        OrderItem,
+        on_delete=models.CASCADE,
+        related_name="custom_images",
+    )
+    image = models.ImageField(upload_to="order_customizations/")
+
+    class Meta:
+        ordering = ["id"]

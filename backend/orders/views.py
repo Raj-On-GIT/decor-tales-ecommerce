@@ -6,7 +6,14 @@ from django.shortcuts import get_object_or_404
 from django.db.models import F,Q
 from django.db import transaction
 
-from .models import Order, Cart, CartItem, OrderItem
+from .models import (
+    Order,
+    Cart,
+    CartItem,
+    CartItemImage,
+    OrderItem,
+    OrderItemImage,
+)
 from products.models import Product, ProductVariant
 
 
@@ -19,6 +26,20 @@ def get_product_price(product):
     Returns effective price considering discount.
     """
     return product.slashed_price or product.mrp
+
+
+def build_image_urls(request, image_objects):
+    return [request.build_absolute_uri(image.image.url) for image in image_objects if image.image]
+
+
+def get_custom_image_files(request):
+    image_files = request.FILES.getlist("custom_images")
+
+    if image_files:
+        return image_files
+
+    legacy_image = request.FILES.get("custom_image")
+    return [legacy_image] if legacy_image else []
 
 
 # ============================================================================
@@ -42,7 +63,7 @@ def add_to_cart(request):
             variant = get_object_or_404(ProductVariant, id=variant_id)
 
         custom_text = request.data.get("custom_text")
-        custom_image = request.FILES.get("custom_image")
+        custom_images = get_custom_image_files(request)
 
         # normalize empty values
         if custom_text == "":
@@ -52,9 +73,17 @@ def add_to_cart(request):
         # VALIDATE CUSTOMIZATION PERMISSIONS
         # --------------------------------------------------
 
-        if custom_image and not product.allow_custom_image:
+        if custom_images and not product.allow_custom_image:
             return Response(
                 {"error": "This product does not allow image customization."},
+                status=400
+            )
+
+        if custom_images and len(custom_images) > product.custom_image_limit:
+            return Response(
+                {
+                    "error": f"This product allows only {product.custom_image_limit} custom image(s)."
+                },
                 status=400
             )
 
@@ -75,12 +104,13 @@ def add_to_cart(request):
         # Merge quantities
         # --------------------------------------------------
 
-        if custom_text is None and custom_image is None:
+        if custom_text is None and not custom_images:
 
             cart_item = CartItem.objects.filter(
                 cart=cart,
                 product=product,
-                variant=variant
+                variant=variant,
+                custom_images__isnull=True,
             ).filter(
                 Q(custom_text__isnull=True) | Q(custom_text="")
             ).filter(
@@ -130,8 +160,11 @@ def add_to_cart(request):
                 variant=variant,
                 quantity=quantity,
                 custom_text=custom_text,
-                custom_image=custom_image
+                custom_image=None
             )
+
+            for image_file in custom_images:
+                CartItemImage.objects.create(cart_item=cart_item, image=image_file)
 
         # --------------------------------------------------
         # PRICE CALCULATION
@@ -176,6 +209,7 @@ def get_cart(request):
             CartItem.objects
             .filter(cart=cart)
             .select_related("product", "variant", "variant__size", "variant__color")
+            .prefetch_related("custom_images")
         )
 
         items = []
@@ -229,9 +263,13 @@ def get_cart(request):
                 "quantity": item.quantity,
 
                 "custom_text": item.custom_text,
+                "custom_images": build_image_urls(request, item.custom_images.all()),
                 "custom_image": (
                     request.build_absolute_uri(item.custom_image.url)
-                    if item.custom_image else None
+                    if item.custom_image else (
+                        request.build_absolute_uri(item.custom_images.first().image.url)
+                        if item.custom_images.exists() else None
+                    )
                 ),
             })
 
@@ -338,7 +376,7 @@ def create_order(request):
 
         cart_items = CartItem.objects.select_related(
             "product", "variant"
-        ).filter(cart=cart)
+        ).prefetch_related("custom_images").filter(cart=cart)
 
         total_amount = 0
 
@@ -385,15 +423,21 @@ def create_order(request):
                 price = get_product_price(product)
 
             # ✅ Save variant in OrderItem
-            OrderItem.objects.create(
+            order_item = OrderItem.objects.create(
                 order=order,
                 product=product,
                 variant=variant,
                 quantity=item.quantity,
                 price=price,
                 custom_text=item.custom_text,
-                custom_image=item.custom_image
+                custom_image=item.custom_image if not item.custom_images.exists() else None
             )
+
+            for image in item.custom_images.all():
+                OrderItemImage.objects.create(
+                    order_item=order_item,
+                    image=image.image,
+                )
 
             # 🔥 Reduce correct stock
             if product.stock_type == "variants":
@@ -468,10 +512,14 @@ def get_order_detail(request, order_id):
 
         # Customization fields
         "custom_text": i.custom_text,
+        "custom_images": build_image_urls(request, i.custom_images.all()),
 
         "custom_image": (
             request.build_absolute_uri(i.custom_image.url)
-            if i.custom_image else None
+            if i.custom_image else (
+                request.build_absolute_uri(i.custom_images.first().image.url)
+                if i.custom_images.exists() else None
+            )
         )
 
     } for i in order.items.select_related(
@@ -480,7 +528,7 @@ def get_order_detail(request, order_id):
         "variant",
         "variant__size",
         "variant__color"
-    )]
+    ).prefetch_related("custom_images")]
 
     return Response({
         "order": {

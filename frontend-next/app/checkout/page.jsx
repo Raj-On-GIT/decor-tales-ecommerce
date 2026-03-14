@@ -233,7 +233,9 @@ export default function CheckoutPage() {
                     <div className="text-sm text-gray-500">Qty: {item.qty}</div>
 
                     {/* CUSTOMIZATION DROPDOWN */}
-                    {(item.custom_text || item.custom_image) && (
+                    {(item.custom_text ||
+                      item.custom_image ||
+                      item.custom_images?.length > 0) && (
                       <details className="mt-2 text-sm">
                         <summary className="cursor-pointer text-gray-600 hover:text-black">
                           View Customization
@@ -246,7 +248,18 @@ export default function CheckoutPage() {
                             </div>
                           )}
 
-                          {item.custom_image && (
+                          {item.custom_images?.length > 0 ? (
+                            <div className="flex gap-2 flex-wrap">
+                              {item.custom_images.map((image, index) => (
+                                <img
+                                  key={`${item.cart_item_id || item.id}-custom-${index}`}
+                                  src={image}
+                                  alt={`custom-${index + 1}`}
+                                  className="w-14 h-14 rounded-lg object-cover border"
+                                />
+                              ))}
+                            </div>
+                          ) : item.custom_image ? (
                             <div className="flex gap-2 flex-wrap">
                               <img
                                 src={item.custom_image}
@@ -254,7 +267,7 @@ export default function CheckoutPage() {
                                 className="w-14 h-14 rounded-lg object-cover border"
                               />
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       </details>
                     )}
