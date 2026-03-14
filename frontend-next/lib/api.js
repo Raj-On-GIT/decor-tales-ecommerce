@@ -363,6 +363,28 @@ export async function getCart() {
   };
 }
 
+export function getCartStockIssues(cartItems = []) {
+  return cartItems
+    .map((item) => {
+      const availableStock = item.variant?.stock ?? item.stock ?? 0;
+
+      if (item.qty <= availableStock) {
+        return null;
+      }
+
+      return {
+        cart_item_id: item.cart_item_id,
+        title: item.title,
+        variantLabel: [item.variant?.size_name, item.variant?.color_name]
+          .filter(Boolean)
+          .join(" / "),
+        requestedQty: item.qty,
+        availableStock,
+      };
+    })
+    .filter(Boolean);
+}
+
 export async function removeFromCart(itemId) {
   const response = await fetchWithAuth(
     `${API_BASE}/api/orders/cart/remove/${itemId}/`,

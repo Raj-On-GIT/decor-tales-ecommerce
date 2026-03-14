@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { X, ShoppingBag, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
 import { formatPrice } from "@/lib/formatPrice";
 import { useStore } from "@/context/StoreContext";
 import { useGlobalToast } from "@/context/ToastContext";
+import { useAuth } from "@/context/AuthContext";
+import { getCart, getCartStockIssues } from "@/lib/api";
 
 const normalizeCategory = (category) => {
   if (!category) {
@@ -21,8 +24,52 @@ const normalizeCategory = (category) => {
 };
 
 export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
-  const { cart, addToCart, removeFromCart, decreaseQty, total } = useStore();
+  const { cart, addToCart, removeFromCart, decreaseQty, replaceCart, total } =
+    useStore();
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
   const { error } = useGlobalToast();
+  const [checkingOut, setCheckingOut] = useState(false);
+
+  async function handleProceedToCheckout() {
+    if (!isAuthenticated) {
+      setIsCartOpen(false);
+      router.push("/checkout");
+      return;
+    }
+
+    setCheckingOut(true);
+
+    try {
+      const latestCart = await getCart();
+      const latestItems = latestCart.items || [];
+      const issues = getCartStockIssues(latestItems);
+
+      replaceCart(latestItems);
+
+      if (issues.length > 0) {
+        const firstIssue = issues[0];
+        const itemLabel = firstIssue.variantLabel
+          ? `${firstIssue.title} (${firstIssue.variantLabel})`
+          : firstIssue.title;
+
+        error(
+          `${itemLabel} now has only ${firstIssue.availableStock} item${
+            firstIssue.availableStock === 1 ? "" : "s"
+          } available. Please review your cart.`,
+        );
+        return;
+      }
+
+      setIsCartOpen(false);
+      router.push("/checkout");
+    } catch (err) {
+      error("Failed to verify stock before checkout");
+    } finally {
+      setCheckingOut(false);
+    }
+  }
+
   return (
     <AnimatePresence>
       {isCartOpen && (
@@ -203,14 +250,15 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                   Shipping & taxes calculated at checkout.
                 </p>
 
-                <Link
-                  href="/checkout"
-                  onClick={() => setIsCartOpen(false)}
+                <button
+                  type="button"
+                  onClick={handleProceedToCheckout}
+                  disabled={checkingOut}
                   className="w-full flex items-center justify-center bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-black transition"
                 >
-                  Proceed to Checkout
+                  {checkingOut ? "Checking Stock..." : "Proceed to Checkout"}
                   <ArrowRight size={16} className="ml-2" />
-                </Link>
+                </button>
               </div>
             )}
           </motion.div>

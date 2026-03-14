@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { useStore } from "@/context/StoreContext";
-import { getAddresses, getCart, createOrderWithAddress } from "@/lib/api";
+import {
+  getAddresses,
+  getCart,
+  getCartStockIssues,
+  createOrderWithAddress,
+} from "@/lib/api";
 import { useGlobalToast } from "@/context/ToastContext";
 
 export default function CheckoutPage() {
@@ -60,6 +65,27 @@ export default function CheckoutPage() {
     setPlacing(true);
 
     try {
+      const latestCart = await getCart();
+      const latestItems = latestCart.items || [];
+      const issues = getCartStockIssues(latestItems);
+
+      setCart(latestItems);
+      replaceCart(latestItems);
+
+      if (issues.length > 0) {
+        const firstIssue = issues[0];
+        const itemLabel = firstIssue.variantLabel
+          ? `${firstIssue.title} (${firstIssue.variantLabel})`
+          : firstIssue.title;
+
+        error(
+          `${itemLabel} now has only ${firstIssue.availableStock} item${
+            firstIssue.availableStock === 1 ? "" : "s"
+          } available. Please update your cart before placing the order.`,
+        );
+        return;
+      }
+
       const response = await createOrderWithAddress(selectedAddress);
 
       replaceCart([]);
