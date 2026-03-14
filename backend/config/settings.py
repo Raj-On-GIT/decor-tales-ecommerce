@@ -55,8 +55,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    'corsheaders.middleware.CorsMiddleware',   # move below security
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -151,6 +151,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://decor-tales-ecommerce.vercel.app"
     ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://decor-tales-ecommerce.vercel.app",
+]
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR.parent, "media")
 
@@ -239,6 +243,6 @@ DEFAULT_FROM_EMAIL = f"DecorTales <{EMAIL_HOST_USER}>"
 PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
 
 # Frontend URL (important for reset link)
-FRONTEND_URL = "http://localhost:3000"
+FRONTEND_URL = "https://decor-tales-ecommerce.vercel.app"
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
