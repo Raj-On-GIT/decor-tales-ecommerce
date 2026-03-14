@@ -19,11 +19,12 @@ export default function LoginPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
   const googleLogin = useGoogleLogin({
     flow: "implicit",
     onSuccess: async (tokenResponse) => {
-      const res = await fetch("http://127.0.0.1:8000/api/auth/google/", {
+      const res = await fetch(`${API_BASE}/api/auth/google/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -49,7 +50,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/auth/login/", {
+      const response = await fetch(`${API_BASE}/api/auth/login/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
