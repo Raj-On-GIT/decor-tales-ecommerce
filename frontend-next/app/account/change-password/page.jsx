@@ -11,22 +11,29 @@ export default function ChangePasswordPage() {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const accessToken = localStorage.getItem("access_token");
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setLoading(true);
     setError("");
     setMessage("");
+
     if (newPassword !== confirmPassword) {
-        setError("New passwords do not match.");
-        setLoading(false);
-    return;
-        }
+      setError("New passwords do not match.");
+      setLoading(false);
+      return;
+    }
+
+    const accessToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("access_token")
+        : null;
+
     try {
       const res = await fetch(
         "http://127.0.0.1:8000/api/accounts/change-password/",
@@ -58,12 +65,13 @@ export default function ChangePasswordPage() {
       setMessage("Password changed successfully. Please login again.");
 
       setTimeout(() => {
-        logout();          // clears tokens + resets state
+        logout();
         router.push("/login");
       }, 1500);
 
       setOldPassword("");
       setNewPassword("");
+      setConfirmPassword("");
     } catch (err) {
       setError(err.message);
     }
@@ -75,8 +83,17 @@ export default function ChangePasswordPage() {
     <div className="max-w-md mx-auto mt-20 p-6 border rounded">
       <h2 className="text-xl font-semibold mb-4">Change Password</h2>
 
-      {message && <p className="text-green-600 mb-3">{message}</p>}
-      {error && <p className="text-red-600 mb-3">{error}</p>}
+      {message && (
+        <p className="text-green-600 mb-3">
+          {message}
+        </p>
+      )}
+
+      {error && (
+        <p className="text-red-600 mb-3">
+          {error}
+        </p>
+      )}
 
       <form onSubmit={handleSubmit}>
         <input
@@ -91,19 +108,19 @@ export default function ChangePasswordPage() {
         <input
           type="password"
           placeholder="New password"
-          className="w-full p-2 border mb-4"
+          className="w-full p-2 border mb-3"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           required
         />
 
         <input
-            type="password"
-            placeholder="Confirm new password"
-            className="w-full p-2 border mb-4"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
+          type="password"
+          placeholder="Confirm new password"
+          className="w-full p-2 border mb-4"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          required
         />
 
         <button

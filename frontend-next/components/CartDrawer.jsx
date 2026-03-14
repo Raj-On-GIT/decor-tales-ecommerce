@@ -4,17 +4,8 @@ import { X, ShoppingBag, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { formatPrice } from "@/lib/formatPrice";
-import { getCart } from "@/lib/api";
 import { useStore } from "@/context/StoreContext";
 import { useGlobalToast } from "@/context/ToastContext";
-
-import {
-  addToCart as addToCartAPI,
-  updateCartItem,
-} from "@/lib/api";
-
-import { useAuth } from "@/context/AuthContext";
-
 
 const normalizeCategory = (category) => {
   if (!category) {
@@ -30,16 +21,7 @@ const normalizeCategory = (category) => {
 };
 
 export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
-  const {
-    cart,
-    addToCart,
-    removeFromCart,
-    decreaseQty,
-    replaceCart,
-    total,
-  } = useStore();
-
-  const { isAuthenticated } = useAuth();
+  const { cart, addToCart, removeFromCart, decreaseQty, total } = useStore();
   const { error } = useGlobalToast();
   return (
     <AnimatePresence>
@@ -64,9 +46,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
           >
             {/* HEADER */}
             <div className="p-6 border-b flex items-center justify-between">
-              <h2 className="text-xl font-serif font-bold">
-                Your Cart
-              </h2>
+              <h2 className="text-xl font-serif font-bold">Your Cart</h2>
 
               <button
                 onClick={() => setIsCartOpen(false)}
@@ -80,10 +60,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {cart.length === 0 ? (
                 <div className="text-center py-20 text-gray-500">
-                  <ShoppingBag
-                    size={48}
-                    className="mx-auto mb-4 opacity-20"
-                  />
+                  <ShoppingBag size={48} className="mx-auto mb-4 opacity-20" />
                   <p>Your cart is empty.</p>
 
                   <button
@@ -96,16 +73,13 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
               ) : (
                 cart.map((item) => (
                   <div
-                    key={`${item.id}-${item.variant?.id || "no-variant"}`}
+                    key={`${item.cart_item_id || item.id}-${item.variant?.id || "v0"}`}
                     className="flex space-x-4 items-start"
                   >
                     {/* IMAGE */}
                     <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                       <img
-                        src={
-                          item.image ||
-                          "https://via.placeholder.com/100"
-                        }
+                        src={item.image || "https://via.placeholder.com/100"}
                         alt={item.title}
                         className="w-full h-full object-cover"
                       />
@@ -123,16 +97,29 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
 
                       {/* VARIANT LINE */}
                       {item.variant &&
-                        (item.variant.size_name ||
-                          item.variant.color_name) && (
+                        (item.variant.size_name || item.variant.color_name) && (
                           <p className="text-xs text-gray-500">
-                            {item.variant.size_name &&
-                            item.variant.color_name
+                            {item.variant.size_name && item.variant.color_name
                               ? `${item.variant.size_name} | ${item.variant.color_name}`
                               : item.variant.size_name ||
                                 item.variant.color_name}
                           </p>
                         )}
+
+                     
+                      {/* CUSTOMIZATION TAG */}
+                      {item.customText ||
+                      item.custom_text ||
+                      item.customImages?.length ||
+                      item.custom_image ? (
+                        <span className="inline-block text-[10px] bg-amber-100 text-amber-700 px-2 py-[2px] rounded-full mt-1">
+                          Customized
+                        </span>
+                      ) : (
+                        <span className="inline-block text-[10px] bg-gray-200 text-gray-600 px-2 py-[2px] rounded-full mt-1">
+                          Standard
+                        </span>
+                      )}
 
                       <p className="font-semibold mt-2">
                         ₹{formatPrice(item.price)}
@@ -143,9 +130,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                     <div className="flex flex-col items-end justify-between">
                       {/* REMOVE BUTTON */}
                       <button
-                        onClick={() =>
-                          removeFromCart(item)
-                        }
+                        onClick={() => removeFromCart(item)}
                         className="text-gray-600 hover:text-red-500"
                       >
                         <X size={16} />
@@ -156,69 +141,41 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                         {/* DECREASE */}
                         <button
                           onClick={async () => {
-                            if (!isAuthenticated) {
-                              decreaseQty(item);
-                              return;
-                            }
-
                             try {
-                              const newQty =
-                                item.qty - 1;
-
-                              if (newQty <= 0) {
-                                decreaseQty(item);
-                                return;
-                              }
-
-                              await updateCartItem(
-                                item.id,
-                                newQty
-                              );
-
-                              decreaseQty(item);
+                              await decreaseQty(item);
                             } catch (err) {
-                              console.error(
-                                "Qty decrease failed:",
-                                err
-                              );
+                              console.error("Qty decrease failed:", err);
                             }
                           }}
                           className="w-8 h-8 border rounded-full hover:bg-gray-200 text-sm"
                         >
                           –
                         </button>
-
                         <span className="text-sm font-semibold w-6 text-center">
                           {item.qty}
                         </span>
-
                         {/* INCREASE */}
                         <button
                           onClick={async () => {
                             const availableStock =
                               item.variant?.stock ?? item.stock ?? 0;
+                            const sameVariantTotal = cart
+                              .filter(
+                                (c) =>
+                                  (c.variant?.id || null) ===
+                                  (item.variant?.id || null),
+                              )
+                              .reduce((sum, c) => sum + c.qty, 0);
 
-                            if (item.qty >= availableStock) {
-                              error(`Only ${availableStock} items available in stock.`);
-                              return;
-                            }
-
-                            if (!isAuthenticated) {
-                              addToCart({ ...item, qty: 1 });
+                            if (sameVariantTotal >= availableStock) {
+                              error(
+                                `Only ${availableStock} items available in stock.`,
+                              );
                               return;
                             }
 
                             try {
-                              await addToCartAPI(
-                                item.product_id,
-                                1,
-                                item.variant?.id || null
-                              );
-
-                              // 🔥 DO NOT increment locally
-                              const data = await getCart();
-                              replaceCart(data.items);
-
+                              await addToCart({ ...item, qty: 1 });
                             } catch (err) {
                               console.error("Qty increase failed:", err);
                             }
@@ -239,9 +196,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
               <div className="p-6 border-t bg-gray-50">
                 <div className="flex justify-between mb-4 text-lg font-bold">
                   <span>Subtotal</span>
-                  <span>
-                    ₹{formatPrice(total)}
-                  </span>
+                  <span>₹{formatPrice(total)}</span>
                 </div>
 
                 <p className="text-xs text-gray-500 mb-6 text-center">
@@ -250,16 +205,11 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
 
                 <Link
                   href="/checkout"
-                  onClick={() =>
-                    setIsCartOpen(false)
-                  }
+                  onClick={() => setIsCartOpen(false)}
                   className="w-full flex items-center justify-center bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-black transition"
                 >
                   Proceed to Checkout
-                  <ArrowRight
-                    size={16}
-                    className="ml-2"
-                  />
+                  <ArrowRight size={16} className="ml-2" />
                 </Link>
               </div>
             )}

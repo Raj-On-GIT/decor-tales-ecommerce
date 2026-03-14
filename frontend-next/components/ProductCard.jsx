@@ -58,9 +58,7 @@ const handleAddToCart = async () => {
     stock: hasVariants
       ? primaryVariant?.stock
       : product.stock,
-    stock_type: hasVariants
-      ? "variant"
-      : product.stock_type,
+    stock_type: product.stock_type,
     variant: hasVariants ? primaryVariant : null,
   };
 

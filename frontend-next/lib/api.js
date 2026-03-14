@@ -1,4 +1,4 @@
-import { getAccessToken, refreshAccessToken, clearTokens } from './auth';
+import { getAccessToken, refreshAccessToken, clearTokens } from "./auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -26,46 +26,47 @@ export async function getProducts(filters = {}) {
     const data = await res.json();
 
     // ✅ Handle paginated response
-    const products = Array.isArray(data)
-      ? data
-      : data.results || [];
+    const products = Array.isArray(data) ? data : data.results || [];
 
     // Transform image URLs
-    return products.map(product => {
-
+    return products.map((product) => {
       // The main image for the card should be product.image
-      const mainImageUrl = (product.image && product.image.startsWith("http"))
-        ? product.image
-        : product.image
-        ? `${BACKEND}${product.image}`
-        : null;
+      const mainImageUrl =
+        product.image && product.image.startsWith("http")
+          ? product.image
+          : product.image
+            ? `${BACKEND}${product.image}`
+            : null;
 
       // Start the gallery with the main image if it exists
       const galleryImages = [];
       if (product.image) {
-        galleryImages.push({ 
-          id: `main-${product.id}`, 
-          image: mainImageUrl 
+        galleryImages.push({
+          id: `main-${product.id}`,
+          image: mainImageUrl,
         });
       }
 
       // Add the rest of the gallery images
       if (product.images && Array.isArray(product.images)) {
-        product.images.forEach(img => {
-          const galleryImageUrl = (img.image && img.image.startsWith("http"))
-            ? img.image
-            : img.image
-            ? `${BACKEND}${img.image}`
-            : null;
-            
+        product.images.forEach((img) => {
+          const galleryImageUrl =
+            img.image && img.image.startsWith("http")
+              ? img.image
+              : img.image
+                ? `${BACKEND}${img.image}`
+                : null;
+
           if (galleryImageUrl) {
             galleryImages.push({ ...img, image: galleryImageUrl });
           }
         });
       }
-      
+
       // If there's no main image, use the first gallery image for the card.
-      const cardImageUrl = mainImageUrl || (galleryImages.length > 0 ? galleryImages[0].image : null);
+      const cardImageUrl =
+        mainImageUrl ||
+        (galleryImages.length > 0 ? galleryImages[0].image : null);
 
       return {
         ...product,
@@ -82,14 +83,11 @@ export async function getProducts(filters = {}) {
 
 export async function createOrder(orderData) {
   try {
-    const response = await fetchWithAuth(
-      `${API_BASE}/api/orders/create/`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderData),
-      }
-    );
+    const response = await fetchWithAuth(`${API_BASE}/api/orders/create/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(orderData),
+    });
 
     if (!response.ok) {
       throw new Error("Failed to create order");
@@ -121,12 +119,9 @@ export async function getCategories() {
     }
     const data = await res.json();
 
-    const categories = Array.isArray(data)
-      ? data
-      : data.results || [];
+    const categories = Array.isArray(data) ? data : data.results || [];
 
     return categories.map((category) => {
-
       if (category.image && !category.image.startsWith("http")) {
         category.image = `${BACKEND}${category.image}`;
       }
@@ -146,29 +141,30 @@ export async function getTrendingProducts() {
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
-      const data = await res.json();
+    const data = await res.json();
 
-      const products = Array.isArray(data)
-        ? data
-        : data.results || [];
+    const products = Array.isArray(data) ? data : data.results || [];
 
-      return products.map(product => {
-
-      const mainImageUrl = (product.image && product.image.startsWith("http"))
-        ? product.image
-        : product.image
-        ? `${BACKEND}${product.image}`
-        : null;
+    return products.map((product) => {
+      const mainImageUrl =
+        product.image && product.image.startsWith("http")
+          ? product.image
+          : product.image
+            ? `${BACKEND}${product.image}`
+            : null;
 
       const galleryImages = [];
       if (product.image) {
         galleryImages.push({ id: `main-${product.id}`, image: mainImageUrl });
       }
       if (product.images && Array.isArray(product.images)) {
-        product.images.forEach(img => {
-          const url = (img.image && img.image.startsWith("http"))
-            ? img.image
-            : img.image ? `${BACKEND}${img.image}` : null;
+        product.images.forEach((img) => {
+          const url =
+            img.image && img.image.startsWith("http")
+              ? img.image
+              : img.image
+                ? `${BACKEND}${img.image}`
+                : null;
           if (url) galleryImages.push({ ...img, image: url });
         });
       }
@@ -185,7 +181,6 @@ export async function getTrendingProducts() {
   }
 }
 
-
 function getMockCategories() {
   return [
     { id: 1, name: "Sunglasses", slug: "sunglasses" },
@@ -198,30 +193,30 @@ export { BACKEND };
 
 export async function searchProducts(query) {
   if (!query || query.length < 2) {
-    return { products: [], categories: [], subcategories: [], query: '' };
+    return { products: [], categories: [], subcategories: [], query: "" };
   }
-  
+
   const res = await fetch(
-    `${API_BASE}/api/search/?q=${encodeURIComponent(query)}`
+    `${API_BASE}/api/search/?q=${encodeURIComponent(query)}`,
   );
   const data = await res.json();
-  
+
   // Transform image URLs for products (same as getProducts)
   if (data.products) {
-    data.products = data.products.map(product => ({
+    data.products = data.products.map((product) => ({
       ...product,
-      image: product.image?.startsWith('http') 
-        ? product.image 
+      image: product.image?.startsWith("http")
+        ? product.image
         : `${BACKEND}${product.image}`,
-      images: product.images?.map(img => ({
+      images: product.images?.map((img) => ({
         ...img,
-        image: img.image?.startsWith('http')
+        image: img.image?.startsWith("http")
           ? img.image
-          : `${BACKEND}${img.image}`
-      }))
+          : `${BACKEND}${img.image}`,
+      })),
     }));
   }
-  
+
   return data;
 }
 
@@ -242,24 +237,24 @@ async function fetchWithAuth(url, options = {}) {
 
   // If token expired → try refresh once
   if (response.status === 401) {
-  const refreshed = await refreshAccessToken();
+    const refreshed = await refreshAccessToken();
 
-  if (refreshed) {
-    token = getAccessToken();
+    if (refreshed) {
+      token = getAccessToken();
 
-    response = await fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${token}`,
-      },
-    });
-  } else {
-    clearTokens();
-    window.location.href = "/login";
-    throw new Error("Session expired");
+      response = await fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } else {
+      clearTokens();
+      window.location.href = "/login";
+      throw new Error("Session expired");
+    }
   }
-}
 
   return response;
 }
@@ -268,43 +263,48 @@ async function fetchWithAuth(url, options = {}) {
 export async function addToCart(
   productId,
   quantity = 1,
-  variantId = null
+  variantId = null,
+  customText = null,
+  customImage = null,
 ) {
-  const response = await fetchWithAuth(
-    `${API_BASE}/api/orders/cart/add/`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        product_id: productId,
-        quantity,
-        variant_id: variantId,
-      }),
-    }
-  );
+  const formData = new FormData();
 
-  if (!response.ok) {
-  let message = "Failed to add item to cart";
+  formData.append("product_id", productId);
+  formData.append("quantity", quantity);
 
-  try {
-    const errorData = await response.json();
-    message = errorData.error || message;
-  } catch (_) {
-    // ignore JSON parse errors
+  if (variantId) {
+    formData.append("variant_id", variantId);
   }
 
-  throw new Error(message);
-}
+  if (customText) {
+    formData.append("custom_text", customText);
+  }
+
+  if (customImage) {
+    formData.append("custom_image", customImage);
+  }
+
+  const response = await fetchWithAuth(`${API_BASE}/api/orders/cart/add/`, {
+    method: "POST",
+    body: formData, // ❗ multipart automatically
+  });
+
+  if (!response.ok) {
+    let message = "Failed to add item to cart";
+
+    try {
+      const errorData = await response.json();
+      message = errorData.error || message;
+    } catch (_) {}
+
+    throw new Error(message);
+  }
 
   return response.json();
 }
 
 export async function getCart() {
-  const response = await fetchWithAuth(
-    `${API_BASE}/api/orders/cart/`
-  );
+  const response = await fetchWithAuth(`${API_BASE}/api/orders/cart/`);
 
   if (!response.ok) {
     throw new Error("Failed to fetch cart");
@@ -316,10 +316,12 @@ export async function getCart() {
   const transformedItems = (data.items || []).map((item) => {
     const product = item.product || {};
     const variant = item.variant || null;
-    
+
     return {
-      id: item.id,
+      cart_item_id: item.id, // unique cart row id
+      id: product.id, // product id used across UI
       product_id: product.id,
+
       title: product.title,
 
       price: Number(product.price || 0),
@@ -329,8 +331,10 @@ export async function getCart() {
         : `${process.env.NEXT_PUBLIC_BACKEND_URL}${product.image}`,
 
       category: product.category?.name || "Uncategorized",
+
       stock: product.stock,
       stock_type: product.stock_type,
+
       qty: item.quantity,
 
       variant: variant
@@ -340,6 +344,14 @@ export async function getCart() {
             color_name: variant.color_name,
             stock: variant.stock,
           }
+        : null,
+
+      custom_text: item.custom_text || null,
+
+      custom_image: item.custom_image
+        ? item.custom_image.startsWith("http")
+          ? item.custom_image
+          : `${process.env.NEXT_PUBLIC_BACKEND_URL}${item.custom_image}`
         : null,
     };
   });
@@ -354,7 +366,7 @@ export async function getCart() {
 export async function removeFromCart(itemId) {
   const response = await fetchWithAuth(
     `${API_BASE}/api/orders/cart/remove/${itemId}/`,
-    { method: "DELETE" }
+    { method: "DELETE" },
   );
 
   if (!response.ok) {
@@ -371,7 +383,7 @@ export async function updateCartItem(itemId, quantity) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ quantity }),
-    }
+    },
   );
 
   if (!response.ok) {
@@ -382,10 +394,9 @@ export async function updateCartItem(itemId, quantity) {
 }
 
 export async function clearCart() {
-  const response = await fetchWithAuth(
-    `${API_BASE}/api/orders/cart/clear/`,
-    { method: "DELETE" }
-  );
+  const response = await fetchWithAuth(`${API_BASE}/api/orders/cart/clear/`, {
+    method: "DELETE",
+  });
 
   if (!response.ok) {
     throw new Error("Failed to clear cart");
@@ -395,9 +406,7 @@ export async function clearCart() {
 }
 
 export async function getMyOrders() {
-  const response = await fetchWithAuth(
-    `${API_BASE}/api/orders/my-orders/`
-  );
+  const response = await fetchWithAuth(`${API_BASE}/api/orders/my-orders/`);
 
   if (!response.ok) {
     throw new Error("Failed to fetch orders");
@@ -407,9 +416,7 @@ export async function getMyOrders() {
 }
 
 export async function getOrderDetail(orderId) {
-  const response = await fetchWithAuth(
-    `${API_BASE}/api/orders/${orderId}/`
-  );
+  const response = await fetchWithAuth(`${API_BASE}/api/orders/${orderId}/`);
 
   if (!response.ok) {
     throw new Error("Failed to fetch order detail");
@@ -419,9 +426,7 @@ export async function getOrderDetail(orderId) {
 }
 
 export async function getProfile() {
-  const response = await fetchWithAuth(
-    `${API_BASE}/api/accounts/profile/`
-  );
+  const response = await fetchWithAuth(`${API_BASE}/api/accounts/profile/`);
 
   if (!response.ok) {
     throw new Error("Failed to fetch profile");
@@ -443,7 +448,7 @@ export async function updateProfile(formData) {
     {
       method: "PATCH",
       body: formData, // multipart
-    }
+    },
   );
 
   if (!response.ok) {
@@ -467,7 +472,7 @@ export async function createAddress(data) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    }
+    },
   );
   if (!res.ok) throw new Error();
   return res.json();
@@ -480,7 +485,7 @@ export async function updateAddress(id, data) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    }
+    },
   );
   if (!res.ok) throw new Error();
   return res.json();
@@ -489,21 +494,18 @@ export async function updateAddress(id, data) {
 export async function deleteAddress(id) {
   const res = await fetchWithAuth(
     `${API_BASE}/api/accounts/addresses/${id}/delete/`,
-    { method: "DELETE" }
+    { method: "DELETE" },
   );
   if (!res.ok) throw new Error();
   return res.json();
 }
 
 export async function createOrderWithAddress(addressId) {
-  const res = await fetchWithAuth(
-    `${API_BASE}/api/orders/create/`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ address_id: addressId }),
-    }
-  );
+  const res = await fetchWithAuth(`${API_BASE}/api/orders/create/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address_id: addressId }),
+  });
 
   if (!res.ok) {
     const err = await res.json();

@@ -16,22 +16,32 @@ class Cart(models.Model):
         return f"Cart for {self.user.username}"
 
 class CartItem(models.Model):
+
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
+
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+
     variant = models.ForeignKey(
         ProductVariant,
         on_delete=models.CASCADE,
         null=True,
-        blank=True,
+        blank=True
     )
-    quantity = models.IntegerField(default=1)
-    
-    class Meta:
-        unique_together = ('cart', 'product', 'variant')
-    
-    def __str__(self):
-        return f"{self.quantity}x {self.product.title}"
 
+    quantity = models.IntegerField(default=1)
+
+    custom_text = models.TextField(blank=True, null=True)
+
+    custom_image = models.ImageField(
+        upload_to="custom_orders/",
+        blank=True,
+        null=True
+    )
+
+    class Meta:
+        ordering = ["-id"]
+
+        
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -68,6 +78,13 @@ class OrderItem(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+    )
+    custom_text = models.TextField(blank=True, null=True)
+
+    custom_image = models.ImageField(
+        upload_to="order_customizations/",
+        blank=True,
+        null=True
     )
     def __str__(self):
         return f"{self.quantity}x {self.product.title}"

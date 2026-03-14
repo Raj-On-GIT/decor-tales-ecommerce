@@ -34,6 +34,8 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedColor, setSelectedColor] = useState(null);
 
+  const [uploadResetKey, setUploadResetKey] = useState(0);
+
   // ✅ True while loadProduct() is setting the initial size+color
   const isInitialising = useRef(true);
   // ✅ Stores the numeric product id
@@ -489,6 +491,7 @@ export default function ProductDetailPage() {
                                 </svg>
                                 Upload: {index + 1}
                                 <input
+                                  key={uploadResetKey}
                                   type="file"
                                   accept="image/*"
                                   onChange={(e) =>
@@ -702,28 +705,34 @@ export default function ProductDetailPage() {
                         price,
                         variant: selectedVariant,
                         qty,
-                        customText,
-                        customImages,
+                        customText: customText?.trim() || null,
+                        customImages:
+                          customImages.length > 0 ? customImages : null,
                       };
 
                       // ✅ Guest → use local logic
                       if (!isAuthenticated) {
                         addToCart(cartPayload);
+                        setCustomText("");
+                        setCustomImages([]);
+                        setUploadResetKey((k) => k + 1);
+                        setQty(1);
                         return;
                       }
-                      const existing = cart.find(
-                        (x) =>
-                          x.product_id === product.id &&
-                          (x.variant?.id || null) ===
-                            (selectedVariant?.id || null),
-                      );
-
                       const availableStock =
                         selectedVariant?.stock ?? product.stock ?? 0;
 
-                      const currentQtyInCart = existing?.qty || 0;
+                      // 🔥 Count ALL items of the same variant already in cart
+                      const sameVariantTotal = cart
+                        .filter(
+                          (x) =>
+                            x.product_id === product.id &&
+                            (x.variant?.id || null) ===
+                              (selectedVariant?.id || null),
+                        )
+                        .reduce((sum, x) => sum + x.qty, 0);
 
-                      const remainingStock = availableStock - currentQtyInCart;
+                      const remainingStock = availableStock - sameVariantTotal;
 
                       if (remainingStock <= 0) {
                         error(
@@ -747,17 +756,26 @@ export default function ProductDetailPage() {
                           } available in stock.`,
                         );
                       }
+
+                      const imageToSend =
+                        customImages.length > 0 ? customImages[0] : null;
+                      const textToSend = customText?.trim() || null;
                       // ✅ Authenticated → rely ONLY on backend
                       try {
                         await addToCartAPI(
                           product.id,
                           quantityToAdd,
                           selectedVariant?.id || null,
+                          textToSend,
+                          imageToSend,
                         );
 
                         const data = await getCart();
                         replaceCart(data.items);
 
+                        setCustomText("");
+                        setCustomImages([]);
+                        setUploadResetKey((k) => k + 1);
                         setQty(1);
                       } catch (err) {
                         error(err.message || "Unable to add item to cart");

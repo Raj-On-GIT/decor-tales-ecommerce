@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+from django.db.models import F,Q
 from django.db import transaction
 
 from .models import Order, Cart, CartItem, OrderItem
@@ -40,29 +41,106 @@ def add_to_cart(request):
         if variant_id:
             variant = get_object_or_404(ProductVariant, id=variant_id)
 
-        # Determine stock
+        custom_text = request.data.get("custom_text")
+        custom_image = request.FILES.get("custom_image")
+
+        # normalize empty values
+        if custom_text == "":
+            custom_text = None
+
+        # --------------------------------------------------
+        # VALIDATE CUSTOMIZATION PERMISSIONS
+        # --------------------------------------------------
+
+        if custom_image and not product.allow_custom_image:
+            return Response(
+                {"error": "This product does not allow image customization."},
+                status=400
+            )
+
+        if custom_text and not product.allow_custom_text:
+            return Response(
+                {"error": "This product does not allow text customization."},
+                status=400
+            )
+
+        # --------------------------------------------------
+        # DETERMINE AVAILABLE STOCK
+        # --------------------------------------------------
+
         available_stock = variant.stock if variant else product.stock
 
-        # ONLY ONE get_or_create
-        cart_item, created = CartItem.objects.get_or_create(
-            cart=cart,
-            product=product,
-            variant=variant,
-        )
-        
-        if created:
-            new_quantity = quantity
+        # --------------------------------------------------
+        # NORMAL PRODUCT (NO CUSTOMIZATION)
+        # Merge quantities
+        # --------------------------------------------------
+
+        if custom_text is None and custom_image is None:
+
+            cart_item = CartItem.objects.filter(
+                cart=cart,
+                product=product,
+                variant=variant
+            ).filter(
+                Q(custom_text__isnull=True) | Q(custom_text="")
+            ).filter(
+                Q(custom_image__isnull=True) | Q(custom_image="")
+            ).first()
+
+
+            if cart_item:
+
+                CartItem.objects.filter(id=cart_item.id).update(
+                    quantity=F("quantity") + quantity
+                )
+
+                cart_item.refresh_from_db()
+
+                if cart_item.quantity > available_stock:
+                    cart_item.quantity = available_stock
+                    cart_item.save()
+
+            else:
+
+                if quantity > available_stock:
+                    quantity = available_stock
+
+                cart_item = CartItem.objects.create(
+                    cart=cart,
+                    product=product,
+                    variant=variant,
+                    quantity=quantity,
+                    custom_text=None,
+                    custom_image=None
+                )
+
+        # --------------------------------------------------
+        # CUSTOMIZED PRODUCT
+        # Always create a new cart item
+        # --------------------------------------------------
+
         else:
-            new_quantity = cart_item.quantity + quantity
 
-        if new_quantity > available_stock:
-            new_quantity = available_stock
+            if quantity > available_stock:
+                quantity = available_stock
 
-        cart_item.quantity = new_quantity
-        cart_item.save()
+            cart_item = CartItem.objects.create(
+                cart=cart,
+                product=product,
+                variant=variant,
+                quantity=quantity,
+                custom_text=custom_text,
+                custom_image=custom_image
+            )
+
+        # --------------------------------------------------
+        # PRICE CALCULATION
+        # --------------------------------------------------
 
         price = (
-            variant.slashed_price or variant.mrp
+            variant.slashed_price
+            or variant.mrp
+            or get_product_price(product)
             if variant
             else get_product_price(product)
         )
@@ -79,6 +157,7 @@ def add_to_cart(request):
     except Exception as e:
         print("ADD TO CART ERROR:", str(e))
         return Response({"error": str(e)}, status=400)
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -127,9 +206,8 @@ def get_cart(request):
                     "price": str(price),
 
                     "image": (
-                        item.product.image.url
-                        if item.product.image
-                        else None
+                        request.build_absolute_uri(item.product.image.url)
+                        if item.product.image else None
                     ),
 
                     "category": {
@@ -149,6 +227,12 @@ def get_cart(request):
                 } if item.variant else None,
 
                 "quantity": item.quantity,
+
+                "custom_text": item.custom_text,
+                "custom_image": (
+                    request.build_absolute_uri(item.custom_image.url)
+                    if item.custom_image else None
+                ),
             })
 
         return Response({
@@ -265,7 +349,7 @@ def create_order(request):
             variant = item.variant
 
             if product.stock_type == "variants":
-                available_stock = variant.stock
+                available_stock = variant.stock if variant else 0
                 price = variant.slashed_price or variant.mrp
             else:
                 available_stock = product.stock
@@ -306,16 +390,20 @@ def create_order(request):
                 product=product,
                 variant=variant,
                 quantity=item.quantity,
-                price=price
+                price=price,
+                custom_text=item.custom_text,
+                custom_image=item.custom_image
             )
 
             # 🔥 Reduce correct stock
             if product.stock_type == "variants":
-                variant.stock -= item.quantity
-                variant.save()
+                ProductVariant.objects.filter(id=variant.id).update(
+                    stock=F("stock") - item.quantity
+                )
             else:
-                product.stock -= item.quantity
-                product.save()
+                Product.objects.filter(id=product.id).update(
+                    stock=F("stock") - item.quantity
+                )
 
         cart_items.delete()
 
@@ -368,14 +456,31 @@ def get_order_detail(request, order_id):
                 "name": i.product.category.name,
             } if i.product.category else None,
         },
+
         "variant": {
             "size_name": i.variant.size.name if i.variant and i.variant.size else None,
             "color_name": i.variant.color.name if i.variant and i.variant.color else None,
         } if i.variant else None,
+
         "quantity": i.quantity,
         "price": str(i.price),
-        "total": str(i.price * i.quantity)
-    } for i in order.items.select_related("product", "variant", "variant__size", "variant__color")]
+        "total": str(i.price * i.quantity),
+
+        # Customization fields
+        "custom_text": i.custom_text,
+
+        "custom_image": (
+            request.build_absolute_uri(i.custom_image.url)
+            if i.custom_image else None
+        )
+
+    } for i in order.items.select_related(
+        "product",
+        "product__category",
+        "variant",
+        "variant__size",
+        "variant__color"
+    )]
 
     return Response({
         "order": {
@@ -391,4 +496,3 @@ def get_order_detail(request, order_id):
             "items": items
         }
     })
-

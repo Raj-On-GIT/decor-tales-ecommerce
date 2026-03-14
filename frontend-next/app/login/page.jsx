@@ -5,15 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Shield } from "lucide-react";
-import { useAuth } from "@/context/AuthContext"; // ← IMPORT useAuth
-import { getCart, addToCart as addToCartAPI } from "@/lib/api";
-import { useStore } from "@/context/StoreContext";
 import { useGoogleLogin } from "@react-oauth/google";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
-  const { replaceCart } = useStore();
   const router = useRouter();
-  const { login } = useAuth(); // ← GET login function from context
+  const { login } = useAuth();
 
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -22,9 +19,9 @@ export default function LoginPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
   const googleLogin = useGoogleLogin({
     flow: "implicit",
-
     onSuccess: async (tokenResponse) => {
       const res = await fetch("http://127.0.0.1:8000/api/auth/google/", {
         method: "POST",
@@ -38,12 +35,11 @@ export default function LoginPage() {
 
       const data = await res.json();
 
-      login({ access: data.access, refresh: data.refresh });
+      await login({ access: data.access, refresh: data.refresh });
 
       router.refresh();
       router.replace("/");
     },
-
     onError: () => setError("Google login failed"),
   });
 
@@ -53,7 +49,6 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Step 1: Call login API
       const response = await fetch("http://127.0.0.1:8000/api/auth/login/", {
         method: "POST",
         headers: {
@@ -72,56 +67,8 @@ export default function LoginPage() {
         );
       }
 
-      // Step 2: Get tokens from response
       const data = await response.json();
-      // data = { access: "...", refresh: "...", user: {...} }
-
-      // ──────────────────────────────────────────────────────────────────
-      // Step 3: Store tokens and update auth state
-      // ──────────────────────────────────────────────────────────────────
-
-      // After login success:
-      login({ access: data.access, refresh: data.refresh });
-
-      // ─────────────────────────────────────────────
-      // STEP 3A: Capture guest cart BEFORE overwrite
-      // ─────────────────────────────────────────────
-      let guestCart = [];
-
-      if (typeof window !== "undefined") {
-        const storedCart = localStorage.getItem("cart");
-        guestCart = storedCart ? JSON.parse(storedCart) : [];
-      }
-
-      // ─────────────────────────────────────────────
-      // STEP 3B: Replay guest cart into backend
-      // ─────────────────────────────────────────────
-      if (guestCart.length > 0) {
-        for (const item of guestCart) {
-          try {
-            await addToCartAPI(
-              item.product_id || item.id,
-              item.qty || 1,
-              item.variant?.id || null,
-            );
-          } catch (err) {
-            console.error("Merge item failed:", err.message);
-          }
-        }
-
-        // ✅ CLEAR guest cart AFTER replay finishes
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("cart");
-        }
-      }
-
-      // STEP 3C: Fetch final merged server cart
-      try {
-        const serverCart = await getCart();
-        replaceCart(serverCart.items);
-      } catch (err) {
-        console.error("Failed to sync merged cart:", err);
-      }
+      await login({ access: data.access, refresh: data.refresh });
 
       router.refresh();
       router.replace("/");
@@ -132,10 +79,8 @@ export default function LoginPage() {
     }
   };
 
-  // Rest of your component stays the same
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#e8f3f1] via-white to-[#f6efe2] px-10">
-      {/* Decorative Blurred Background Shapes */}
       <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-[#2f5d56]/30 rounded-full blur-[120px]" />
       <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-[#ffb347]/20 rounded-full blur-[120px]" />
 
@@ -155,12 +100,10 @@ export default function LoginPage() {
         grid grid-cols-1 md:grid-cols-2
       "
       >
-        {/* LEFT PANEL — LOGIN FORM */}
         <div className="p-10 md:p-14 flex flex-col justify-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">Sign In</h1>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email */}
             <div className="relative">
               <Mail
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -179,7 +122,6 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Password */}
             <div className="relative">
               <Lock
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -205,7 +147,6 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {/* Forgot password */}
             <div className="text-left px-2">
               <Link
                 href="/forgot-password"
@@ -215,7 +156,6 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            {/* Error */}
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
@@ -226,7 +166,6 @@ export default function LoginPage() {
               </motion.div>
             )}
 
-            {/* Login Button */}
             <button
               type="submit"
               disabled={loading}
@@ -246,7 +185,6 @@ export default function LoginPage() {
               {loading ? "Logging In..." : "Sign In"}
             </button>
 
-            {/* Hidden Google Button */}
             <button
               type="button"
               onClick={() => googleLogin()}
@@ -286,9 +224,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* RIGHT PANEL — DECORATIVE SIDE */}
         <div className="hidden md:flex relative items-center justify-center p-12 overflow-hidden">
-          {/* Animated Gradient Background */}
           <div
             className="absolute inset-0 
                 bg-[length:200%_200%] 
@@ -299,16 +235,13 @@ export default function LoginPage() {
                 animate-gradient-slow"
           />
 
-          {/* Blurred Image Layer */}
           <div
             className="absolute inset-0 bg-cover bg-center opacity-70 blur-xl scale-110"
             style={{ backgroundImage: "url('/login-bg.jpg')" }}
           />
 
-          {/* Dark Overlay */}
           <div className="absolute inset-0 bg-black/10" />
 
-          {/* Content */}
           <div className="relative text-white text-center max-w-xs flex flex-col items-center">
             <h2 className="text-3xl font-bold mb-4">Hey There!</h2>
             <p className="text-sm opacity-90 mb-6">

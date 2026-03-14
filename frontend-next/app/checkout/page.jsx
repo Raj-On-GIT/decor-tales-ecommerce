@@ -176,7 +176,13 @@ export default function CheckoutPage() {
 
           <div className="space-y-6">
             {cart.map((item) => (
-              <div key={item.id} className="flex items-center justify-between">
+              <div
+                key={
+                  item.cart_item_id ||
+                  `${item.id}-${item.variant?.id || "v0"}-${item.custom_text || "plain"}-${item.custom_image || "noimg"}`
+                }
+                className="flex items-center justify-between"
+              >
                 <div className="flex items-center gap-4">
                   {item.image && (
                     <img
@@ -186,21 +192,47 @@ export default function CheckoutPage() {
                     />
                   )}
                   <div>
-  <div className="font-medium">{item.title}</div>
+                    <div className="font-medium">{item.title}</div>
 
-  {/* Variant Info */}
-  {item.variant && (
-    <div className="text-sm text-gray-500">
-      {item.variant.size_name && `Size: ${item.variant.size_name}`}
-      {item.variant.color_name &&
-        `${item.variant.size_name ? " | " : ""}Color: ${item.variant.color_name}`}
-    </div>
-  )}
+                    {/* Variant Info */}
+                    {item.variant && (
+                      <div className="text-sm text-gray-500">
+                        {item.variant.size_name &&
+                          `Size: ${item.variant.size_name}`}
+                        {item.variant.color_name &&
+                          `${item.variant.size_name ? " | " : ""}Color: ${item.variant.color_name}`}
+                      </div>
+                    )}
 
-  <div className="text-sm text-gray-500">
-    Qty: {item.qty}
-  </div>
-</div>
+                    <div className="text-sm text-gray-500">Qty: {item.qty}</div>
+
+                    {/* CUSTOMIZATION DROPDOWN */}
+                    {(item.custom_text || item.custom_image) && (
+                      <details className="mt-2 text-sm">
+                        <summary className="cursor-pointer text-gray-600 hover:text-black">
+                          View Customization
+                        </summary>
+
+                        <div className="mt-2 space-y-2">
+                          {item.custom_text && (
+                            <div className="text-gray-700">
+                              <strong>Text:</strong> {item.custom_text}
+                            </div>
+                          )}
+
+                          {item.custom_image && (
+                            <div className="flex gap-2 flex-wrap">
+                              <img
+                                src={item.custom_image}
+                                alt="custom"
+                                className="w-14 h-14 rounded-lg object-cover border"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </details>
+                    )}
+                  </div>
                 </div>
 
                 <div className="font-medium">

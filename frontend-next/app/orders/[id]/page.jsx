@@ -39,12 +39,9 @@ export default function OrderDetailPage() {
 
   return (
     <div className="min-h-[60vh] bg-gray-50 p-6">
-      <h1 className="text-3xl font-bold mb-6">
-        Order #{order.order_number}
-      </h1>
+      <h1 className="text-3xl font-bold mb-6">Order #{order.order_number}</h1>
 
       <div className="bg-white p-6 rounded-lg shadow space-y-6">
-
         {/* Status */}
         <div>
           <p className="text-sm text-gray-500">Status</p>
@@ -62,64 +59,83 @@ export default function OrderDetailPage() {
 
         {/* Items */}
         <div>
-        <p className="text-sm text-gray-500 mb-3">Items</p>
+          <p className="text-sm text-gray-500 mb-3">Items</p>
 
-        <div className="space-y-4">
+          <div className="space-y-4">
             {order.items.map((item, index) => (
-            <div
+              <div
                 key={index}
                 className="flex justify-between items-center border-b pb-4"
-            >
+              >
                 <div className="flex items-center gap-4">
-
-                {/* Product Thumbnail */}
-                {item.product.image && (
+                  {/* Product Thumbnail */}
+                  {item.product.image && (
                     <img
-                    src={item.product.image}
-                    className="w-16 h-16 object-cover rounded-md"
-                    alt={item.product.title}
+                      src={item.product.image}
+                      className="w-16 h-16 object-cover rounded-md"
+                      alt={item.product.title}
                     />
-                )}
+                  )}
 
-                <div>
-                    <p className="font-medium">
-                    {item.product.title}
-                    </p>
+                  <div>
+                    <p className="font-medium">{item.product.title}</p>
 
-                    {/* Variant Info */}
+                    {/* Variant */}
                     {item.variant && (
-                    <p className="text-sm text-gray-500">
-                        {item.variant.size_name && `Size: ${item.variant.size_name}`}
-                        {item.variant.color_name && ` | Color: ${item.variant.color_name}`}
-                    </p>
+                      <p className="text-sm text-gray-500">
+                        {item.variant.size_name &&
+                          `Size: ${item.variant.size_name}`}
+                        {item.variant.color_name &&
+                          `${item.variant.size_name ? " | " : ""}Color: ${item.variant.color_name}`}
+                      </p>
                     )}
 
                     <p className="text-sm text-gray-500">
-                    Qty: {item.quantity}
+                      Qty: {item.quantity}
                     </p>
-                </div>
+
+                    {/* CUSTOMIZATION DROPDOWN */}
+                    {(item.custom_text || item.custom_image) && (
+                      <details className="mt-2 text-sm">
+                        <summary className="cursor-pointer text-gray-600 hover:text-black">
+                          View Customization
+                        </summary>
+
+                        <div className="mt-2 space-y-2">
+                          {item.custom_text && (
+                            <div className="text-gray-700">
+                              <strong>Text:</strong> {item.custom_text}
+                            </div>
+                          )}
+
+                          {item.custom_image && (
+                            <div className="flex gap-2 flex-wrap">
+                              <img
+                                src={item.custom_image}
+                                alt="custom"
+                                className="w-16 h-16 rounded-lg object-cover border"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </details>
+                    )}
+                  </div>
                 </div>
 
                 <div className="text-right">
-                <p className="font-semibold">
-                    ₹{item.total}
-                </p>
-                <p className="text-sm text-gray-500">
-                    ₹{item.price} each
-                </p>
+                  <p className="font-semibold">₹{item.total}</p>
+                  <p className="text-sm text-gray-500">₹{item.price} each</p>
                 </div>
-            </div>
+              </div>
             ))}
-        </div>
+          </div>
         </div>
 
         {/* Total */}
         <div className="text-right">
-          <p className="text-lg font-bold">
-            Total: ₹{order.total}
-          </p>
+          <p className="text-lg font-bold">Total: ₹{order.total}</p>
         </div>
-
       </div>
     </div>
   );
