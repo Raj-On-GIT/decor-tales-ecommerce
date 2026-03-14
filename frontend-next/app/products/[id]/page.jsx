@@ -6,7 +6,7 @@ import { ShoppingBag } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { formatPrice } from "@/lib/formatPrice";
 import ProductCard from "@/components/ProductCard";
-import { addToCart as addToCartAPI, getCart } from "@/lib/api";
+import { addToCart as addToCartAPI, getCart, getProducts } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalToast } from "@/context/ToastContext";
 import PageLoader from "@/components/ui/PageLoader";
@@ -64,8 +64,7 @@ export default function ProductDetailPage() {
 
         // 2. Fetch & Filter Related Products
         // Note: For better performance, consider a backend endpoint like /api/products/?category=...
-        const allRes = await fetch("http://127.0.0.1:8000/api/products/");
-        const allData = await allRes.json();
+        const allData = await getProducts();
 
         if (Array.isArray(allData)) {
           // Prefer subcategory match first, fall back to category
