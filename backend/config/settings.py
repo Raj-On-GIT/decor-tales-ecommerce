@@ -148,7 +148,8 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  # Your Next.js dev server
     "http://127.0.0.1:3000",
-]
+    "https://decor-tales-ecommerce.vercel.app"
+    ]
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR.parent, "media")
