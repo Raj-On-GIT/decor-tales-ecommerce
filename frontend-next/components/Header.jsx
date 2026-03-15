@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { ShoppingBag, Search, Menu, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../context/StoreContext";
@@ -19,15 +19,15 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const toast = useGlobalToast();
   const router = useRouter();
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   const profileRef = useRef(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -42,9 +42,6 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isProfileOpen]);
 
-  useEffect(() => {
-    console.log("Search open state:", isSearchOpen);
-  }, [isSearchOpen]);
   const cartCount = mounted ? cart.reduce((acc, item) => acc + item.qty, 0) : 0;
   useEffect(() => {
     const handleLogin = () => {
@@ -79,13 +76,19 @@ export default function Header() {
       {/* HEADER */}
       <header className="sticky top-0 z-40 bg-[#F0FFDF]/80 backdrop-blur-md border-b border-gray-100">
         <div
-          className="max-w-screen-2xl mx-auto 
+          className={`max-w-screen-2xl mx-auto 
                         px-4 sm:px-6 md:px-10 lg:px-20
                         h-14 md:h-16 
-                        flex items-center justify-between"
+                        flex items-center ${
+                          isSearchOpen ? "justify-end md:justify-between" : "justify-between"
+                        }`}
         >
           {/* LEFT - Logo & Nav */}
-          <div className="flex items-center space-x-4 md:space-x-8">
+          <div
+            className={`items-center space-x-4 md:space-x-8 ${
+              isSearchOpen ? "hidden md:flex" : "flex"
+            }`}
+          >
             <Link
               href="/"
               className="flex items-center gap-2 md:gap-3
@@ -122,7 +125,11 @@ export default function Header() {
           </div>
 
           {/* RIGHT - Search, Cart, Profile */}
-          <div className="flex items-center space-x-2 md:space-x-4">
+          <div
+            className={`flex items-center ${
+              isSearchOpen ? "w-full justify-end md:w-auto md:space-x-4" : "space-x-2 md:space-x-4"
+            }`}
+          >
             {/* Search Button */}
             {/* Search Button */}
             <AnimatePresence mode="wait">
@@ -131,6 +138,7 @@ export default function Header() {
                   key="searchbar"
                   isOpen={isSearchOpen}
                   onClose={() => setIsSearchOpen(false)}
+                  isMobile={true}
                 />
               ) : (
                 <motion.button
@@ -150,7 +158,9 @@ export default function Header() {
             {/* Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2 text-gray-900 hover:bg-gray-100 rounded-full transition"
+              className={`relative p-2 text-gray-900 hover:bg-gray-100 rounded-full transition ${
+                isSearchOpen ? "hidden md:inline-flex" : ""
+              }`}
             >
               <ShoppingBag size={20} />
               {mounted && cartCount > 0 && (
@@ -164,7 +174,12 @@ export default function Header() {
             {/* PROFILE BUTTON - AUTH-AWARE */}
             {/* ═══════════════════════════════════════════════════════════ */}
 
-            <div ref={profileRef} className="relative">
+            <div
+              ref={profileRef}
+              className={`relative hidden md:block ${
+                isSearchOpen ? "md:hidden" : ""
+              }`}
+            >
               {/* Profile Icon */}
               <button
                 disabled={loading}
@@ -285,7 +300,7 @@ export default function Header() {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMenuOpen(true)}
-              className="md:hidden p-2"
+              className={`md:hidden p-2 ${isSearchOpen ? "hidden" : ""}`}
             >
               <Menu size={24} />
             </button>

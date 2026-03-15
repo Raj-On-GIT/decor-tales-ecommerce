@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { searchProducts } from "@/lib/api";
 import { Search, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 
-export default function SearchBar({ isOpen, onClose }) {
+export default function SearchBar({ isOpen, onClose, isMobile = false }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -15,6 +15,11 @@ export default function SearchBar({ isOpen, onClose }) {
   const containerRef = useRef(null);
   const latestQueryRef = useRef("");
   const router = useRouter();
+  const handleClose = useCallback(() => {
+    setQuery("");
+    setResults(null);
+    onClose();
+  }, [onClose]);
 
   // Focus input
   useEffect(() => {
@@ -23,7 +28,7 @@ export default function SearchBar({ isOpen, onClose }) {
       inputRef.current?.focus();
     }, 200);
     return () => clearTimeout(timer);
-  }, [isOpen]);
+  }, [handleClose, isOpen]);
 
   // Debounced search with race protection
   useEffect(() => {
@@ -67,7 +72,7 @@ export default function SearchBar({ isOpen, onClose }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () =>
       document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
+  }, [handleClose, isOpen]);
 
   // Close on escape
   useEffect(() => {
@@ -80,13 +85,7 @@ export default function SearchBar({ isOpen, onClose }) {
     document.addEventListener("keydown", handleEscape);
     return () =>
       document.removeEventListener("keydown", handleEscape);
-  }, [isOpen]);
-
-  const handleClose = () => {
-    setQuery("");
-    setResults(null);
-    onClose();
-  };
+  }, [handleClose, isOpen]);
 
   const navigate = (path) => {
     handleClose();
@@ -113,15 +112,22 @@ export default function SearchBar({ isOpen, onClose }) {
     : 0;
 
   return (
-    <div ref={containerRef} className="relative flex items-center">
+    <div
+      ref={containerRef}
+      className={`relative flex items-center ${
+        isMobile ? "w-full md:w-auto" : ""
+      }`}
+    >
 
       {/* Animated input container */}
       <motion.div
         initial={{ width: 0, opacity: 0 }}
-        animate={{ width: "280px", opacity: 1 }}
+        animate={{ width: isMobile ? "100%" : "280px", opacity: 1 }}
         exit={{ width: 0, opacity: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="flex items-center gap-2 overflow-hidden border-b-2 border-gray-900 pb-1 origin-right"
+        className={`flex items-center gap-2 overflow-hidden border-b-2 border-gray-900 pb-1 origin-right ${
+          isMobile ? "w-full" : ""
+        }`}
       >
         <motion.div
           initial={{ opacity: 0, x: 10 }}
@@ -183,9 +189,11 @@ export default function SearchBar({ isOpen, onClose }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="absolute top-full right-0 mt-3 w-96 max-w-[calc(100vw-2rem)]
+            className={`absolute top-full right-0 mt-3 w-96 max-w-[calc(100vw-2rem)]
                        bg-[#F0FFDF] border border-gray-200 rounded-lg shadow-xl
-                       max-h-96 overflow-y-auto z-50"
+                       max-h-96 overflow-y-auto z-50 ${
+                         isMobile ? "left-0 right-auto w-full max-w-none" : ""
+                       }`}
           >
             {loading ? (
             <div className="p-6 flex items-center justify-center gap-3 text-gray-500 text-sm">
@@ -194,7 +202,7 @@ export default function SearchBar({ isOpen, onClose }) {
             </div>
           ) : totalResults === 0 ? (
               <div className="p-6 text-center text-gray-500 text-sm">
-                No results for "{query}"
+                No results for &quot;{query}&quot;
               </div>
             ) : (
               <>
