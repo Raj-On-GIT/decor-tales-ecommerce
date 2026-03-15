@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Loader2, ShoppingBag } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
@@ -827,16 +829,24 @@ export default function ProductDetailPage() {
                 </p>
               </div>
 
-              <a
+              <Link
                 href={
                   product.sub_category
                     ? `/catalog/${product.category?.slug}/${product.sub_category?.slug}`
                     : `/catalog/${product.category?.slug}`
                 }
-                className="self-start text-sm font-bold underline sm:self-auto"
+                className="inline-flex self-start items-center gap-2 text-sm font-bold underline sm:self-auto"
               >
-                View All →
-              </a>
+                <span>View All</span>
+                <Image
+                  src="/right_arrow.svg"
+                  alt=""
+                  width={16}
+                  height={16}
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                />
+              </Link>
             </div>
 
             {/* Product Grid */}
@@ -851,3 +861,4 @@ export default function ProductDetailPage() {
     </>
   );
 }
+

@@ -1,3 +1,5 @@
+import Image from "next/image";
+import Link from "next/link";
 import { getCategories } from "@/lib/api";
 import BrowseByCategoryClient from "./BrowseByCategoryClient";
 
@@ -39,15 +41,23 @@ export default async function BrowseByCategory() {
           </p>
         </div>
 
-        <a
+        <Link
           href="/catalog"
           className="
-          text-sm font-bold underline
+          inline-flex items-center gap-2 text-sm font-bold underline
           self-start sm:self-auto
         "
         >
-          View All →
-        </a>
+          <span>View All</span>
+          <Image
+            src="/right_arrow.svg"
+            alt=""
+            width={16}
+            height={16}
+            className="h-4 w-4"
+            aria-hidden="true"
+          />
+        </Link>
       </div>
 
       {/* Categories Grid */}
