@@ -151,25 +151,6 @@ export default function SearchBar({ isOpen, onClose, isMobile = false }) {
                      text-sm font-medium w-full"
         />
 
-        <AnimatePresence>
-          {query && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.5 }}
-              transition={{ duration: 0.15 }}
-              onClick={() => {
-                setQuery("");
-                setResults(null);
-                inputRef.current?.focus();
-              }}
-              className="text-gray-400 hover:text-gray-600 flex-shrink-0"
-            >
-              <X size={14} />
-            </motion.button>
-          )}
-        </AnimatePresence>
-
         <motion.button
           initial={{ opacity: 0, rotate: -90 }}
           animate={{ opacity: 1, rotate: 0 }}
