@@ -70,6 +70,7 @@ export default function Header() {
       router.push("/");
     }, 200);
   };
+  const trackOrderHref = isAuthenticated ? "/orders" : "/login";
 
   return (
     <>
@@ -112,7 +113,7 @@ export default function Header() {
                 Catalog
               </Link>
               <Link
-                href="/tracking"
+                href={trackOrderHref}
                 className="hover:text-black transition-colors"
               >
                 Track Order
@@ -343,7 +344,7 @@ export default function Header() {
                   Catalog
                 </Link>
                 <Link
-                  href="/tracking"
+                  href={trackOrderHref}
                   onClick={() => setIsMenuOpen(false)}
                   className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
                 >

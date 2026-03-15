@@ -18,7 +18,8 @@ export default function AccountPage() {
     last_name: "",
     phone: "",
   });
-  const [avatarPreview, setAvatarPreview] = useState(null);
+
+  const [avatarPreview, setAvatarPreview] = useState(null); 
   const [avatarFile, setAvatarFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
