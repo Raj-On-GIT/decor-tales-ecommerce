@@ -5,7 +5,7 @@ export default function TrustSection() {
     {
       icon: <Truck size={28} />,
       title: "Fast Delivery",
-      desc: "Pan-India shipping in 3–5 days.",
+      desc: "Pan-India shipping in 3-5 days.",
     },
     {
       icon: <ShieldCheck size={28} />,
@@ -21,17 +21,19 @@ export default function TrustSection() {
 
   return (
     <section className="bg-white py-16">
-      <div className="max-w-screen-2xl mx-auto px-35 grid md:grid-cols-3 gap-10 text-center">
-        {items.map((x, i) => (
+      <div className="mx-auto grid max-w-screen-2xl grid-cols-1 gap-4 px-5 sm:grid-cols-2 sm:gap-6 sm:px-6 md:px-10 lg:grid-cols-3 lg:gap-10 xl:px-35">
+        {items.map((item, index) => (
           <div
-            key={i}
-            className="p-8 bg-white rounded-xl shadow-sm border"
+            key={index}
+            className="flex items-start gap-4 rounded-2xl border bg-white p-5 text-left shadow-sm sm:flex-col sm:items-center sm:p-6 sm:text-center lg:p-8"
           >
-            <div className="flex justify-center mb-4 text-gray-900">
-              {x.icon}
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#F0FFDF] text-gray-900 sm:mb-1">
+              {item.icon}
             </div>
-            <h3 className="font-bold text-gray-800 text-black mb-2">{x.title}</h3>
-            <p className="text-gray-600 text-sm">{x.desc}</p>
+            <div>
+              <h3 className="mb-1 font-bold text-black sm:mb-2">{item.title}</h3>
+              <p className="text-sm text-gray-600">{item.desc}</p>
+            </div>
           </div>
         ))}
       </div>
