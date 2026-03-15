@@ -36,7 +36,7 @@ export default function AddressesPage() {
   async function loadAddresses() {
     try {
       const data = await getAddresses();
-      setAddresses(data);
+      setAddresses(Array.isArray(data) ? data : data?.results || []);
     } catch {
       error("Failed to load addresses");
     } finally {
@@ -99,8 +99,6 @@ export default function AddressesPage() {
     }
   }
 
-  if (loading) return null;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -117,10 +115,14 @@ export default function AddressesPage() {
         </button>
       </div>
 
-      {addresses.length === 0 && (
+      {loading ? (
+        <div className="space-y-4">
+          <div className="h-24 animate-pulse rounded-xl bg-gray-100" />
+          <div className="h-24 animate-pulse rounded-xl bg-gray-100" />
+        </div>
+      ) : addresses.length === 0 ? (
         <p className="text-gray-500">No saved addresses yet.</p>
-      )}
-
+      ) : (
       <div className="space-y-4">
         {addresses.map((addr) => (
           <div
@@ -165,6 +167,7 @@ export default function AddressesPage() {
           </div>
         ))}
       </div>
+      )}
 
       {formOpen && (
         <div className="mt-8 border-t pt-6">

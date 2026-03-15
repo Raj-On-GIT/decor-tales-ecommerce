@@ -21,6 +21,7 @@ export default function AccountPage() {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -31,6 +32,7 @@ export default function AccountPage() {
   useEffect(() => {
     async function loadProfile() {
       try {
+        setProfileLoading(true);
         const data = await getProfile();
         setProfile(data);
         setForm({
@@ -41,15 +43,15 @@ export default function AccountPage() {
         setAvatarPreview(data.profile?.avatar || null);
       } catch (err) {
         error("Failed to load profile");
+      } finally {
+        setProfileLoading(false);
       }
     }
 
     if (isAuthenticated) {
       loadProfile();
     }
-  }, [error, isAuthenticated]);
-
-  if (!profile) return null;
+  }, [isAuthenticated]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -105,6 +107,23 @@ export default function AccountPage() {
       className="w-full rounded-2xl bg-white p-5 shadow-xl sm:p-6 lg:max-w-2xl lg:p-8"
     >
       <h1 className="mb-6 text-2xl font-bold">My Account</h1>
+
+      {profileLoading ? (
+        <div className="space-y-4">
+          <div className="mx-auto h-24 w-24 animate-pulse rounded-full bg-gray-200 sm:h-28 sm:w-28" />
+          <div className="h-12 animate-pulse rounded-lg bg-gray-100" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="h-12 animate-pulse rounded-lg bg-gray-100" />
+            <div className="h-12 animate-pulse rounded-lg bg-gray-100" />
+          </div>
+          <div className="h-12 animate-pulse rounded-lg bg-gray-100" />
+          <div className="h-12 animate-pulse rounded-lg bg-gray-100" />
+        </div>
+      ) : !profile ? (
+        <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600">
+          Unable to load your profile right now.
+        </div>
+      ) : (
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="flex flex-col items-center gap-4">
@@ -212,6 +231,7 @@ export default function AccountPage() {
           {saving ? "Saving..." : "Save Changes"}
         </button>
       </form>
+      )}
     </motion.div>
   );
 }
