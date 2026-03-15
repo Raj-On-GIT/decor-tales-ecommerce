@@ -17,7 +17,7 @@ export default function BrowseByCategoryClient({ categories }) {
       {categories.map(category => (
         <Link key={category.id} href={`/catalog/${category.slug}`}>
           <div className="group cursor-pointer">
-            <div className="relative flex min-h-[220px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-[#F0FFDF] p-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] sm:h-64">
+            <div className="relative flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-[#F0FFDF] p-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] sm:h-64">
               <div className="relative h-28 w-full overflow-hidden rounded-xl bg-gray-50 sm:h-40">
                 {category.image ? (
                   <Image
