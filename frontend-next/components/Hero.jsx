@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 export default function Hero() {
   const line = "Frames that tell your story.";
+  const typingSpeed = 90;
 
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
@@ -12,8 +13,11 @@ export default function Hero() {
   const [hovered, setHovered] = useState(false);
 
   const heroRef = useRef(null);
+  const animationFrameRef = useRef(null);
+  const startTimeRef = useRef(null);
+  const buttonTimerRef = useRef(null);
+  const doneRef = useRef(false);
 
-  // ================= VIEWPORT TRIGGER =================
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -30,65 +34,98 @@ export default function Hero() {
     return () => observer.disconnect();
   }, []);
 
-  // ================= TYPING EFFECT =================
   useEffect(() => {
-    if (!startTyping) return;
+    if (!startTyping || doneRef.current) return;
 
-    let i = 0;
-
-    const typing = setInterval(() => {
-      setText(line.substring(0, i + 1));
-      i++;
-
-      if (i === line.length) {
-        clearInterval(typing);
-        setDone(true);
-
-        setTimeout(() => {
-          setShowButton(true);
-        }, 500);
+    const revealText = (timestamp) => {
+      if (startTimeRef.current === null) {
+        startTimeRef.current = timestamp;
       }
-    }, 90);
 
-    return () => clearInterval(typing);
-  }, [startTyping]);
+      const elapsed = timestamp - startTimeRef.current;
+      const nextLength = Math.min(
+        line.length,
+        Math.floor(elapsed / typingSpeed) + 1,
+      );
+
+      setText(line.slice(0, nextLength));
+
+      if (nextLength >= line.length) {
+        setDone(true);
+        doneRef.current = true;
+        animationFrameRef.current = null;
+
+        if (!buttonTimerRef.current) {
+          buttonTimerRef.current = window.setTimeout(() => {
+            setShowButton(true);
+          }, 500);
+        }
+        return;
+      }
+
+      animationFrameRef.current = window.requestAnimationFrame(revealText);
+    };
+
+    const resumeAnimation = () => {
+      if (animationFrameRef.current || doneRef.current) return;
+      animationFrameRef.current = window.requestAnimationFrame(revealText);
+    };
+
+    resumeAnimation();
+
+    window.addEventListener("focus", resumeAnimation);
+    window.addEventListener("pageshow", resumeAnimation);
+    document.addEventListener("visibilitychange", resumeAnimation);
+
+    return () => {
+      if (animationFrameRef.current) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+
+      if (buttonTimerRef.current) {
+        window.clearTimeout(buttonTimerRef.current);
+        buttonTimerRef.current = null;
+      }
+
+      window.removeEventListener("focus", resumeAnimation);
+      window.removeEventListener("pageshow", resumeAnimation);
+      document.removeEventListener("visibilitychange", resumeAnimation);
+    };
+  }, [line, startTyping]);
 
   return (
     <section
       ref={heroRef}
       className="
-        w-full relative flex items-center justify-center
-        h-[70vh] sm:h-[80vh] md:h-[85vh]
+        relative flex h-[70vh] w-full items-center justify-center
+        sm:h-[80vh] md:h-[85vh]
       "
     >
-      {/* Background Image */}
       <img
         src="https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=2000"
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 h-full w-full object-cover"
         alt="Hero"
       />
 
-      {/* Overlay */}
       <div className="absolute inset-0 bg-black/40" />
 
-      {/* Content */}
-      <div className="relative z-10 text-center text-white max-w-xl md:max-w-3xl px-6">
-        {/* HEADING */}
+      <div className="relative z-10 max-w-xl px-6 text-center text-white md:max-w-3xl">
         <h1
+          translate="no"
           className="
+            notranslate mb-6
             font-serif font-bold
             text-4xl sm:text-5xl md:text-6xl lg:text-7xl
             leading-tight
-            mb-6
           "
         >
           {text}
           {!done && (
-            <span className="ml-1 inline-block w-[3px] h-[0.75em] bg-white animate-blink" />
+            <span className="ml-1 inline-block h-[0.75em] w-[3px] bg-white animate-blink" />
           )}
         </h1>
 
-        {/* CTA BUTTON */}
         <a
           href="/catalog"
           onMouseEnter={(e) => {
@@ -103,21 +140,14 @@ export default function Hero() {
           }}
           onMouseLeave={() => setHovered(false)}
           className={`
-            relative overflow-hidden
-            inline-flex items-center justify-center
-            bg-white
-            font-bold
-            px-6 py-3 md:px-8 md:py-3
-            rounded-lg
-            transition-all duration-700
+            relative inline-flex items-center justify-center overflow-hidden rounded-lg bg-white px-6 py-3 font-bold transition-all duration-700 md:px-8 md:py-3
             ${
               showButton
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 -translate-y-6 pointer-events-none"
+                ? "translate-y-0 opacity-100"
+                : "-translate-y-6 pointer-events-none opacity-0"
             }
           `}
         >
-          {/* Button Text */}
           <span
             className={`relative z-10 transition-colors duration-700 ${
               hovered ? "text-white" : "text-black"
@@ -126,15 +156,9 @@ export default function Hero() {
             Shop Collection
           </span>
 
-          {/* Ripple */}
           <span
             className={`
-              absolute
-              w-4 h-4
-              rounded-full
-              bg-[#2f5d56]
-              pointer-events-none
-              -translate-x-1/2 -translate-y-1/2
+              pointer-events-none absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#2f5d56]
               transition-transform duration-900 ease-[cubic-bezier(0.25,1,0.5,1)]
               ${hovered ? "scale-[40]" : "scale-0"}
             `}
