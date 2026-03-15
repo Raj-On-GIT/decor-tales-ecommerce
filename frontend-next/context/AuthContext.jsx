@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { addToCart as addToCartAPI, getCart } from "@/lib/api";
+import { getAccessToken, refreshAccessToken } from "@/lib/auth";
 
 // ============================================================================
 // CONTEXT CREATION
@@ -41,14 +42,6 @@ export function AuthProvider({ children }) {
   const router = useRouter();
 
   /**
-   * Load authentication state from localStorage on mount
-   * Runs once when app starts (rehydration)
-   */
-  useEffect(() => {
-    rehydrateAuth();
-  }, []);
-
-  /**
    * Rehydrate authentication state from localStorage
    *
    * This function:
@@ -57,7 +50,7 @@ export function AuthProvider({ children }) {
    * 3. Sets authenticated state
    * 4. Prevents flash of logged-out state
    */
-  const rehydrateAuth = () => {
+  const rehydrateAuth = async () => {
     try {
       // Check if we're in browser environment
       if (typeof window === "undefined") {
@@ -66,7 +59,7 @@ export function AuthProvider({ children }) {
       }
 
       // Get access token from localStorage
-      const accessToken = localStorage.getItem("access_token");
+      let accessToken = localStorage.getItem("access_token");
 
       if (!accessToken) {
         // No token found - user is logged out
@@ -91,12 +84,38 @@ export function AuthProvider({ children }) {
 
       // Check if token is expired
       if (isTokenExpired(userData)) {
-        // Token expired - clear and logout
-        console.warn("Access token expired");
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        setUser(null);
-        setIsAuthenticated(false);
+        // Try refresh first so sessions survive normal inactivity windows.
+        const refreshed = await refreshAccessToken();
+
+        if (!refreshed) {
+          console.warn("Access token expired and refresh failed");
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+          setUser(null);
+          setIsAuthenticated(false);
+          setLoading(false);
+          return;
+        }
+
+        accessToken = getAccessToken();
+        const refreshedUserData = decodeToken(accessToken);
+
+        if (!refreshedUserData || isTokenExpired(refreshedUserData)) {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+          setUser(null);
+          setIsAuthenticated(false);
+          setLoading(false);
+          return;
+        }
+
+        setUser({
+          id: refreshedUserData.user_id,
+          exp: refreshedUserData.exp,
+          iat: refreshedUserData.iat,
+        });
+        setIsAuthenticated(true);
+        window.dispatchEvent(new Event("user-login"));
         setLoading(false);
         return;
       }
@@ -117,6 +136,18 @@ export function AuthProvider({ children }) {
       setLoading(false);
     }
   };
+
+  /**
+   * Load authentication state from localStorage on mount
+   * Runs once when app starts (rehydration)
+   */
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void rehydrateAuth();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   /**
    * Login function
@@ -195,7 +226,7 @@ export function AuthProvider({ children }) {
         if (typeof window !== "undefined") {
           localStorage.setItem("cart", JSON.stringify(data.items || []));
         }
-      } catch (err) {
+      } catch {
         console.error("Failed to reload cart after merge");
       }
 

@@ -299,10 +299,12 @@ export default function Header() {
                         <div className="border-t border-gray-200 p-2">
                           <button
                             onClick={handleLogout}
-                            className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+                            className="flex w-full items-center rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
                           >
-                            <span>Logout</span>
-                            <LogOut size={16} />
+                            <span className="inline-flex items-center gap-2">
+                              Logout
+                              <LogOut size={16} />
+                            </span>
                           </button>
                         </div>
                       </>
