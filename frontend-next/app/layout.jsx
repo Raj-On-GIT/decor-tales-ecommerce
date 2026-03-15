@@ -1,5 +1,6 @@
 import "./globals.css";
 import Header from "../components/Header";
+import Footer from "../components/Footer";
 import { StoreProvider } from "@/context/StoreContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
@@ -16,15 +17,18 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} min-h-screen`}>
         <GoogleOAuthProvider
           clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}
         >
           <ToastProvider>
             <AuthProvider>
               <StoreProvider>
-                <Header />
-                <main className="min-h-screen">{children}</main>
+                <div className="flex min-h-screen flex-col">
+                  <Header />
+                  <main className="flex-1">{children}</main>
+                  <Footer />
+                </div>
               </StoreProvider>
             </AuthProvider>
           </ToastProvider>

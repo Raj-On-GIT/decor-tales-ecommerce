@@ -2,7 +2,6 @@ import Hero from "@/components/Hero";
 import HomeGallery from "@/components/HomeGallery";
 import BrowseByCategory from "@/components/BrowseByCategory";
 import TrustSection from "@/components/TrustSection";
-import Footer from "@/components/Footer";
 import Trending from "../components/Trending";
 import { Suspense } from "react";
 import ProductGridSkeleton from "@/components/ProductGridSkeleton";
@@ -24,7 +23,6 @@ export default function Home() {
         <BrowseByCategory />
       </Suspense>
       <TrustSection />
-      <Footer />
     </main>
   );
 }

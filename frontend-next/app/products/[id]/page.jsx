@@ -10,7 +10,6 @@ import { getProducts } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalToast } from "@/context/ToastContext";
 import PageLoader from "@/components/ui/PageLoader";
-import Footer from "@/components/Footer";
 
 export default function ProductDetailPage() {
   const { isAuthenticated } = useAuth();
@@ -849,7 +848,6 @@ export default function ProductDetailPage() {
           </section>
         )}
       </div>
-      <Footer />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { getProducts, getCategories } from "@/lib/api";
+import { getCategories } from "@/lib/api";
 import BrowseByCategoryClient from "./BrowseByCategoryClient";
 
 export default async function BrowseByCategory() {
