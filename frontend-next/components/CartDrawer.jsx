@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, ShoppingBag, ArrowRight } from "lucide-react";
+import { X, ShoppingBag, ArrowRight, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatPrice } from "@/lib/formatPrice";
 import { useStore } from "@/context/StoreContext";
@@ -24,7 +24,16 @@ const normalizeCategory = (category) => {
 };
 
 export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
-  const { cart, addToCart, removeFromCart, decreaseQty, replaceCart, total } =
+  const {
+    cart,
+    addToCart,
+    removeFromCart,
+    decreaseQty,
+    replaceCart,
+    total,
+    getCartAction,
+    isCartItemPending,
+  } =
     useStore();
   const { isAuthenticated } = useAuth();
   const router = useRouter();
@@ -118,9 +127,19 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                   </button>
                 </div>
               ) : (
-                cart.map((item) => (
-                  <div
+                <AnimatePresence initial={false}>
+                  {cart.map((item) => {
+                    const itemAction = getCartAction(item);
+                    const itemPending = isCartItemPending(item);
+
+                    return (
+                      <motion.div
                     key={`${item.cart_item_id || item.id}-${item.variant?.id || "v0"}`}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: itemPending ? 0.6 : 1, y: 0, scale: itemAction === "adding" ? 1.01 : 1 }}
+                    exit={{ opacity: 0, x: 16 }}
+                    transition={{ duration: 0.2 }}
                     className="flex space-x-4 items-start"
                   >
                     {/* IMAGE */}
@@ -178,9 +197,14 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                       {/* REMOVE BUTTON */}
                       <button
                         onClick={() => removeFromCart(item)}
-                        className="text-gray-600 hover:text-red-500"
+                        disabled={itemPending}
+                        className="text-gray-600 transition hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <X size={16} />
+                        {itemAction === "removing" ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <X size={16} />
+                        )}
                       </button>
 
                       {/* QTY CONTROLS */}
@@ -194,9 +218,14 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                               console.error("Qty decrease failed:", err);
                             }
                           }}
-                          className="w-8 h-8 border rounded-full hover:bg-gray-200 text-sm"
+                          disabled={itemPending}
+                          className="w-8 h-8 border rounded-full hover:bg-gray-200 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          –
+                          {itemAction === "updating" || itemAction === "removing" ? (
+                            <Loader2 size={12} className="mx-auto animate-spin" />
+                          ) : (
+                            "–"
+                          )}
                         </button>
                         <span className="text-sm font-semibold w-6 text-center">
                           {item.qty}
@@ -227,14 +256,21 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                               console.error("Qty increase failed:", err);
                             }
                           }}
-                          className="w-8 h-8 border rounded-full hover:bg-gray-200"
+                          disabled={itemPending}
+                          className="w-8 h-8 border rounded-full hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          +
+                          {itemAction === "adding" ? (
+                            <Loader2 size={12} className="mx-auto animate-spin" />
+                          ) : (
+                            "+"
+                          )}
                         </button>
                       </div>
                     </div>
-                  </div>
-                ))
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
               )}
             </div>
 

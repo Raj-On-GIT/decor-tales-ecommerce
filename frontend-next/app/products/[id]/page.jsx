@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { ShoppingBag } from "lucide-react";
+import { Loader2, ShoppingBag } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { formatPrice } from "@/lib/formatPrice";
 import ProductCard from "@/components/ProductCard";
-import { addToCart as addToCartAPI, getCart, getProducts } from "@/lib/api";
+import { getProducts } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalToast } from "@/context/ToastContext";
 import PageLoader from "@/components/ui/PageLoader";
@@ -15,7 +15,7 @@ import Footer from "@/components/Footer";
 export default function ProductDetailPage() {
   const { isAuthenticated } = useAuth();
   const { id } = useParams();
-  const { cart, addToCart, replaceCart } = useStore();
+  const { cart, addToCart } = useStore();
 
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]); // ✅ Related products state
@@ -29,6 +29,7 @@ export default function ProductDetailPage() {
   const [customImages, setCustomImages] = useState([]);
 
   const [qty, setQty] = useState(1);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   // ✅ Variant selection state
   const [selectedSize, setSelectedSize] = useState(null);
@@ -690,9 +691,12 @@ export default function ProductDetailPage() {
                   <button
                     disabled={
                       (product.stock_type === "variants" && !selectedVariant) ||
-                      activeStock === 0
+                      activeStock === 0 ||
+                      isAddingToCart
                     }
                     onClick={async () => {
+                      if (isAddingToCart) return;
+
                       const price =
                         product.stock_type === "variants"
                           ? selectedVariant?.slashed_price ||
@@ -709,22 +713,13 @@ export default function ProductDetailPage() {
                           customImages.length > 0 ? customImages : null,
                       };
 
-                      // ✅ Guest → use local logic
-                      if (!isAuthenticated) {
-                        if (customImages.length > 0) {
-                          error(
-                            "Please log in before adding products with custom image uploads.",
-                          );
-                          return;
-                        }
-
-                        addToCart(cartPayload);
-                        setCustomText("");
-                        setCustomImages([]);
-                        setUploadResetKey((k) => k + 1);
-                        setQty(1);
+                      if (!isAuthenticated && customImages.length > 0) {
+                        error(
+                          "Please log in before adding products with custom image uploads.",
+                        );
                         return;
                       }
+
                       const availableStock =
                         selectedVariant?.stock ?? product.stock ?? 0;
 
@@ -763,38 +758,43 @@ export default function ProductDetailPage() {
                         );
                       }
 
-                      const textToSend = customText?.trim() || null;
-                      // ✅ Authenticated → rely ONLY on backend
                       try {
-                        await addToCartAPI(
-                          product.id,
-                          quantityToAdd,
-                          selectedVariant?.id || null,
-                          textToSend,
-                          customImages,
-                        );
+                        setIsAddingToCart(true);
 
-                        const data = await getCart();
-                        replaceCart(data.items);
+                        const result = await addToCart({
+                          ...cartPayload,
+                          qty: quantityToAdd,
+                        });
 
-                        setCustomText("");
-                        setCustomImages([]);
-                        setUploadResetKey((k) => k + 1);
-                        setQty(1);
+                        if (result?.ok) {
+                          setCustomText("");
+                          setCustomImages([]);
+                          setUploadResetKey((k) => k + 1);
+                          setQty(1);
+                        }
                       } catch (err) {
                         error(err.message || "Unable to add item to cart");
+                      } finally {
+                        setTimeout(() => setIsAddingToCart(false), 250);
                       }
                     }}
                     className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 transition sm:flex-1
                   ${
-                    (product.stock_type === "variants" && !selectedVariant) ||
-                    activeStock === 0
+                    isAddingToCart
+                      ? "bg-black text-white cursor-wait"
+                      : (product.stock_type === "variants" && !selectedVariant) ||
+                          activeStock === 0
                       ? "bg-red-600 text-white cursor-not-allowed"
-                      : "bg-black text-white hover:bg-gray-800"
+                      : "bg-black text-white hover:bg-gray-800 active:scale-[0.99]"
                   }
                 `}
                   >
-                    {activeStock === 0 ? (
+                    {isAddingToCart ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        Adding...
+                      </>
+                    ) : activeStock === 0 ? (
                       <>
                         <span className="font-semibold">Out of Stock</span>
                       </>

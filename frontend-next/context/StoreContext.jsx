@@ -1,8 +1,12 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { getCart, removeFromCart as removeFromCartAPI, updateCartItem } from "@/lib/api";
-import { addToCart as addToCartAPI } from "@/lib/api";
+import {
+  addToCart as addToCartAPI,
+  getCart,
+  removeFromCart as removeFromCartAPI,
+  updateCartItem,
+} from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalToast } from "@/context/ToastContext";
 
@@ -37,8 +41,14 @@ function getCartIdentity(item) {
   ].join("::");
 }
 
+function getPendingKey(item) {
+  return getCartRowId(item) || getCartIdentity(item);
+}
+
 export function StoreProvider({ children }) {
   const { error } = useGlobalToast();
+  const { isAuthenticated } = useAuth();
+
   const [cart, setCart] = useState(() => {
     if (typeof window !== "undefined") {
       const savedCart = localStorage.getItem("cart");
@@ -46,7 +56,21 @@ export function StoreProvider({ children }) {
     }
     return [];
   });
-  const { isAuthenticated } = useAuth();
+  const [pendingCartActions, setPendingCartActions] = useState({});
+
+  const setPendingAction = useCallback((key, action) => {
+    if (!key) return;
+    setPendingCartActions((prev) => ({ ...prev, [key]: action }));
+  }, []);
+
+  const clearPendingAction = useCallback((key) => {
+    if (!key) return;
+    setPendingCartActions((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -55,8 +79,6 @@ export function StoreProvider({ children }) {
       try {
         const data = await getCart();
         if (!data?.items) return;
-
-        // ✅ No remapping — already shaped in api.js
         setCart(data.items);
         localStorage.setItem("cart", JSON.stringify(data.items));
       } catch (err) {
@@ -67,9 +89,6 @@ export function StoreProvider({ children }) {
     loadServerCart();
   }, [isAuthenticated]);
 
-  /* ---------------------------------- */
-  /* STOCK RESOLVER (YOUR EXISTING ONE) */
-  /* ---------------------------------- */
   function getAvailableStock(product) {
     if (product.stock_type === "variant" || product.stock_type === "variants") {
       return product.variant?.stock || 0;
@@ -78,59 +97,46 @@ export function StoreProvider({ children }) {
     return product.stock || 0;
   }
 
-  /* ---------------------------------- */
-  /* ADD TO CART (QTY CAPPED)           */
-  /* ---------------------------------- */
   async function addToCart(product) {
     const availableStock = getAvailableStock(product);
     const productIdentity = getCartIdentity(product);
+    const pendingKey = getPendingKey(product);
+    const previousCart = cart;
 
-    const existing = cart.find(
-      (x) => getCartIdentity(x) === productIdentity,
-    );
+    const existing = cart.find((x) => getCartIdentity(x) === productIdentity);
 
-    // 🔥 ADD THIS BLOCK (safe early guard)
     if (existing && existing.qty >= availableStock) {
       error(
-        `Only ${availableStock} item${
-          availableStock > 1 ? "s" : ""
-        } available in stock.`,
+        `Only ${availableStock} item${availableStock > 1 ? "s" : ""} available in stock.`,
       );
-      return; // do not proceed further
+      return { ok: false };
     }
 
     let exceededStock = false;
     let finalQty;
+    let optimisticRowId = existing?.cart_item_id ?? crypto.randomUUID();
 
     if (existing) {
       const newQty = existing.qty + (product.qty || 1);
 
-      if (newQty > availableStock) {
-        exceededStock = true;
-      }
-
+      if (newQty > availableStock) exceededStock = true;
       finalQty = Math.min(newQty, availableStock);
 
       setCart((prev) =>
         prev.map((x) =>
-          getCartIdentity(x) === productIdentity
-            ? { ...x, qty: finalQty }
-            : x,
+          getCartIdentity(x) === productIdentity ? { ...x, qty: finalQty } : x,
         ),
       );
     } else {
       const initialQty = product.qty || 1;
 
-      if (initialQty > availableStock) {
-        exceededStock = true;
-      }
-
+      if (initialQty > availableStock) exceededStock = true;
       finalQty = Math.min(initialQty, availableStock);
 
       setCart((prev) => [
         ...prev,
         {
-          cart_item_id: crypto.randomUUID(),
+          cart_item_id: optimisticRowId,
           price: Number(String(product.price).replace(/,/g, "").trim()),
           ...product,
           qty: finalQty,
@@ -138,116 +144,141 @@ export function StoreProvider({ children }) {
       ]);
     }
 
-    // ✅ Now this is reliable
     if (exceededStock) {
       error(
-        `Only ${availableStock} item${
-          availableStock > 1 ? "s" : ""
-        } available in stock.`,
+        `Only ${availableStock} item${availableStock > 1 ? "s" : ""} available in stock.`,
       );
     }
 
-    if (isAuthenticated) {
-      try {
-        await addToCartAPI(
-          product.id,
-          product.qty || 1,
-          product.variant?.id || null,
-          product.customText || null,
-          product.customImages || product.custom_images || null,
-        );
+    if (!isAuthenticated) {
+      return { ok: true };
+    }
 
-        const data = await getCart();
-        replaceCart(data.items);
-      } catch (err) {
-        console.error("Add to cart failed:", err);
+    setPendingAction(pendingKey, "adding");
+
+    try {
+      const response = await addToCartAPI(
+        product.id ?? product.product_id,
+        product.qty || 1,
+        product.variant?.id || null,
+        product.customText || null,
+        product.customImages || product.custom_images || null,
+      );
+
+      const serverCartItem = response?.cart_item;
+
+      if (serverCartItem?.id) {
+        setCart((prev) =>
+          prev.map((x) =>
+            getCartIdentity(x) === productIdentity
+              ? {
+                  ...x,
+                  cart_item_id: serverCartItem.id,
+                  qty: serverCartItem.quantity ?? x.qty,
+                }
+              : x,
+          ),
+        );
       }
+
+      clearPendingAction(pendingKey);
+      clearPendingAction(optimisticRowId);
+      return { ok: true };
+    } catch (err) {
+      setCart(previousCart);
+      clearPendingAction(pendingKey);
+      clearPendingAction(optimisticRowId);
+      error(err.message || "Unable to add item to cart");
+      console.error("Add to cart failed:", err);
+      return { ok: false, error: err };
     }
   }
 
-  /* ---------------------------------- */
-  /* REMOVE ITEM                        */
-  /* ---------------------------------- */
   async function removeFromCart(product) {
     const rowId = getCartRowId(product);
+    const productIdentity = getCartIdentity(product);
+    const pendingKey = getPendingKey(product);
+    const previousCart = cart;
 
-    if (isAuthenticated) {
-      try {
-        await removeFromCartAPI(rowId);
-        const data = await getCart();
-        replaceCart(data.items);
-      } catch (err) {
-        console.error("Backend remove failed:", err);
-        return;
-      }
-    }
+    setPendingAction(pendingKey, "removing");
 
     if (rowId) {
       setCart((prev) => prev.filter((x) => getCartRowId(x) !== rowId));
-      return;
+    } else {
+      setCart((prev) => prev.filter((x) => getCartIdentity(x) !== productIdentity));
     }
 
-    const productIdentity = getCartIdentity(product);
-    setCart((prev) => prev.filter((x) => getCartIdentity(x) !== productIdentity));
+    if (!isAuthenticated) {
+      clearPendingAction(pendingKey);
+      return { ok: true };
+    }
+
+    try {
+      await removeFromCartAPI(rowId);
+      clearPendingAction(pendingKey);
+      return { ok: true };
+    } catch (err) {
+      setCart(previousCart);
+      clearPendingAction(pendingKey);
+      error("Unable to remove item from cart");
+      console.error("Backend remove failed:", err);
+      return { ok: false, error: err };
+    }
   }
 
-  /* ---------------------------------- */
-  /* DECREASE QTY                       */
-  /* ---------------------------------- */
   async function decreaseQty(product) {
     const rowId = getCartRowId(product);
     const productIdentity = getCartIdentity(product);
+    const pendingKey = getPendingKey(product);
+    const previousCart = cart;
     const existing = cart.find((x) =>
       rowId ? getCartRowId(x) === rowId : getCartIdentity(x) === productIdentity,
     );
 
-    if (!existing) return;
+    if (!existing) return { ok: false };
 
     const newQty = existing.qty - 1;
+    const nextAction = newQty <= 0 ? "removing" : "updating";
+    setPendingAction(pendingKey, nextAction);
 
-    if (isAuthenticated) {
-      try {
-        if (newQty <= 0) {
-          await removeFromCartAPI(rowId);
-        } else {
-          await updateCartItem(rowId, newQty);
-        }
-
-        // 🔥 After backend update, reload cart
-        const data = await getCart();
-        replaceCart(data.items);
-      } catch (err) {
-        console.error("Decrease failed:", err);
-      }
-
-      return;
-    }
-
-    // Guest logic (local only)
     setCart((prev) =>
       prev
         .map((x) =>
-          (rowId
-            ? getCartRowId(x) === rowId
-            : getCartIdentity(x) === productIdentity)
+          (rowId ? getCartRowId(x) === rowId : getCartIdentity(x) === productIdentity)
             ? { ...x, qty: x.qty - 1 }
             : x,
         )
         .filter((x) => x.qty > 0),
     );
+
+    if (!isAuthenticated) {
+      clearPendingAction(pendingKey);
+      return { ok: true };
+    }
+
+    try {
+      if (newQty <= 0) {
+        await removeFromCartAPI(rowId);
+      } else {
+        await updateCartItem(rowId, newQty);
+      }
+
+      clearPendingAction(pendingKey);
+      return { ok: true };
+    } catch (err) {
+      setCart(previousCart);
+      clearPendingAction(pendingKey);
+      error("Unable to update cart quantity");
+      console.error("Decrease failed:", err);
+      return { ok: false, error: err };
+    }
   }
 
-  /* ---------------------------------- */
-  /* CLEAR CART                         */
-  /* ---------------------------------- */
   const clearCart = useCallback(() => {
     setCart([]);
     localStorage.removeItem("cart");
   }, []);
 
-  /* ---------------------------------- */
-  /* REPLACE CART (SERVER SYNC)         */
-  /* ---------------------------------- */
   function replaceCart(newCartItems) {
     setCart(newCartItems || []);
 
@@ -256,9 +287,14 @@ export function StoreProvider({ children }) {
     }
   }
 
-  /* ---------------------------------- */
-  /* TOTAL                              */
-  /* ---------------------------------- */
+  function getCartAction(item) {
+    return pendingCartActions[getPendingKey(item)] || null;
+  }
+
+  function isCartItemPending(item) {
+    return Boolean(getCartAction(item));
+  }
+
   const total = cart.reduce((sum, x) => sum + x.qty * Number(x.price || 0), 0);
 
   useEffect(() => {
@@ -278,9 +314,6 @@ export function StoreProvider({ children }) {
     };
   }, []);
 
-  /* ---------------------------------- */
-  /* PROVIDER                           */
-  /* ---------------------------------- */
   return (
     <StoreContext.Provider
       value={{
@@ -291,6 +324,8 @@ export function StoreProvider({ children }) {
         clearCart,
         replaceCart,
         total,
+        getCartAction,
+        isCartItemPending,
       }}
     >
       {children}
@@ -298,9 +333,6 @@ export function StoreProvider({ children }) {
   );
 }
 
-/* ---------------------------------- */
-/* HOOK                               */
-/* ---------------------------------- */
 export function useStore() {
   const context = useContext(StoreContext);
 
