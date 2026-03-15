@@ -176,9 +176,7 @@ export default function Header() {
 
             <div
               ref={profileRef}
-              className={`relative hidden md:block ${
-                isSearchOpen ? "md:hidden" : ""
-              }`}
+              className="relative hidden md:block"
             >
               {/* Profile Icon */}
               <button
