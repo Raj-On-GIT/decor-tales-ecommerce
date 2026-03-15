@@ -305,9 +305,9 @@ export default function ProductDetailPage() {
 
   return (
     <>
-      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 pt-5">
+      <div className="mx-auto max-w-screen-xl px-4 pt-5 sm:px-6">
         {/* ✅ Center Two-Column Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start px-15 mb-10">
+        <div className="mb-10 grid grid-cols-1 items-start gap-8 sm:gap-10 md:grid-cols-2 md:gap-12 md:px-6 lg:px-12">
           {/* ================= LEFT: IMAGE VIEWER ================= */}
           <div className="flex flex-col items-center">
             {/* ✅ Main Carousel */}
@@ -336,7 +336,7 @@ export default function ProductDetailPage() {
                 <>
                   <button
                     onClick={goPrev}
-                    className="absolute left-1 top-1/2 -translate-y-1/2 bg-white/25 p-2 rounded-full hover:bg-white"
+                    className="absolute left-1 top-1/2 hidden -translate-y-1/2 rounded-full bg-white/25 p-2 hover:bg-white sm:block"
                   >
                     <img
                       src="/left_arrow.svg"
@@ -347,7 +347,7 @@ export default function ProductDetailPage() {
 
                   <button
                     onClick={goNext}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 bg-white/25 p-2 rounded-full hover:bg-white"
+                    className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded-full bg-white/25 p-2 hover:bg-white sm:block"
                   >
                     <img
                       src="/right_arrow.svg"
@@ -361,7 +361,7 @@ export default function ProductDetailPage() {
 
             {/* ✅ Thumbnails */}
             {allImages.length > 1 && (
-              <div className="relative mt-5 mb-4 w-full flex items-center justify-center gap-2">
+              <div className="relative mb-4 mt-4 flex w-full items-center justify-center gap-2 sm:mt-5">
                 {/* Left arrow — only when > 5 images */}
                 {allImages.length > 5 && (
                   <button
@@ -389,7 +389,7 @@ export default function ProductDetailPage() {
                 {/* Scrollable infinite thumbnail strip */}
                 <div
                   ref={thumbScrollRef}
-                  className="flex gap-3 overflow-x-auto scrollbar-none max-w-sm"
+                  className="flex max-w-full gap-2 overflow-x-auto scrollbar-none px-1 sm:max-w-sm sm:gap-3"
                   style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
                 >
                   {allImages.map((img, index) => (
@@ -397,7 +397,7 @@ export default function ProductDetailPage() {
                       key={index}
                       src={img}
                       onClick={() => setCurrentIndex(index)}
-                      className={`flex-shrink-0 w-15 h-15 rounded-lg border cursor-pointer object-contain bg-white p-1 ${
+                      className={`h-14 w-14 flex-shrink-0 rounded-lg border cursor-pointer bg-white p-1 object-contain sm:h-15 sm:w-15 ${
                         index === currentIndex
                           ? "border-black"
                           : "border-gray-300"
@@ -435,24 +435,24 @@ export default function ProductDetailPage() {
           </div>
 
           {/* ================= RIGHT: PRODUCT DETAILS ================= */}
-          <div className="flex flex-col w-full px-2 h-full">
+          <div className="flex h-full w-full flex-col px-0 sm:px-2">
             {/* ✅ TOP BLOCK */}
-            <div className="flex flex-col justify-center h-full gap-6">
+            <div className="flex h-full flex-col justify-center gap-5 sm:gap-6">
               {/* Title + Price */}
               <div>
-                <h1 className="text-4xl font-bold">{product.title}</h1>
-                <p className="text-gray-700 mt-2">
+                <h1 className="text-3xl font-bold leading-tight sm:text-4xl">{product.title}</h1>
+                <p className="mt-2 text-sm text-gray-700 sm:text-base">
                   In: {product.category?.name}
                 </p>
-                <p className="text-gray-600 mt-2 leading-relaxed whitespace-normal text-justify">
+                <p className="mt-2 text-sm leading-relaxed whitespace-normal text-left text-gray-600 sm:text-base sm:text-justify">
                   {product.description}
                 </p>
 
                 {/* ✅ Custom Image Upload Buttons */}
                 {product.allow_custom_image && (
                   <>
-                    <h3 className="font-semibold mt-5">Upload Custom Images</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-1 w-full">
+                    <h3 className="mt-5 font-semibold">Upload Custom Images</h3>
+                    <div className="mt-2 grid w-full grid-cols-2 gap-3 sm:grid-cols-4">
                       {Array.from({ length: product.custom_image_limit }).map(
                         (_, index) => {
                           const selectedFile = customImages[index];
@@ -465,8 +465,8 @@ export default function ProductDetailPage() {
                               <label
                                 className={`flex items-center justify-center gap-2
                             border rounded-lg cursor-pointer
-                            px-2 py-1 w-full
-                            text-sm font-medium
+                            min-h-11 w-full px-2 py-2
+                            text-xs font-medium sm:text-sm
                             hover:bg-gray-200 transition
                             ${
                               selectedFile
@@ -488,7 +488,7 @@ export default function ProductDetailPage() {
                                     d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0l-4 4m4-4l4 4"
                                   />
                                 </svg>
-                                Upload: {index + 1}
+                                Upload {index + 1}
                                 <input
                                   key={uploadResetKey}
                                   type="file"
@@ -501,7 +501,7 @@ export default function ProductDetailPage() {
                               </label>
 
                               {selectedFile && (
-                                <p className="text-xs text-gray-700 mt-1 w-full text-center truncate">
+                                <p className="mt-1 w-full truncate text-center text-xs text-gray-700">
                                   {selectedFile.name}
                                 </p>
                               )}
@@ -516,14 +516,14 @@ export default function ProductDetailPage() {
                 {/* ✅ Custom Text */}
                 {product.allow_custom_text && (
                   <>
-                    <h3 className="font-semibold mt-3">Enter Custom Text</h3>
+                    <h3 className="mt-3 font-semibold">Enter Custom Text</h3>
 
                     <textarea
                       rows={1}
                       value={customText}
                       onChange={(e) => setCustomText(e.target.value)}
                       placeholder="Enter text for engraving..."
-                      className="block w-full border rounded-lg p-2 text-sm resize-none mt-1"
+                      className="mt-1 block w-full resize-none rounded-lg border p-2 text-sm"
                     />
                   </>
                 )}
@@ -539,16 +539,16 @@ export default function ProductDetailPage() {
                           <div className="mt-5 space-y-3">
                             {sizes.length > 0 && (
                               <div>
-                                <h3 className="text-lg font-semibold mb-1">
+                                <h3 className="mb-1 text-base font-semibold sm:text-lg">
                                   Select Size
                                 </h3>
-                                <div className="flex flex-wrap gap-3">
+                                <div className="flex flex-wrap gap-2 sm:gap-3">
                                   {sizes.map((size) => (
                                     <button
                                       key={size}
                                       disabled={!isSizeAvailable(size)}
                                       onClick={() => setSelectedSize(size)}
-                                      className={`px-4 py-1 border rounded-lg transition
+                                      className={`border rounded-lg px-3 py-2 text-sm transition sm:px-4 sm:py-1
                                   ${
                                     selectedSize === size
                                       ? "bg-black text-white"
@@ -570,16 +570,16 @@ export default function ProductDetailPage() {
 
                             {colors.length > 0 && (
                               <div>
-                                <h3 className="text-lg font-semibold mb-1">
+                                <h3 className="mb-1 text-base font-semibold sm:text-lg">
                                   Select Color
                                 </h3>
-                                <div className="flex flex-wrap gap-3">
+                                <div className="flex flex-wrap gap-2 sm:gap-3">
                                   {colors.map((color) => (
                                     <button
                                       key={color}
                                       disabled={!isColorAvailable(color)}
                                       onClick={() => setSelectedColor(color)}
-                                      className={`px-4 py-1 border rounded-lg transition
+                                      className={`border rounded-lg px-3 py-2 text-sm transition sm:px-4 sm:py-1
                                   ${
                                     selectedColor === color
                                       ? "bg-black text-white"
@@ -623,14 +623,14 @@ export default function ProductDetailPage() {
 
                 {/* ✅ Price Block */}
                 {product.stock_type === "variants" && selectedVariant ? (
-                  <div className="flex items-center gap-3 mt-3">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-3">
                     {selectedVariant.slashed_price && (
-                      <span className="text-gray-500 line-through text-lg">
+                      <span className="text-base text-gray-500 line-through sm:text-lg">
                         ₹{formatPrice(selectedVariant.mrp)}
                       </span>
                     )}
 
-                    <span className="text-black font-bold text-3xl">
+                    <span className="text-2xl font-bold text-black sm:text-3xl">
                       ₹
                       {formatPrice(
                         selectedVariant.slashed_price || selectedVariant.mrp,
@@ -638,7 +638,7 @@ export default function ProductDetailPage() {
                     </span>
 
                     {selectedVariant.discount_percent && (
-                      <span className="bg-green-700 text-white text-sm px-3 py-1 rounded-full">
+                      <span className="rounded-full bg-green-700 px-3 py-1 text-xs text-white sm:text-sm">
                         {selectedVariant.discount_percent}% OFF
                       </span>
                     )}
@@ -646,19 +646,19 @@ export default function ProductDetailPage() {
                 ) : (
                   <div className="mt-3">
                     {product.slashed_price ? (
-                      <div className="flex items-center gap-3">
-                        <span className="text-gray-500 line-through text-lg">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                        <span className="text-base text-gray-500 line-through sm:text-lg">
                           ₹{formatPrice(product.mrp)}
                         </span>
-                        <span className="text-black font-bold text-3xl">
+                        <span className="text-2xl font-bold text-black sm:text-3xl">
                           ₹{formatPrice(product.slashed_price)}
                         </span>
-                        <span className="bg-green-700 text-white text-sm px-3 py-1 rounded-full">
+                        <span className="rounded-full bg-green-700 px-3 py-1 text-xs text-white sm:text-sm">
                           {product.discount_percent}% OFF
                         </span>
                       </div>
                     ) : (
-                      <h2 className="text-3xl font-bold">
+                      <h2 className="text-2xl font-bold sm:text-3xl">
                         ₹{formatPrice(product.mrp)}
                       </h2>
                     )}
@@ -666,9 +666,9 @@ export default function ProductDetailPage() {
                 )}
 
                 {/* ✅ Qty Selector + Add to Cart Inline */}
-                <div className="flex items-center gap-4 mt-4">
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                   {/* Qty Controls */}
-                  <div className="flex items-center border rounded-xl overflow-hidden">
+                  <div className="flex w-full items-center justify-center overflow-hidden rounded-xl border sm:w-auto">
                     <button
                       onClick={() => setQty((prev) => Math.max(1, prev - 1))}
                       className="px-4 py-2 text-lg hover:bg-gray-200"
@@ -676,7 +676,7 @@ export default function ProductDetailPage() {
                       -
                     </button>
 
-                    <span className="px-4 py-2 font-semibold">Qty {qty}</span>
+                    <span className="px-4 py-2 text-sm font-semibold sm:text-base">Qty {qty}</span>
 
                     <button
                       onClick={() => setQty((prev) => prev + 1)}
@@ -785,8 +785,7 @@ export default function ProductDetailPage() {
                         error(err.message || "Unable to add item to cart");
                       }
                     }}
-                    className={`w-full flex-1 flex items-center justify-center gap-2
-                  py-3 rounded-xl transition
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 transition sm:flex-1
                   ${
                     (product.stock_type === "variants" && !selectedVariant) ||
                     activeStock === 0
@@ -815,14 +814,14 @@ export default function ProductDetailPage() {
 
         {/* ================= SIMILAR PRODUCTS SECTION ================= */}
         {relatedProducts.length > 0 && (
-          <section className="mt-20 sm:mt-24 mb-10">
+          <section className="mb-10 mt-16 sm:mt-24">
             {/* Heading Row */}
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
+            <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="font-serif font-bold text-black text-2xl sm:text-4xl">
+                <h2 className="font-serif text-2xl font-bold text-black sm:text-4xl">
                   Similar products
                 </h2>
-                <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">
+                <p className="mt-1 text-sm text-gray-600 sm:mt-2 sm:text-base">
                   Discover more from {product.category?.name}.
                 </p>
               </div>
@@ -833,14 +832,14 @@ export default function ProductDetailPage() {
                     ? `/catalog/${product.category?.slug}/${product.sub_category?.slug}`
                     : `/catalog/${product.category?.slug}`
                 }
-                className="text-sm font-bold underline self-start sm:self-auto"
+                className="self-start text-sm font-bold underline sm:self-auto"
               >
                 View All →
               </a>
             </div>
 
             {/* Product Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-8 md:gap-10">
+            <div className="grid grid-cols-2 gap-4 sm:gap-8 md:gap-10 lg:grid-cols-4">
               {relatedProducts.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
