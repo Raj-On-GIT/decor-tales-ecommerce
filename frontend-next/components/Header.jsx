@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
-import { ShoppingBag, Search, Menu, User } from "lucide-react";
+import { ShoppingBag, Search, Menu, User, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../context/StoreContext";
 import { useAuth } from "../context/AuthContext";
@@ -283,14 +283,14 @@ export default function Header() {
                           <Link
                             href="/account"
                             onClick={() => setIsProfileOpen(false)}
-                            className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                            className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-[#f7fbe8] hover:text-gray-900"
                           >
                             My Account
                           </Link>
                           <Link
                             href="/orders"
                             onClick={() => setIsProfileOpen(false)}
-                            className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                            className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-[#f7fbe8] hover:text-gray-900"
                           >
                             My Orders
                           </Link>
@@ -299,9 +299,10 @@ export default function Header() {
                         <div className="border-t border-gray-200 p-2">
                           <button
                             onClick={handleLogout}
-                            className="w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+                            className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
                           >
-                            Logout
+                            <span>Logout</span>
+                            <LogOut size={16} />
                           </button>
                         </div>
                       </>
