@@ -14,7 +14,7 @@ export default function AccountLayout({ children }) {
     }`;
 
   const desktopLinkClass = (path) =>
-    `block w-full rounded-lg px-4 py-2 text-sm font-medium transition ${
+    `block w-full rounded-lg px-4 py-2.5 text-sm font-medium transition ${
       pathname === path
         ? "bg-gray-900 text-white"
         : "text-gray-700 hover:bg-gray-100"
@@ -25,7 +25,6 @@ export default function AccountLayout({ children }) {
       <div className="mx-auto max-w-6xl">
         <div className="mb-5 overflow-x-auto pb-1">
           <div className="flex min-w-max gap-3 lg:hidden">
-            <Link href="/account" className={linkClass("/account")}>
             <Link href="/account" className={mobileLinkClass("/account")}>
               Profile
             </Link>
@@ -48,7 +47,7 @@ export default function AccountLayout({ children }) {
           <div className="hidden h-fit w-60 rounded-2xl bg-white p-6 shadow-lg lg:block">
             <h2 className="mb-4 text-lg font-bold">My Account</h2>
 
-            <div className="space-y-3">
+            <nav className="flex flex-col gap-2">
               <Link href="/account" className={desktopLinkClass("/account")}>
                 Profile
               </Link>
@@ -64,7 +63,7 @@ export default function AccountLayout({ children }) {
               >
                 Change Password
               </Link>
-            </div>
+            </nav>
           </div>
 
           <div className="min-w-0 flex-1">{children}</div>
