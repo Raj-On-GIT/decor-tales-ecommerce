@@ -667,21 +667,23 @@ export default function ProductDetailPage() {
                 )}
 
                 {/* ✅ Qty Selector + Add to Cart Inline */}
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <div className="mt-4 flex items-stretch gap-3 sm:flex-row sm:items-center sm:gap-4">
                   {/* Qty Controls */}
-                  <div className="flex w-full items-center justify-center overflow-hidden rounded-xl border sm:w-auto">
+                  <div className="flex min-w-0 basis-1/4 items-center justify-center overflow-hidden rounded-xl border">
                     <button
                       onClick={() => setQty((prev) => Math.max(1, prev - 1))}
-                      className="px-4 py-2 text-lg hover:bg-gray-200"
+                      className="flex-1 px-3 py-2 text-base hover:bg-gray-200 sm:px-4 sm:text-lg"
                     >
                       -
                     </button>
 
-                    <span className="px-4 py-2 text-sm font-semibold sm:text-base">Qty {qty}</span>
+                    <span className="px-2 py-2 text-center text-xs font-semibold sm:px-4 sm:text-base">
+                      Qty {qty}
+                    </span>
 
                     <button
                       onClick={() => setQty((prev) => prev + 1)}
-                      className="px-4 py-2 text-lg hover:bg-gray-200"
+                      className="flex-1 px-3 py-2 text-base hover:bg-gray-200 sm:px-4 sm:text-lg"
                     >
                       +
                     </button>
@@ -778,7 +780,7 @@ export default function ProductDetailPage() {
                         setTimeout(() => setIsAddingToCart(false), 250);
                       }
                     }}
-                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 transition sm:flex-1
+                    className={`flex min-w-0 basis-3/4 items-center justify-center gap-2 rounded-xl py-3 transition sm:flex-1
                   ${
                     isAddingToCart
                       ? "bg-black text-white cursor-wait"
