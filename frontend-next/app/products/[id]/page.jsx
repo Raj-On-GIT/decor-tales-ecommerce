@@ -677,7 +677,7 @@ export default function ProductDetailPage() {
                       -
                     </button>
 
-                    <span className="px-2 py-2 text-center text-xs font-semibold sm:px-4 sm:text-base">
+                    <span className="whitespace-nowrap px-2 py-2 text-center text-xs leading-none font-semibold sm:px-4 sm:text-base">
                       Qty {qty}
                     </span>
 
