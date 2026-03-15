@@ -6,11 +6,18 @@ import { usePathname } from "next/navigation";
 export default function AccountLayout({ children }) {
   const pathname = usePathname();
 
-  const linkClass = (path) =>
+  const mobileLinkClass = (path) =>
     `shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
       pathname === path
         ? "bg-gray-900 text-white"
         : "bg-white text-gray-700 hover:bg-gray-100"
+    }`;
+
+  const desktopLinkClass = (path) =>
+    `block w-full rounded-lg px-4 py-2 text-sm font-medium transition ${
+      pathname === path
+        ? "bg-gray-900 text-white"
+        : "text-gray-700 hover:bg-gray-100"
     }`;
 
   return (
@@ -19,17 +26,18 @@ export default function AccountLayout({ children }) {
         <div className="mb-5 overflow-x-auto pb-1">
           <div className="flex min-w-max gap-3 lg:hidden">
             <Link href="/account" className={linkClass("/account")}>
+            <Link href="/account" className={mobileLinkClass("/account")}>
               Profile
             </Link>
             <Link
               href="/account/addresses"
-              className={linkClass("/account/addresses")}
+              className={mobileLinkClass("/account/addresses")}
             >
               Addresses
             </Link>
             <Link
               href="/account/change-password"
-              className={linkClass("/account/change-password")}
+              className={mobileLinkClass("/account/change-password")}
             >
               Change Password
             </Link>
@@ -41,18 +49,18 @@ export default function AccountLayout({ children }) {
             <h2 className="mb-4 text-lg font-bold">My Account</h2>
 
             <div className="space-y-3">
-              <Link href="/account" className={linkClass("/account")}>
+              <Link href="/account" className={desktopLinkClass("/account")}>
                 Profile
               </Link>
               <Link
                 href="/account/addresses"
-                className={linkClass("/account/addresses")}
+                className={desktopLinkClass("/account/addresses")}
               >
                 Addresses
               </Link>
               <Link
                 href="/account/change-password"
-                className={linkClass("/account/change-password")}
+                className={desktopLinkClass("/account/change-password")}
               >
                 Change Password
               </Link>
