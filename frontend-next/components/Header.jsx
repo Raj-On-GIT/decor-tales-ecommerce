@@ -10,15 +10,17 @@ import CartDrawer from "./CartDrawer";
 import SearchBar from "./SearchBar";
 import { useGlobalToast } from "@/context/ToastContext";
 import { useRouter } from "next/navigation";
+import { getProfile } from "@/lib/api";
 
 export default function Header() {
   const { cart } = useStore();
-  const { isAuthenticated, logout, loading } = useAuth();
+  const { isAuthenticated, logout, loading, user } = useAuth();
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [profileName, setProfileName] = useState("");
   const toast = useGlobalToast();
   const router = useRouter();
   const mounted = useSyncExternalStore(
@@ -43,6 +45,45 @@ export default function Header() {
   }, [isProfileOpen]);
 
   const cartCount = mounted ? cart.reduce((acc, item) => acc + item.qty, 0) : 0;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfileName() {
+      try {
+        const profile = await getProfile();
+        if (cancelled) return;
+
+        const fullName = [profile.first_name, profile.last_name]
+          .map((part) => part?.trim())
+          .filter(Boolean)
+          .join(" ");
+
+        setProfileName(fullName || profile.email || "Your Account");
+      } catch {
+        if (!cancelled) {
+          setProfileName("Your Account");
+        }
+      }
+    }
+
+    if (!isAuthenticated) return () => {
+      cancelled = true;
+    };
+
+    loadProfileName();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user?.id]);
+
+  const visibleProfileName = isAuthenticated ? profileName : "";
+  const firstName =
+    visibleProfileName && visibleProfileName !== "Your Account"
+      ? visibleProfileName.trim().split(/\s+/)[0]
+      : "";
+
   useEffect(() => {
     const handleLogin = () => {
       setIsProfileOpen(false);
@@ -185,8 +226,13 @@ export default function Header() {
                 onClick={() => {
                   if (!loading) setIsProfileOpen(!isProfileOpen);
                 }}
-                className="p-2 text-gray-900 hover:bg-gray-100 rounded-full transition disabled:opacity-50"
+                className="flex items-center gap-2 rounded-full border border-transparent px-2 py-1.5 text-gray-900 transition hover:border-gray-200 hover:bg-white/70 disabled:opacity-50"
               >
+                {isAuthenticated && firstName ? (
+                  <span className="max-w-24 truncate text-sm font-medium text-gray-700">
+                    {firstName}
+                  </span>
+                ) : null}
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-gray-300 border-t-black rounded-full animate-spin" />
                 ) : (
@@ -217,41 +263,43 @@ export default function Header() {
                     ) : isAuthenticated ? (
                       /* LOGGED IN STATE */
                       <>
-                        <div className="px-5 pt-5 pb-4 border-b border-gray-200">
-                          <div className="px-6 pt-6 pb-4 border-b border-gray-100">
-                            <h3 className="text-lg font-serif font-semibold text-gray-900 tracking-wide">
-                              Your Account
-                            </h3>
+                        <div className="border-b border-gray-200 bg-gradient-to-br from-[#F7FFD9] via-white to-[#FFF3D6] px-5 py-5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#002424] text-white shadow-sm">
+                              <User size={18} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
+                                Signed in as
+                              </p>
+                              <h3 className="truncate text-lg font-serif font-semibold text-gray-900">
+                                {visibleProfileName || "Your Account"}
+                              </h3>
+                            </div>
                           </div>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Logged in
-                          </p>
                         </div>
 
-                        <div className="py-2">
+                        <div className="p-2">
                           <Link
                             href="/account"
                             onClick={() => setIsProfileOpen(false)}
-                            className="block px-5 py-3 text-sm font-medium text-gray-700
-                                       hover:bg-gray-50 transition"
+                            className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                           >
                             My Account
                           </Link>
                           <Link
                             href="/orders"
                             onClick={() => setIsProfileOpen(false)}
-                            className="block px-5 py-3 text-sm font-medium text-gray-700
-                                       hover:bg-gray-50 transition"
+                            className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                           >
                             My Orders
                           </Link>
                         </div>
 
-                        <div className="border-t border-gray-200">
+                        <div className="border-t border-gray-200 p-2">
                           <button
                             onClick={handleLogout}
-                            className="w-full px-5 py-3 text-left text-sm font-medium text-red-600
-                                       hover:bg-red-50 transition"
+                            className="w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
                           >
                             Logout
                           </button>
