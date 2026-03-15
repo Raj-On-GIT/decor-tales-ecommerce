@@ -37,7 +37,6 @@ CLOUDINARY_STORAGE = {
 
 DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
-print("STORAGE:", DEFAULT_FILE_STORAGE)
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
@@ -174,9 +173,6 @@ CORS_ALLOWED_ORIGINS = [
 CSRF_TRUSTED_ORIGINS = [
     "https://decor-tales-ecommerce.vercel.app",
 ]
-
-MEDIA_URL = "/media/"
-
 
 REST_FRAMEWORK = {
     # Default authentication classes (in order of priority)
