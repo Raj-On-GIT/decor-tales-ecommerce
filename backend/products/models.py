@@ -233,11 +233,21 @@ class ProductVariant(models.Model):
     
     def save(self, *args, **kwargs):
 
-        # ✅ Round prices
+        # Auto generate SKU if empty
+        if not self.sku:
+            size_code = self.size.name[:2].upper() if self.size else "NA"
+            color_code = self.color.name[:3].upper() if self.color else "CLR"
+
+            # If product already saved use its id
+            product_id = self.product.id if self.product else "PRD"
+
+            self.sku = f"DT-{product_id}-{size_code}-{color_code}"
+
+        # Round prices
         self.mrp = round_price(self.mrp)
         self.slashed_price = round_price(self.slashed_price)
 
-        # ✅ Auto discount %
+        # Auto discount %
         if self.mrp and self.slashed_price and self.slashed_price < self.mrp:
             self.discount_percent = round(
                 ((self.mrp - self.slashed_price) / self.mrp) * 100

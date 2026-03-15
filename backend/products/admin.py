@@ -9,7 +9,7 @@ class ProductImageInline(admin.TabularInline):
 class ProductVariantInline(admin.TabularInline):
     model = ProductVariant
     extra = 1
-    fields = ['size', 'color', 'mrp', 'slashed_price', 'discount_percent', 'stock', 'sku']
+    fields = ['size', 'color', 'mrp', 'slashed_price', 'discount_percent', 'stock']
     
     def has_add_permission(self, request, obj=None):
         return True
