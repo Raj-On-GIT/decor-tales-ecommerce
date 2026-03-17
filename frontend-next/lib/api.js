@@ -370,26 +370,130 @@ export async function getCart() {
   };
 }
 
-export function getCartStockIssues(cartItems = []) {
-  return cartItems
-    .map((item) => {
-      const availableStock = item.variant?.stock ?? item.stock ?? 0;
+function getCartStockBucketKey(item) {
+  return [item?.id ?? item?.product_id ?? null, item?.variant?.id ?? null].join(
+    "::",
+  );
+}
 
-      if (item.qty <= availableStock) {
-        return null;
+function isCustomizedCartItem(item) {
+  return Boolean(
+    item?.customText ||
+      item?.custom_text ||
+      item?.customImage ||
+      item?.custom_image ||
+      item?.customImages?.length ||
+      item?.custom_images?.length,
+  );
+}
+
+function getVariantLabel(item) {
+  return [item?.variant?.size_name, item?.variant?.color_name]
+    .filter(Boolean)
+    .join(" / ");
+}
+
+export function analyzeCartStock(cartItems = []) {
+  const groupedItems = new Map();
+
+  cartItems.forEach((item, index) => {
+    const bucketKey = getCartStockBucketKey(item);
+    const availableStock = Math.max(0, item.variant?.stock ?? item.stock ?? 0);
+    const currentGroup = groupedItems.get(bucketKey);
+
+    if (!currentGroup) {
+      groupedItems.set(bucketKey, {
+        availableStock,
+        items: [{ ...item, __cartIndex: index }],
+      });
+      return;
+    }
+
+    currentGroup.availableStock = Math.min(
+      currentGroup.availableStock,
+      availableStock,
+    );
+    currentGroup.items.push({ ...item, __cartIndex: index });
+  });
+
+  const issues = [];
+
+  groupedItems.forEach(({ availableStock, items }) => {
+    const prioritizedItems = [...items].sort((left, right) => {
+      const customizationPriority =
+        Number(isCustomizedCartItem(right)) - Number(isCustomizedCartItem(left));
+
+      if (customizationPriority !== 0) {
+        return customizationPriority;
       }
 
-      return {
+      return left.__cartIndex - right.__cartIndex;
+    });
+
+    let remainingStock = availableStock;
+
+    prioritizedItems.forEach((item) => {
+      const allowedQty = Math.max(0, Math.min(item.qty, remainingStock));
+      remainingStock = Math.max(0, remainingStock - allowedQty);
+
+      if (allowedQty === item.qty) {
+        return;
+      }
+
+      issues.push({
         cart_item_id: item.cart_item_id,
         title: item.title,
-        variantLabel: [item.variant?.size_name, item.variant?.color_name]
-          .filter(Boolean)
-          .join(" / "),
+        variantLabel: getVariantLabel(item),
         requestedQty: item.qty,
         availableStock,
-      };
-    })
-    .filter(Boolean);
+        suggestedQty: allowedQty,
+        excessQty: item.qty - allowedQty,
+        isCustomized: isCustomizedCartItem(item),
+      });
+    });
+  });
+
+  return issues.sort((left, right) => {
+    if (left.suggestedQty !== right.suggestedQty) {
+      return left.suggestedQty - right.suggestedQty;
+    }
+
+    return Number(left.isCustomized) - Number(right.isCustomized);
+  });
+}
+
+export function getCartStockIssues(cartItems = []) {
+  return analyzeCartStock(cartItems);
+}
+
+export async function syncCartStock(cartItems = []) {
+  const issues = analyzeCartStock(cartItems);
+
+  if (!issues.length) {
+    return {
+      changed: false,
+      items: cartItems,
+      issues: [],
+      adjustments: [],
+    };
+  }
+
+  await Promise.all(
+    issues.map((issue) =>
+      issue.suggestedQty > 0
+        ? updateCartItem(issue.cart_item_id, issue.suggestedQty)
+        : removeFromCart(issue.cart_item_id),
+    ),
+  );
+
+  const refreshedCart = await getCart();
+
+  return {
+    changed: true,
+    items: refreshedCart.items || [],
+    issues: analyzeCartStock(refreshedCart.items || []),
+    adjustments: issues,
+  };
 }
 
 export async function removeFromCart(itemId) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, ShoppingBag, ArrowRight, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,7 +8,7 @@ import { formatPrice } from "@/lib/formatPrice";
 import { useStore } from "@/context/StoreContext";
 import { useGlobalToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
-import { getCart, getCartStockIssues } from "@/lib/api";
+import { getCart, getCartStockIssues, syncCartStock } from "@/lib/api";
 
 const normalizeCategory = (category) => {
   if (!category) {
@@ -40,6 +40,35 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
   const { error } = useGlobalToast();
   const [checkingOut, setCheckingOut] = useState(false);
 
+  useEffect(() => {
+    if (!isCartOpen || !isAuthenticated) {
+      return;
+    }
+
+    async function refreshCartStock() {
+      try {
+        const latestCart = await getCart();
+        const syncedCart = await syncCartStock(latestCart.items || []);
+        const nextItems = syncedCart.items || latestCart.items || [];
+
+        replaceCart(nextItems);
+
+        if (syncedCart.changed) {
+          error("Cart updated to match current stock. Customized items were kept first.");
+        }
+      } catch (err) {
+        console.error("Cart refresh failed:", err);
+      }
+    }
+
+    refreshCartStock();
+  }, [error, isAuthenticated, isCartOpen, replaceCart]);
+
+  const stockIssues = getCartStockIssues(cart);
+  const stockIssueMap = new Map(
+    stockIssues.map((issue) => [issue.cart_item_id, issue]),
+  );
+
   async function handleProceedToCheckout() {
     if (!isAuthenticated) {
       setIsCartOpen(false);
@@ -51,28 +80,28 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
 
     try {
       const latestCart = await getCart();
-      const latestItems = latestCart.items || [];
-      const issues = getCartStockIssues(latestItems);
+      const syncedCart = await syncCartStock(latestCart.items || []);
+      const nextItems = syncedCart.items || latestCart.items || [];
 
-      replaceCart(latestItems);
+      replaceCart(nextItems);
 
-      if (issues.length > 0) {
-        const firstIssue = issues[0];
+      if (syncedCart.changed || syncedCart.issues.length > 0) {
+        const firstIssue = syncedCart.adjustments[0] || syncedCart.issues[0];
         const itemLabel = firstIssue.variantLabel
           ? `${firstIssue.title} (${firstIssue.variantLabel})`
           : firstIssue.title;
 
         error(
-          `${itemLabel} now has only ${firstIssue.availableStock} item${
-            firstIssue.availableStock === 1 ? "" : "s"
-          } available. Please review your cart.`,
+          firstIssue.suggestedQty > 0
+            ? `${itemLabel} was reduced to ${firstIssue.suggestedQty} to match current stock.`
+            : `${itemLabel} is now out of stock and was removed from your cart.`,
         );
         return;
       }
 
       setIsCartOpen(false);
       router.push("/checkout");
-    } catch (err) {
+    } catch {
       error("Failed to verify stock before checkout");
     } finally {
       setCheckingOut(false);
@@ -131,6 +160,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                   {cart.map((item) => {
                     const itemAction = getCartAction(item);
                     const itemPending = isCartItemPending(item);
+                    const stockIssue = stockIssueMap.get(item.cart_item_id);
 
                     return (
                       <motion.div
@@ -187,6 +217,14 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                         </span>
                       )}
 
+                      {stockIssue && (
+                        <p className="mt-2 text-xs font-medium text-red-600">
+                          {stockIssue.suggestedQty > 0
+                            ? `Only ${stockIssue.suggestedQty} can be ordered right now`
+                            : "Out of stock"}
+                        </p>
+                      )}
+
                       <p className="font-semibold mt-2">
                         ₹{formatPrice(item.price)}
                       </p>
@@ -238,8 +276,10 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                             const sameVariantTotal = cart
                               .filter(
                                 (c) =>
+                                  (c.id || c.product_id || null) ===
+                                    (item.id || item.product_id || null) &&
                                   (c.variant?.id || null) ===
-                                  (item.variant?.id || null),
+                                    (item.variant?.id || null),
                               )
                               .reduce((sum, c) => sum + c.qty, 0);
 

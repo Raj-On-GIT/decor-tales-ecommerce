@@ -5,6 +5,7 @@ import {
   addToCart as addToCartAPI,
   getCart,
   removeFromCart as removeFromCartAPI,
+  syncCartStock,
   updateCartItem,
 } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -79,15 +80,23 @@ export function StoreProvider({ children }) {
       try {
         const data = await getCart();
         if (!data?.items) return;
-        setCart(data.items);
-        localStorage.setItem("cart", JSON.stringify(data.items));
+
+        const syncedCart = await syncCartStock(data.items);
+        const nextItems = syncedCart.items || data.items;
+
+        setCart(nextItems);
+        localStorage.setItem("cart", JSON.stringify(nextItems));
+
+        if (syncedCart.changed) {
+          error("Cart quantities were updated to match current stock.");
+        }
       } catch (err) {
         console.error("Failed to load server cart:", err);
       }
     }
 
     loadServerCart();
-  }, [isAuthenticated]);
+  }, [error, isAuthenticated]);
 
   function getAvailableStock(product) {
     if (product.stock_type === "variant" || product.stock_type === "variants") {
@@ -279,13 +288,13 @@ export function StoreProvider({ children }) {
     localStorage.removeItem("cart");
   }, []);
 
-  function replaceCart(newCartItems) {
+  const replaceCart = useCallback((newCartItems) => {
     setCart(newCartItems || []);
 
     if (typeof window !== "undefined") {
       localStorage.setItem("cart", JSON.stringify(newCartItems || []));
     }
-  }
+  }, []);
 
   function getCartAction(item) {
     return pendingCartActions[getPendingKey(item)] || null;

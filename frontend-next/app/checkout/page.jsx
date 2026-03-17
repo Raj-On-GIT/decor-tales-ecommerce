@@ -10,6 +10,7 @@ import {
   getCart,
   getCartStockIssues,
   createOrderWithAddress,
+  syncCartStock,
 } from "@/lib/api";
 import { useGlobalToast } from "@/context/ToastContext";
 
@@ -28,7 +29,7 @@ export default function CheckoutPage() {
     if (!authLoading && !isAuthenticated) {
       router.push("/login");
     }
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, router]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -42,14 +43,22 @@ export default function CheckoutPage() {
         if (defaultAddr) setSelectedAddress(defaultAddr.id);
 
         const cartData = await getCart();
-        setCart(cartData.items || []);
+        const syncedCart = await syncCartStock(cartData.items || []);
+        const nextItems = syncedCart.items || cartData.items || [];
+
+        setCart(nextItems);
+        replaceCart(nextItems);
+
+        if (syncedCart.changed) {
+          error("Cart updated to match current stock before checkout.");
+        }
       } catch {
         error("Failed to load checkout data");
       }
     }
 
     loadData();
-  }, [isAuthenticated]);
+  }, [error, isAuthenticated, replaceCart]);
 
   const total = cart.reduce(
     (sum, item) => sum + item.qty * Number(item.price),
@@ -66,22 +75,23 @@ export default function CheckoutPage() {
 
     try {
       const latestCart = await getCart();
-      const latestItems = latestCart.items || [];
-      const issues = getCartStockIssues(latestItems);
+      const syncedCart = await syncCartStock(latestCart.items || []);
+      const nextItems = syncedCart.items || latestCart.items || [];
+      const issues = getCartStockIssues(nextItems);
 
-      setCart(latestItems);
-      replaceCart(latestItems);
+      setCart(nextItems);
+      replaceCart(nextItems);
 
-      if (issues.length > 0) {
-        const firstIssue = issues[0];
+      if (syncedCart.changed || issues.length > 0) {
+        const firstIssue = syncedCart.adjustments[0] || issues[0];
         const itemLabel = firstIssue.variantLabel
           ? `${firstIssue.title} (${firstIssue.variantLabel})`
           : firstIssue.title;
 
         error(
-          `${itemLabel} now has only ${firstIssue.availableStock} item${
-            firstIssue.availableStock === 1 ? "" : "s"
-          } available. Please update your cart before placing the order.`,
+          firstIssue.suggestedQty > 0
+            ? `${itemLabel} was reduced to ${firstIssue.suggestedQty}. Please review your cart before placing the order.`
+            : `${itemLabel} is now out of stock and was removed from your cart.`,
         );
         return;
       }
