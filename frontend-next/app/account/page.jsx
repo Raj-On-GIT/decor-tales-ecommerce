@@ -42,7 +42,7 @@ export default function AccountPage() {
           phone: data.profile?.phone || "",
         });
         setAvatarPreview(data.profile?.avatar || null);
-      } catch (err) {
+      } catch {
         error("Failed to load profile");
       } finally {
         setProfileLoading(false);
@@ -52,7 +52,7 @@ export default function AccountPage() {
     if (isAuthenticated) {
       loadProfile();
     }
-  }, [isAuthenticated]);
+  }, [error, isAuthenticated]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -71,10 +71,23 @@ export default function AccountPage() {
 
       const updated = await updateProfile(formData);
       setProfile(updated);
-      setAvatarPreview(updated.profile?.avatar || avatarPreview);
+      setForm({
+        first_name: updated.first_name || "",
+        last_name: updated.last_name || "",
+        phone: updated.profile?.phone || "",
+      });
+      setAvatarPreview(updated.profile?.avatar || null);
+      setAvatarFile(null);
       success("Profile updated successfully");
     } catch (err) {
-      error("Failed to update profile");
+      const message =
+        err?.profile?.phone?.[0] ||
+        err?.profile?.avatar?.[0] ||
+        err?.first_name?.[0] ||
+        err?.last_name?.[0] ||
+        err?.detail ||
+        "Failed to update profile";
+      error(message);
     } finally {
       setSaving(false);
     }
@@ -93,9 +106,18 @@ export default function AccountPage() {
       setProfile(updated);
       setAvatarFile(null);
       setAvatarPreview(null);
+      setForm({
+        first_name: updated.first_name || "",
+        last_name: updated.last_name || "",
+        phone: updated.profile?.phone || "",
+      });
       success("Profile photo removed");
     } catch (err) {
-      error("Failed to remove photo");
+      const message =
+        err?.profile?.avatar?.[0] ||
+        err?.detail ||
+        "Failed to remove photo";
+      error(message);
     } finally {
       setSaving(false);
     }

@@ -140,9 +140,27 @@ def get_profile(request):
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 def update_profile(request):
+    data = {
+        "first_name": request.data.get("first_name"),
+        "last_name": request.data.get("last_name"),
+    }
+    profile_data = {}
+
+    if "profile.phone" in request.data:
+        profile_data["phone"] = request.data.get("profile.phone")
+
+    avatar_removed = "profile.avatar" in request.data and not request.data.get("profile.avatar")
+    if "profile.avatar" in request.FILES:
+        profile_data["avatar"] = request.FILES["profile.avatar"]
+    elif avatar_removed:
+        profile_data["avatar"] = None
+
+    if profile_data:
+        data["profile"] = profile_data
+
     serializer = ProfileSerializer(
         request.user,
-        data=request.data,
+        data=data,
         partial=True
     )
 

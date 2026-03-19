@@ -586,10 +586,16 @@ export async function updateProfile(formData) {
 
   if (!response.ok) {
     const err = await response.json();
-    throw new Error("Failed to update profile");
+    throw err;
   }
 
-  return response.json();
+  const data = await response.json();
+
+  if (data.profile?.avatar && !data.profile.avatar.startsWith("http")) {
+    data.profile.avatar = `${process.env.NEXT_PUBLIC_BACKEND_URL}${data.profile.avatar}`;
+  }
+
+  return data;
 }
 
 export async function getAddresses() {
