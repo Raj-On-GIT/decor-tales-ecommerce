@@ -228,14 +228,10 @@ class ProfileSerializer(serializers.ModelSerializer):
 
             # CASE 1: Avatar removed
             if not new_avatar:
-                if profile.avatar:
-                    profile.avatar.delete(save=False)
-                    profile.avatar = None
+                profile.avatar = None
 
             # CASE 2: Avatar replaced
             else:
-                if profile.avatar:
-                    profile.avatar.delete(save=False)
                 profile.avatar = new_avatar
 
         # Update phone

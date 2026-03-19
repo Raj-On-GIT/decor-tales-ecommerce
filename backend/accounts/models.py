@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.models import User
-from PIL import Image
 
 class UserProfile(models.Model):
     user = models.OneToOneField(
@@ -18,31 +17,6 @@ class UserProfile(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-
-        if self.avatar:
-            try:
-                img_path = self.avatar.path
-            except (NotImplementedError, AttributeError, ValueError):
-                return
-
-            try:
-                img = Image.open(img_path)
-
-                # Convert RGBA to RGB if needed
-                if img.mode in ("RGBA", "P"):
-                    img = img.convert("RGB")
-
-                # Resize (max 400x400)
-                max_size = (400, 400)
-                img.thumbnail(max_size)
-
-                # Save with compression
-                img.save(img_path, format="JPEG", quality=85, optimize=True)
-            except (FileNotFoundError, OSError, ValueError):
-                return
 
     def __str__(self):
         return f"Profile of {self.user.username}"
