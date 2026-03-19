@@ -176,12 +176,36 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "avatar": {"required": False, "allow_null": True},
         }
 
+    def validate_phone(self, value):
+        digits = "".join(filter(str.isdigit, value or ""))
+
+        if digits and len(digits) != 10:
+            raise serializers.ValidationError("Phone number must be exactly 10 digits.")
+
+        return digits
+
 class ProfileSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer()
 
     class Meta:
         model = User
         fields = ("id", "email", "first_name", "last_name", "profile")
+
+    def validate_first_name(self, value):
+        value = value.strip()
+
+        if value and not all(char.isalpha() or char in " .'-" for char in value):
+            raise serializers.ValidationError("First name can only contain letters, spaces, apostrophes, periods, and hyphens.")
+
+        return value
+
+    def validate_last_name(self, value):
+        value = value.strip()
+
+        if value and not all(char.isalpha() or char in " .'-" for char in value):
+            raise serializers.ValidationError("Last name can only contain letters, spaces, apostrophes, periods, and hyphens.")
+
+        return value
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", {})

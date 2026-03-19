@@ -23,6 +23,7 @@ export default function AccountPage() {
   const [avatarFile, setAvatarFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -52,18 +53,72 @@ export default function AccountPage() {
     if (isAuthenticated) {
       loadProfile();
     }
-  }, [error, isAuthenticated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
+
+  function validateForm(values) {
+    const errors = {};
+    const firstName = values.first_name.trim();
+    const lastName = values.last_name.trim();
+    const phone = values.phone.replace(/\D/g, "");
+    const namePattern = /^[A-Za-z .'-]+$/;
+
+    if (firstName && !namePattern.test(firstName)) {
+      errors.first_name =
+        "First name can only contain letters, spaces, apostrophes, periods, and hyphens.";
+    }
+
+    if (lastName && !namePattern.test(lastName)) {
+      errors.last_name =
+        "Last name can only contain letters, spaces, apostrophes, periods, and hyphens.";
+    }
+
+    if (phone && phone.length !== 10) {
+      errors.phone = "Phone number must be exactly 10 digits.";
+    }
+
+    return errors;
+  }
+
+  function buildPayload(values) {
+    return {
+      first_name: values.first_name.trim(),
+      last_name: values.last_name.trim(),
+      phone: values.phone.replace(/\D/g, ""),
+    };
+  }
+
+  function handleFieldChange(name, value) {
+    const normalizedValue = name === "phone" ? value.replace(/\D/g, "") : value;
+    const nextForm = { ...form, [name]: normalizedValue };
+    setForm(nextForm);
+
+    if (fieldErrors[name]) {
+      const nextErrors = validateForm(nextForm);
+      setFieldErrors((current) => ({ ...current, [name]: nextErrors[name] }));
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const payload = buildPayload(form);
+    const validationErrors = validateForm(payload);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      error("Please correct the highlighted profile fields");
+      return;
+    }
+
     setSaving(true);
+    setFieldErrors({});
 
     try {
       const formData = new FormData();
 
-      formData.append("first_name", form.first_name);
-      formData.append("last_name", form.last_name);
-      formData.append("profile.phone", form.phone);
+      formData.append("first_name", payload.first_name);
+      formData.append("last_name", payload.last_name);
+      formData.append("profile.phone", payload.phone);
 
       if (avatarFile) {
         formData.append("profile.avatar", avatarFile);
@@ -80,6 +135,18 @@ export default function AccountPage() {
       setAvatarFile(null);
       success("Profile updated successfully");
     } catch (err) {
+      if (err && typeof err === "object" && !Array.isArray(err)) {
+        const apiFieldErrors = {
+          first_name: Array.isArray(err.first_name) ? err.first_name[0] : undefined,
+          last_name: Array.isArray(err.last_name) ? err.last_name[0] : undefined,
+          phone: Array.isArray(err?.profile?.phone) ? err.profile.phone[0] : undefined,
+        };
+
+        if (Object.values(apiFieldErrors).some(Boolean)) {
+          setFieldErrors((current) => ({ ...current, ...apiFieldErrors }));
+        }
+      }
+
       const message =
         err?.profile?.phone?.[0] ||
         err?.profile?.avatar?.[0] ||
@@ -210,9 +277,12 @@ export default function AccountPage() {
             <input
               type="text"
               value={form.first_name}
-              onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-              className="w-full rounded-lg border-2 border-gray-200 px-4 py-3 focus:border-gray-900 focus:outline-none"
+              onChange={(e) => handleFieldChange("first_name", e.target.value)}
+              className={`w-full rounded-lg border-2 px-4 py-3 focus:border-gray-900 focus:outline-none ${fieldErrors.first_name ? "border-red-500" : "border-gray-200"}`}
             />
+            {fieldErrors.first_name && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.first_name}</p>
+            )}
           </div>
 
           <div>
@@ -220,9 +290,12 @@ export default function AccountPage() {
             <input
               type="text"
               value={form.last_name}
-              onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-              className="w-full rounded-lg border-2 border-gray-200 px-4 py-3 focus:border-gray-900 focus:outline-none"
+              onChange={(e) => handleFieldChange("last_name", e.target.value)}
+              className={`w-full rounded-lg border-2 px-4 py-3 focus:border-gray-900 focus:outline-none ${fieldErrors.last_name ? "border-red-500" : "border-gray-200"}`}
             />
+            {fieldErrors.last_name && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.last_name}</p>
+            )}
           </div>
         </div>
 
@@ -231,9 +304,14 @@ export default function AccountPage() {
           <input
             type="text"
             value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            className="w-full rounded-lg border-2 border-gray-200 px-4 py-3 focus:border-gray-900 focus:outline-none"
+            onChange={(e) => handleFieldChange("phone", e.target.value)}
+            inputMode="numeric"
+            maxLength={10}
+            className={`w-full rounded-lg border-2 px-4 py-3 focus:border-gray-900 focus:outline-none ${fieldErrors.phone ? "border-red-500" : "border-gray-200"}`}
           />
+          {fieldErrors.phone && (
+            <p className="mt-1 text-sm text-red-600">{fieldErrors.phone}</p>
+          )}
         </div>
 
         <div>
