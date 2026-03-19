@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 from PIL import Image
-from django.core.files.storage import default_storage
 
 class UserProfile(models.Model):
     user = models.OneToOneField(
@@ -27,9 +26,6 @@ class UserProfile(models.Model):
             try:
                 img_path = self.avatar.path
             except (NotImplementedError, AttributeError, ValueError):
-                return
-
-            if not default_storage.exists(self.avatar.name):
                 return
 
             try:
