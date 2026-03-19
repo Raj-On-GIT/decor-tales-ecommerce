@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   getAddresses,
@@ -12,13 +12,7 @@ import { useGlobalToast } from "@/context/ToastContext";
 
 export default function AddressesPage() {
   const { success, error } = useGlobalToast();
-
-  const [addresses, setAddresses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({
+  const emptyForm = {
     full_name: "",
     phone: "",
     address_line_1: "",
@@ -27,13 +21,17 @@ export default function AddressesPage() {
     state: "",
     postal_code: "",
     is_default: false,
-  });
+  };
 
-  useEffect(() => {
-    loadAddresses();
-  }, []);
+  const [addresses, setAddresses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [fieldErrors, setFieldErrors] = useState({});
 
-  async function loadAddresses() {
+  const loadAddresses = useCallback(async () => {
     try {
       const data = await getAddresses();
       setAddresses(Array.isArray(data) ? data : data?.results || []);
@@ -42,45 +40,141 @@ export default function AddressesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [error]);
+
+  useEffect(() => {
+    loadAddresses();
+  }, [loadAddresses]);
 
   function openCreate() {
     setEditing(null);
-    setForm({
-      full_name: "",
-      phone: "",
-      address_line_1: "",
-      address_line_2: "",
-      city: "",
-      state: "",
-      postal_code: "",
-      is_default: false,
-    });
+    setForm(emptyForm);
+    setFieldErrors({});
     setFormOpen(true);
   }
 
   function openEdit(address) {
     setEditing(address);
     setForm(address);
+    setFieldErrors({});
     setFormOpen(true);
+  }
+
+  function normalizeFormValue(name, value) {
+    if (name === "phone" || name === "postal_code") {
+      return value.replace(/\D/g, "");
+    }
+
+    return value;
+  }
+
+  function validateForm(values) {
+    const errors = {};
+    const name = values.full_name.trim();
+    const phone = values.phone.replace(/\D/g, "");
+    const postalCode = values.postal_code.replace(/\D/g, "");
+    const address1 = values.address_line_1.trim();
+    const city = values.city.trim();
+    const state = values.state.trim();
+    const cityStatePattern = /^[A-Za-z.\-\s]+$/;
+
+    if (name.length < 2) {
+      errors.full_name = "Full name must be at least 2 characters.";
+    }
+
+    if (phone.length !== 10) {
+      errors.phone = "Phone number must be exactly 10 digits.";
+    }
+
+    if (postalCode.length !== 6) {
+      errors.postal_code = "Postal code must be exactly 6 digits.";
+    }
+
+    if (address1.length < 5) {
+      errors.address_line_1 = "Address line 1 must be at least 5 characters.";
+    }
+
+    if (city.length < 2) {
+      errors.city = "City must be at least 2 characters.";
+    } else if (!cityStatePattern.test(city)) {
+      errors.city = "City can only contain letters, spaces, hyphens, and periods.";
+    }
+
+    if (state.length < 2) {
+      errors.state = "State must be at least 2 characters.";
+    } else if (!cityStatePattern.test(state)) {
+      errors.state = "State can only contain letters, spaces, hyphens, and periods.";
+    }
+
+    return errors;
+  }
+
+  function buildPayload(values) {
+    return {
+      ...values,
+      full_name: values.full_name.trim(),
+      phone: values.phone.replace(/\D/g, ""),
+      address_line_1: values.address_line_1.trim(),
+      address_line_2: values.address_line_2.trim(),
+      city: values.city.trim(),
+      state: values.state.trim(),
+      postal_code: values.postal_code.replace(/\D/g, ""),
+    };
+  }
+
+  function handleFieldChange(name, value) {
+    const normalizedValue = normalizeFormValue(name, value);
+    const nextForm = { ...form, [name]: normalizedValue };
+    setForm(nextForm);
+
+    if (fieldErrors[name]) {
+      const nextErrors = validateForm(nextForm);
+      setFieldErrors((current) => ({ ...current, [name]: nextErrors[name] }));
+    }
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
+    const payload = buildPayload(form);
+    const clientErrors = validateForm(payload);
+
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors);
+      error("Please correct the highlighted address fields");
+      return;
+    }
+
     setSaving(true);
+    setFieldErrors({});
 
     try {
       if (editing) {
-        await updateAddress(editing.id, form);
+        await updateAddress(editing.id, payload);
         success("Address updated");
       } else {
-        await createAddress(form);
+        await createAddress(payload);
         success("Address added");
       }
 
       setFormOpen(false);
+      setEditing(null);
       await loadAddresses();
-    } catch {
+    } catch (err) {
+      if (err && typeof err === "object" && !Array.isArray(err)) {
+        const apiFieldErrors = Object.fromEntries(
+          Object.entries(err).map(([key, value]) => [
+            key,
+            Array.isArray(value) ? value[0] : value,
+          ]),
+        );
+
+        if (Object.keys(apiFieldErrors).length > 0) {
+          setFieldErrors(apiFieldErrors);
+          error("Please correct the highlighted address fields");
+          return;
+        }
+      }
+
       error("Failed to save address");
     } finally {
       setSaving(false);
@@ -179,57 +273,79 @@ export default function AddressesPage() {
             <input
               placeholder="Full Name"
               value={form.full_name}
-              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+              onChange={(e) => handleFieldChange("full_name", e.target.value)}
               required
-              className="rounded-lg border px-3 py-3 sm:col-span-2"
+              className={`rounded-lg border px-3 py-3 sm:col-span-2 ${fieldErrors.full_name ? "border-red-500" : ""}`}
             />
+            {fieldErrors.full_name && (
+              <p className="text-sm text-red-600 sm:col-span-2">{fieldErrors.full_name}</p>
+            )}
 
             <input
               placeholder="Phone"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              onChange={(e) => handleFieldChange("phone", e.target.value)}
+              inputMode="numeric"
+              maxLength={10}
               required
-              className="rounded-lg border px-3 py-3"
+              className={`rounded-lg border px-3 py-3 ${fieldErrors.phone ? "border-red-500" : ""}`}
             />
+            {fieldErrors.phone && (
+              <p className="text-sm text-red-600">{fieldErrors.phone}</p>
+            )}
 
             <input
               placeholder="Postal Code"
               value={form.postal_code}
-              onChange={(e) => setForm({ ...form, postal_code: e.target.value })}
+              onChange={(e) => handleFieldChange("postal_code", e.target.value)}
+              inputMode="numeric"
+              maxLength={6}
               required
-              className="rounded-lg border px-3 py-3"
+              className={`rounded-lg border px-3 py-3 ${fieldErrors.postal_code ? "border-red-500" : ""}`}
             />
+            {fieldErrors.postal_code && (
+              <p className="text-sm text-red-600">{fieldErrors.postal_code}</p>
+            )}
 
             <input
               placeholder="Address Line 1"
               value={form.address_line_1}
-              onChange={(e) => setForm({ ...form, address_line_1: e.target.value })}
+              onChange={(e) => handleFieldChange("address_line_1", e.target.value)}
               required
-              className="rounded-lg border px-3 py-3 sm:col-span-2"
+              className={`rounded-lg border px-3 py-3 sm:col-span-2 ${fieldErrors.address_line_1 ? "border-red-500" : ""}`}
             />
+            {fieldErrors.address_line_1 && (
+              <p className="text-sm text-red-600 sm:col-span-2">{fieldErrors.address_line_1}</p>
+            )}
 
             <input
               placeholder="Address Line 2"
               value={form.address_line_2}
-              onChange={(e) => setForm({ ...form, address_line_2: e.target.value })}
+              onChange={(e) => handleFieldChange("address_line_2", e.target.value)}
               className="rounded-lg border px-3 py-3 sm:col-span-2"
             />
 
             <input
               placeholder="City"
               value={form.city}
-              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              onChange={(e) => handleFieldChange("city", e.target.value)}
               required
-              className="rounded-lg border px-3 py-3"
+              className={`rounded-lg border px-3 py-3 ${fieldErrors.city ? "border-red-500" : ""}`}
             />
+            {fieldErrors.city && (
+              <p className="text-sm text-red-600">{fieldErrors.city}</p>
+            )}
 
             <input
               placeholder="State"
               value={form.state}
-              onChange={(e) => setForm({ ...form, state: e.target.value })}
+              onChange={(e) => handleFieldChange("state", e.target.value)}
               required
-              className="rounded-lg border px-3 py-3"
+              className={`rounded-lg border px-3 py-3 ${fieldErrors.state ? "border-red-500" : ""}`}
             />
+            {fieldErrors.state && (
+              <p className="text-sm text-red-600">{fieldErrors.state}</p>
+            )}
 
             <label className="flex items-center gap-2 text-sm sm:col-span-2">
               <input
@@ -250,7 +366,10 @@ export default function AddressesPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setFormOpen(false)}
+                onClick={() => {
+                  setFormOpen(false);
+                  setFieldErrors({});
+                }}
                 className="w-full rounded-lg border py-3 text-gray-700 hover:bg-gray-50 sm:w-auto sm:px-6"
               >
                 Cancel

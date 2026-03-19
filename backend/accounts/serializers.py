@@ -237,6 +237,63 @@ class AddressSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("country", "created_at")
 
+    def validate_full_name(self, value):
+        value = value.strip()
+
+        if len(value) < 2:
+            raise serializers.ValidationError("Full name must be at least 2 characters.")
+
+        return value
+
+    def validate_phone(self, value):
+        digits = "".join(filter(str.isdigit, value))
+
+        if len(digits) != 10:
+            raise serializers.ValidationError("Phone number must be exactly 10 digits.")
+
+        return digits
+
+    def validate_postal_code(self, value):
+        postal_code = value.strip()
+
+        if not postal_code.isdigit() or len(postal_code) != 6:
+            raise serializers.ValidationError("Postal code must be exactly 6 digits.")
+
+        return postal_code
+
+    def validate_address_line_1(self, value):
+        value = value.strip()
+
+        if len(value) < 5:
+            raise serializers.ValidationError("Address line 1 must be at least 5 characters.")
+
+        return value
+
+    def validate_address_line_2(self, value):
+        return value.strip()
+
+    def validate_city(self, value):
+        value = value.strip()
+
+        if len(value) < 2:
+            raise serializers.ValidationError("City must be at least 2 characters.")
+
+        if not all(char.isalpha() or char.isspace() or char in "-." for char in value):
+            raise serializers.ValidationError("City can only contain letters, spaces, hyphens, and periods.")
+
+        return value
+
+    def validate_state(self, value):
+        value = value.strip()
+
+        if len(value) < 2:
+            raise serializers.ValidationError("State must be at least 2 characters.")
+
+        if not all(char.isalpha() or char.isspace() or char in "-." for char in value):
+            raise serializers.ValidationError("State can only contain letters, spaces, hyphens, and periods.")
+
+        return value
+
     def create(self, validated_data):
         user = self.context["request"].user
         return Address.objects.create(user=user, **validated_data)

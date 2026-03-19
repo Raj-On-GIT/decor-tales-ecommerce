@@ -607,7 +607,10 @@ export async function createAddress(data) {
       body: JSON.stringify(data),
     },
   );
-  if (!res.ok) throw new Error();
+  if (!res.ok) {
+    const err = await res.json();
+    throw err;
+  }
   return res.json();
 }
 
@@ -620,7 +623,10 @@ export async function updateAddress(id, data) {
       body: JSON.stringify(data),
     },
   );
-  if (!res.ok) throw new Error();
+  if (!res.ok) {
+    const err = await res.json();
+    throw err;
+  }
   return res.json();
 }
 
