@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from PIL import Image
+from django.core.files.storage import default_storage
 
 class UserProfile(models.Model):
     user = models.OneToOneField(
@@ -23,19 +24,29 @@ class UserProfile(models.Model):
         super().save(*args, **kwargs)
 
         if self.avatar:
-            img_path = self.avatar.path
-            img = Image.open(img_path)
+            try:
+                img_path = self.avatar.path
+            except (NotImplementedError, AttributeError, ValueError):
+                return
 
-            # Convert RGBA to RGB if needed
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
+            if not default_storage.exists(self.avatar.name):
+                return
 
-            # Resize (max 400x400)
-            max_size = (400, 400)
-            img.thumbnail(max_size)
+            try:
+                img = Image.open(img_path)
 
-            # Save with compression
-            img.save(img_path, format="JPEG", quality=85, optimize=True)
+                # Convert RGBA to RGB if needed
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
+
+                # Resize (max 400x400)
+                max_size = (400, 400)
+                img.thumbnail(max_size)
+
+                # Save with compression
+                img.save(img_path, format="JPEG", quality=85, optimize=True)
+            except (FileNotFoundError, OSError, ValueError):
+                return
 
     def __str__(self):
         return f"Profile of {self.user.username}"

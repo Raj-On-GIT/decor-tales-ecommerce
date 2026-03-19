@@ -9,7 +9,6 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import smart_bytes, smart_str
 from django.core.mail import send_mail
 from django.conf import settings
-import os
 
 # ============================================================================
 # SIGNUP SERIALIZER
@@ -172,6 +171,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ("phone", "avatar")
+        extra_kwargs = {
+            "phone": {"required": False, "allow_blank": True},
+            "avatar": {"required": False, "allow_null": True},
+        }
 
 class ProfileSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer()
@@ -202,18 +205,18 @@ class ProfileSerializer(serializers.ModelSerializer):
             # CASE 1: Avatar removed
             if not new_avatar:
                 if profile.avatar:
-                    if os.path.isfile(profile.avatar.path):
-                        os.remove(profile.avatar.path)
+                    profile.avatar.delete(save=False)
                     profile.avatar = None
 
             # CASE 2: Avatar replaced
             else:
-                if profile.avatar and os.path.isfile(profile.avatar.path):
-                    os.remove(profile.avatar.path)
+                if profile.avatar:
+                    profile.avatar.delete(save=False)
                 profile.avatar = new_avatar
 
         # Update phone
-        profile.phone = profile_data.get("phone", profile.phone)
+        if "phone" in profile_data:
+            profile.phone = profile_data.get("phone") or ""
 
         profile.save()
 
