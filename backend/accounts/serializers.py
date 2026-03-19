@@ -239,9 +239,13 @@ class AddressSerializer(serializers.ModelSerializer):
 
     def validate_full_name(self, value):
         value = value.strip()
+        allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .'-")
 
-        if len(value) < 2:
-            raise serializers.ValidationError("Full name must be at least 2 characters.")
+        if len(value) < 3:
+            raise serializers.ValidationError("Full name must be at least 3 characters.")
+
+        if not all(char in allowed_chars for char in value):
+            raise serializers.ValidationError("Full name can only contain letters, spaces, apostrophes, periods, and hyphens.")
 
         return value
 

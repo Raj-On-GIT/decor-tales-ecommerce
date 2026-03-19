@@ -30,6 +30,8 @@ export default function AddressesPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [pinLookupLoading, setPinLookupLoading] = useState(false);
+  const [pinLookupMessage, setPinLookupMessage] = useState("");
 
   const loadAddresses = useCallback(async () => {
     try {
@@ -46,10 +48,86 @@ export default function AddressesPage() {
     loadAddresses();
   }, [loadAddresses]);
 
+  useEffect(() => {
+    if (!formOpen) return undefined;
+
+    const postalCode = form.postal_code.replace(/\D/g, "");
+
+    if (postalCode.length === 0) {
+      setPinLookupLoading(false);
+      setPinLookupMessage("");
+      return undefined;
+    }
+
+    if (postalCode.length < 6) {
+      setPinLookupLoading(false);
+      setPinLookupMessage("Enter a 6-digit pincode to auto-fill city and state.");
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    async function resolvePostalCode() {
+      try {
+        setPinLookupLoading(true);
+        setPinLookupMessage("");
+
+        const response = await fetch(
+          `https://api.postalpincode.in/pincode/${postalCode}`,
+          { signal: controller.signal },
+        );
+
+        if (!response.ok) {
+          throw new Error("Unable to fetch pincode details.");
+        }
+
+        const data = await response.json();
+        const [result] = Array.isArray(data) ? data : [];
+        const postOffice = result?.PostOffice?.[0];
+
+        if (!postOffice?.District || !postOffice?.State) {
+          throw new Error("Pincode not found.");
+        }
+
+        setForm((current) =>
+          current.postal_code === postalCode
+            ? {
+                ...current,
+                city: postOffice.District,
+                state: postOffice.State,
+              }
+            : current,
+        );
+
+        setFieldErrors((current) => ({
+          ...current,
+          postal_code: undefined,
+          city: undefined,
+          state: undefined,
+        }));
+        setPinLookupMessage("City and state auto-filled from pincode.");
+      } catch (lookupError) {
+        if (lookupError.name === "AbortError") return;
+        setPinLookupMessage(
+          "Could not auto-fill city/state from this pincode. You can enter them manually.",
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setPinLookupLoading(false);
+        }
+      }
+    }
+
+    void resolvePostalCode();
+
+    return () => controller.abort();
+  }, [form.postal_code, formOpen]);
+
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
     setFieldErrors({});
+    setPinLookupMessage("");
     setFormOpen(true);
   }
 
@@ -57,6 +135,7 @@ export default function AddressesPage() {
     setEditing(address);
     setForm(address);
     setFieldErrors({});
+    setPinLookupMessage("");
     setFormOpen(true);
   }
 
@@ -77,9 +156,13 @@ export default function AddressesPage() {
     const city = values.city.trim();
     const state = values.state.trim();
     const cityStatePattern = /^[A-Za-z.\-\s]+$/;
+    const fullNamePattern = /^[A-Za-z.'\-\s]+$/;
 
-    if (name.length < 2) {
-      errors.full_name = "Full name must be at least 2 characters.";
+    if (name.length < 3) {
+      errors.full_name = "Full name must be at least 3 characters.";
+    } else if (!fullNamePattern.test(name)) {
+      errors.full_name =
+        "Full name can only contain letters, spaces, apostrophes, periods, and hyphens.";
     }
 
     if (phone.length !== 10) {
@@ -158,6 +241,7 @@ export default function AddressesPage() {
 
       setFormOpen(false);
       setEditing(null);
+      setPinLookupMessage("");
       await loadAddresses();
     } catch (err) {
       if (err && typeof err === "object" && !Array.isArray(err)) {
@@ -306,6 +390,11 @@ export default function AddressesPage() {
             {fieldErrors.postal_code && (
               <p className="text-sm text-red-600">{fieldErrors.postal_code}</p>
             )}
+            {!fieldErrors.postal_code && pinLookupMessage && (
+              <p className={`text-sm ${pinLookupLoading ? "text-gray-500" : "text-gray-600"}`}>
+                {pinLookupLoading ? "Looking up pincode..." : pinLookupMessage}
+              </p>
+            )}
 
             <input
               placeholder="Address Line 1"
@@ -369,6 +458,7 @@ export default function AddressesPage() {
                 onClick={() => {
                   setFormOpen(false);
                   setFieldErrors({});
+                  setPinLookupMessage("");
                 }}
                 className="w-full rounded-lg border py-3 text-gray-700 hover:bg-gray-50 sm:w-auto sm:px-6"
               >
