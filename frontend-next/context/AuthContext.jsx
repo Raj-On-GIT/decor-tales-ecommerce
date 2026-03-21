@@ -17,6 +17,53 @@ const AuthContext = createContext({
   logout: () => {},
 });
 
+function getCustomImageIdentity(item) {
+  const images = item?.customImages ?? item?.custom_images ?? [];
+
+  if (!Array.isArray(images) || images.length === 0) {
+    return item?.custom_image ?? null;
+  }
+
+  return images
+    .map((image) => {
+      if (typeof image === "string") return image;
+      return image?.name ?? image?.url ?? null;
+    })
+    .filter(Boolean)
+    .join("|");
+}
+
+function getCartIdentity(item) {
+  return [
+    item?.id ?? item?.product_id ?? null,
+    item?.variant?.id ?? null,
+    item?.customText ?? item?.custom_text ?? null,
+    getCustomImageIdentity(item),
+  ].join("::");
+}
+
+function mergeCartMetadata(previousCart = [], nextCart = []) {
+  const previousItemsByIdentity = new Map(
+    previousCart.map((item) => [getCartIdentity(item), item]),
+  );
+
+  return nextCart.map((item) => {
+    const previousItem = previousItemsByIdentity.get(getCartIdentity(item));
+
+    if (!previousItem) {
+      return item;
+    }
+
+    return {
+      ...item,
+      allow_custom_text:
+        item?.allow_custom_text ?? previousItem?.allow_custom_text ?? false,
+      allow_custom_image:
+        item?.allow_custom_image ?? previousItem?.allow_custom_image ?? false,
+    };
+  });
+}
+
 // ============================================================================
 // AUTH PROVIDER COMPONENT
 // ============================================================================
@@ -224,7 +271,8 @@ export function AuthProvider({ children }) {
       try {
         const data = await getCart();
         if (typeof window !== "undefined") {
-          localStorage.setItem("cart", JSON.stringify(data.items || []));
+          const mergedItems = mergeCartMetadata(guestCart, data.items || []);
+          localStorage.setItem("cart", JSON.stringify(mergedItems));
         }
       } catch {
         console.error("Failed to reload cart after merge");

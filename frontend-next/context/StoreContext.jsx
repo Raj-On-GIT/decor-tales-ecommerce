@@ -46,6 +46,30 @@ function getPendingKey(item) {
   return getCartRowId(item) || getCartIdentity(item);
 }
 
+function mergeCartItemMetadata(previousItem, nextItem) {
+  if (!previousItem) {
+    return nextItem;
+  }
+
+  return {
+    ...nextItem,
+    allow_custom_text:
+      nextItem?.allow_custom_text ?? previousItem?.allow_custom_text ?? false,
+    allow_custom_image:
+      nextItem?.allow_custom_image ?? previousItem?.allow_custom_image ?? false,
+  };
+}
+
+function mergeCartMetadata(previousCart = [], nextCart = []) {
+  const previousItemsByIdentity = new Map(
+    previousCart.map((item) => [getCartIdentity(item), item]),
+  );
+
+  return nextCart.map((item) =>
+    mergeCartItemMetadata(previousItemsByIdentity.get(getCartIdentity(item)), item),
+  );
+}
+
 export function StoreProvider({ children }) {
   const { error } = useGlobalToast();
   const { isAuthenticated } = useAuth();
@@ -84,8 +108,11 @@ export function StoreProvider({ children }) {
         const syncedCart = await syncCartStock(data.items);
         const nextItems = syncedCart.items || data.items;
 
-        setCart(nextItems);
-        localStorage.setItem("cart", JSON.stringify(nextItems));
+        setCart((prev) => {
+          const mergedItems = mergeCartMetadata(prev, nextItems);
+          localStorage.setItem("cart", JSON.stringify(mergedItems));
+          return mergedItems;
+        });
 
         if (syncedCart.changed) {
           error("Cart quantities were updated to match current stock.");
@@ -289,11 +316,15 @@ export function StoreProvider({ children }) {
   }, []);
 
   const replaceCart = useCallback((newCartItems) => {
-    setCart(newCartItems || []);
+    setCart((prev) => {
+      const mergedItems = mergeCartMetadata(prev, newCartItems || []);
 
-    if (typeof window !== "undefined") {
-      localStorage.setItem("cart", JSON.stringify(newCartItems || []));
-    }
+      if (typeof window !== "undefined") {
+        localStorage.setItem("cart", JSON.stringify(mergedItems));
+      }
+
+      return mergedItems;
+    });
   }, []);
 
   function getCartAction(item) {
