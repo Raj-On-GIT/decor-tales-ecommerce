@@ -251,6 +251,8 @@ def get_cart(request):
 
                     "stock": item.product.stock,
                     "stock_type": item.product.stock_type,
+                    "allow_custom_text": item.product.allow_custom_text,
+                    "allow_custom_image": item.product.allow_custom_image,
                 },
 
                 "variant": {

@@ -2,7 +2,11 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { addToCart as addToCartAPI, getCart } from "@/lib/api";
+import {
+  addToCart as addToCartAPI,
+  clearCart as clearCartAPI,
+  getCart,
+} from "@/lib/api";
 import {
   clearAuthSession,
   getAccessToken,
@@ -317,8 +321,16 @@ export function AuthProvider({ children }) {
    *
    *   <button onClick={logout}>Logout</button>
    */
-  const logout = () => {
+  const logout = async () => {
     try {
+      if (isAuthenticated) {
+        try {
+          await clearCartAPI();
+        } catch (error) {
+          console.error("Failed to clear server cart during logout:", error);
+        }
+      }
+
       clearAuthSession();
 
       // Reset auth state

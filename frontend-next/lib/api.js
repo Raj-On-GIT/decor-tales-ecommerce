@@ -343,6 +343,8 @@ export async function getCart() {
 
       stock: product.stock,
       stock_type: product.stock_type,
+      allow_custom_text: Boolean(product.allow_custom_text),
+      allow_custom_image: Boolean(product.allow_custom_image),
 
       qty: item.quantity,
 
