@@ -47,9 +47,9 @@ function getCustomizationTag(item) {
 export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
   const {
     cart,
-    addToCart,
     removeFromCart,
     decreaseQty,
+    increaseQty,
     replaceCart,
     total,
     getCartAction,
@@ -294,27 +294,8 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                         {/* INCREASE */}
                         <button
                           onClick={async () => {
-                            const availableStock =
-                              item.variant?.stock ?? item.stock ?? 0;
-                            const sameVariantTotal = cart
-                              .filter(
-                                (c) =>
-                                  (c.id || c.product_id || null) ===
-                                    (item.id || item.product_id || null) &&
-                                  (c.variant?.id || null) ===
-                                    (item.variant?.id || null),
-                              )
-                              .reduce((sum, c) => sum + c.qty, 0);
-
-                            if (sameVariantTotal >= availableStock) {
-                              error(
-                                `Only ${availableStock} items available in stock.`,
-                              );
-                              return;
-                            }
-
                             try {
-                              await addToCart({ ...item, qty: 1 });
+                              await increaseQty(item);
                             } catch (err) {
                               console.error("Qty increase failed:", err);
                             }
@@ -322,7 +303,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                           disabled={itemPending}
                           className="w-8 h-8 border rounded-full hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {itemAction === "adding" ? (
+                          {itemAction === "updating" ? (
                             <Loader2 size={12} className="mx-auto animate-spin" />
                           ) : (
                             "+"

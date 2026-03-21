@@ -310,6 +310,63 @@ export function StoreProvider({ children }) {
     }
   }
 
+  async function increaseQty(product) {
+    const rowId = getCartRowId(product);
+    const productIdentity = getCartIdentity(product);
+    const pendingKey = getPendingKey(product);
+    const previousCart = cart;
+    const existing = cart.find((x) =>
+      rowId ? getCartRowId(x) === rowId : getCartIdentity(x) === productIdentity,
+    );
+
+    if (!existing) return { ok: false };
+
+    const availableStock = existing.variant?.stock ?? existing.stock ?? 0;
+    const sameVariantTotal = cart
+      .filter(
+        (item) =>
+          (item.id || item.product_id || null) ===
+            (existing.id || existing.product_id || null) &&
+          (item.variant?.id || null) === (existing.variant?.id || null),
+      )
+      .reduce((sum, item) => sum + item.qty, 0);
+
+    if (sameVariantTotal >= availableStock) {
+      error(
+        `Only ${availableStock} item${availableStock > 1 ? "s" : ""} available in stock.`,
+      );
+      return { ok: false };
+    }
+
+    const newQty = existing.qty + 1;
+    setPendingAction(pendingKey, "updating");
+
+    setCart((prev) =>
+      prev.map((item) =>
+        (rowId ? getCartRowId(item) === rowId : getCartIdentity(item) === productIdentity)
+          ? { ...item, qty: newQty }
+          : item,
+      ),
+    );
+
+    if (!isAuthenticated) {
+      clearPendingAction(pendingKey);
+      return { ok: true };
+    }
+
+    try {
+      await updateCartItem(rowId, newQty);
+      clearPendingAction(pendingKey);
+      return { ok: true };
+    } catch (err) {
+      setCart(previousCart);
+      clearPendingAction(pendingKey);
+      error(err.message || "Unable to update cart quantity");
+      console.error("Increase failed:", err);
+      return { ok: false, error: err };
+    }
+  }
+
   const clearCart = useCallback(() => {
     setCart([]);
     localStorage.removeItem("cart");
@@ -361,6 +418,7 @@ export function StoreProvider({ children }) {
         addToCart,
         removeFromCart,
         decreaseQty,
+        increaseQty,
         clearCart,
         replaceCart,
         total,
