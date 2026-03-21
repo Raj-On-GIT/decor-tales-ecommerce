@@ -340,6 +340,8 @@ export async function getCart() {
 
       stock: product.stock,
       stock_type: product.stock_type,
+      allow_custom_text: Boolean(product.allow_custom_text),
+      allow_custom_image: Boolean(product.allow_custom_image),
 
       qty: item.quantity,
 
@@ -385,6 +387,22 @@ function isCustomizedCartItem(item) {
       item?.customImages?.length ||
       item?.custom_images?.length,
   );
+}
+
+export function canCartItemBeCustomized(item) {
+  return Boolean(item?.allow_custom_text || item?.allow_custom_image);
+}
+
+export function getCartItemCustomizationTag(item) {
+  if (isCustomizedCartItem(item)) {
+    return "customized";
+  }
+
+  if (canCartItemBeCustomized(item)) {
+    return "standard";
+  }
+
+  return null;
 }
 
 function getVariantLabel(item) {

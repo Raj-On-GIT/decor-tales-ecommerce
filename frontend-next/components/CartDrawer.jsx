@@ -8,7 +8,12 @@ import { formatPrice } from "@/lib/formatPrice";
 import { useStore } from "@/context/StoreContext";
 import { useGlobalToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
-import { getCart, getCartStockIssues, syncCartStock } from "@/lib/api";
+import {
+  getCart,
+  getCartItemCustomizationTag,
+  getCartStockIssues,
+  syncCartStock,
+} from "@/lib/api";
 
 const normalizeCategory = (category) => {
   if (!category) {
@@ -161,6 +166,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                     const itemAction = getCartAction(item);
                     const itemPending = isCartItemPending(item);
                     const stockIssue = stockIssueMap.get(item.cart_item_id);
+                    const customizationTag = getCartItemCustomizationTag(item);
 
                     return (
                       <motion.div
@@ -204,16 +210,17 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
 
                      
                       {/* CUSTOMIZATION TAG */}
-                      {item.customText ||
-                      item.custom_text ||
-                      item.customImages?.length ||
-                      item.custom_image ? (
-                        <span className="inline-block text-[10px] bg-amber-100 text-amber-700 px-2 py-[2px] rounded-full mt-1">
-                          Customized
-                        </span>
-                      ) : (
-                        <span className="inline-block text-[10px] bg-gray-200 text-gray-600 px-2 py-[2px] rounded-full mt-1">
-                          Standard
+                      {customizationTag && (
+                        <span
+                          className={`inline-block mt-1 rounded-full px-2 py-[2px] text-[10px] ${
+                            customizationTag === "customized"
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-gray-200 text-gray-600"
+                          }`}
+                        >
+                          {customizationTag === "customized"
+                            ? "Customized"
+                            : "Standard"}
                         </span>
                       )}
 
