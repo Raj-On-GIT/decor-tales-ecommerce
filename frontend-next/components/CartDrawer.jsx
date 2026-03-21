@@ -8,12 +8,7 @@ import { formatPrice } from "@/lib/formatPrice";
 import { useStore } from "@/context/StoreContext";
 import { useGlobalToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
-import {
-  getCart,
-  getCartItemCustomizationTag,
-  getCartStockIssues,
-  syncCartStock,
-} from "@/lib/api";
+import { getCart, getCartStockIssues, syncCartStock } from "@/lib/api";
 
 const normalizeCategory = (category) => {
   if (!category) {
@@ -27,6 +22,27 @@ const normalizeCategory = (category) => {
   }
   return category;
 };
+
+function getCustomizationTag(item) {
+  const isCustomized = Boolean(
+    item?.customText ||
+      item?.custom_text ||
+      item?.customImages?.length ||
+      item?.custom_images?.length ||
+      item?.customImage ||
+      item?.custom_image,
+  );
+
+  if (isCustomized) {
+    return "customized";
+  }
+
+  const canBeCustomized = Boolean(
+    item?.allow_custom_text || item?.allow_custom_image,
+  );
+
+  return canBeCustomized ? "standard" : null;
+}
 
 export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
   const {
@@ -166,7 +182,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                     const itemAction = getCartAction(item);
                     const itemPending = isCartItemPending(item);
                     const stockIssue = stockIssueMap.get(item.cart_item_id);
-                    const customizationTag = getCartItemCustomizationTag(item);
+                    const customizationTag = getCustomizationTag(item);
 
                     return (
                       <motion.div
