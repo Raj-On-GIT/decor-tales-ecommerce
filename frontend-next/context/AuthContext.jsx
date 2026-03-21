@@ -3,7 +3,11 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { addToCart as addToCartAPI, getCart } from "@/lib/api";
-import { getAccessToken, refreshAccessToken } from "@/lib/auth";
+import {
+  clearAuthSession,
+  getAccessToken,
+  refreshAccessToken,
+} from "@/lib/auth";
 
 // ============================================================================
 // CONTEXT CREATION
@@ -121,8 +125,7 @@ export function AuthProvider({ children }) {
 
       if (!userData) {
         // Invalid token - clear and logout
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
+        clearAuthSession();
         setUser(null);
         setIsAuthenticated(false);
         setLoading(false);
@@ -136,8 +139,7 @@ export function AuthProvider({ children }) {
 
         if (!refreshed) {
           console.warn("Access token expired and refresh failed");
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("refresh_token");
+          clearAuthSession();
           setUser(null);
           setIsAuthenticated(false);
           setLoading(false);
@@ -148,8 +150,7 @@ export function AuthProvider({ children }) {
         const refreshedUserData = decodeToken(accessToken);
 
         if (!refreshedUserData || isTokenExpired(refreshedUserData)) {
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("refresh_token");
+          clearAuthSession();
           setUser(null);
           setIsAuthenticated(false);
           setLoading(false);
@@ -188,6 +189,20 @@ export function AuthProvider({ children }) {
    * Load authentication state from localStorage on mount
    * Runs once when app starts (rehydration)
    */
+  useEffect(() => {
+    function handleForcedLogout() {
+      setUser(null);
+      setIsAuthenticated(false);
+      setLoading(false);
+    }
+
+    window.addEventListener("user-logout", handleForcedLogout);
+
+    return () => {
+      window.removeEventListener("user-logout", handleForcedLogout);
+    };
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       void rehydrateAuth();
@@ -304,12 +319,7 @@ export function AuthProvider({ children }) {
    */
   const logout = () => {
     try {
-      // Clear tokens
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-
-      // 🔥 Trigger global logout event
-      window.dispatchEvent(new Event("user-logout"));
+      clearAuthSession();
 
       // Reset auth state
       setUser(null);

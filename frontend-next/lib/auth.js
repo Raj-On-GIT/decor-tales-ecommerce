@@ -1,4 +1,5 @@
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000';
 
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
@@ -100,6 +101,20 @@ export function clearTokens() {
     localStorage.removeItem(REFRESH_TOKEN_KEY);
   } catch (error) {
     console.error('Error clearing tokens:', error);
+  }
+}
+
+export function dispatchUserLogout() {
+  if (!isBrowser) return;
+  window.dispatchEvent(new Event('user-logout'));
+}
+
+export function clearAuthSession({ redirectTo = null } = {}) {
+  clearTokens();
+  dispatchUserLogout();
+
+  if (redirectTo && isBrowser) {
+    window.location.href = redirectTo;
   }
 }
 

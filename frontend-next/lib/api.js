@@ -1,4 +1,8 @@
-import { getAccessToken, refreshAccessToken, clearTokens } from "./auth";
+import {
+  clearAuthSession,
+  getAccessToken,
+  refreshAccessToken,
+} from "./auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -250,8 +254,7 @@ async function fetchWithAuth(url, options = {}) {
         },
       });
     } else {
-      clearTokens();
-      window.location.href = "/login";
+      clearAuthSession({ redirectTo: "/login" });
       throw new Error("Session expired");
     }
   }
