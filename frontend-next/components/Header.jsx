@@ -118,8 +118,8 @@ export default function Header() {
       {/* HEADER */}
       <header className="sticky top-0 z-40 bg-[#F0FFDF]/80 backdrop-blur-md border-b border-gray-100">
         <div
-          className={`max-w-screen-2xl mx-auto 
-                        px-4 sm:px-6 md:px-10 lg:px-20
+          className={`max-w-screen-xl mx-auto 
+                        px-4 sm:px-6
                         h-14 md:h-16 
                         flex items-center ${
                           isSearchOpen ? "justify-end md:justify-between" : "justify-between"
