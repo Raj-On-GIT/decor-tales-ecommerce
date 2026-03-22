@@ -9,7 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import CartDrawer from "./CartDrawer";
 import SearchBar from "./SearchBar";
 import { useGlobalToast } from "@/context/ToastContext";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { getProfile } from "@/lib/api";
 
 export default function Header() {
@@ -23,11 +23,14 @@ export default function Header() {
   const [profileName, setProfileName] = useState("");
   const toast = useGlobalToast();
   const router = useRouter();
+  const pathname = usePathname();
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
     () => false
   );
+  const isCheckoutPage =
+    pathname === "/checkout" || pathname?.startsWith("/checkout/");
 
   const profileRef = useRef(null);
 
@@ -93,6 +96,12 @@ export default function Header() {
 
     return () => window.removeEventListener("user-login", handleLogin);
   }, []);
+
+  useEffect(() => {
+    if (isCheckoutPage) {
+      setIsCartOpen(false);
+    }
+  }, [isCheckoutPage]);
   /**
    * Handle logout
    * Calls logout() from AuthContext which:
@@ -198,19 +207,21 @@ export default function Header() {
             </AnimatePresence>
 
             {/* Cart Button */}
-            <button
-              onClick={() => setIsCartOpen(true)}
-              className={`relative p-2 text-gray-900 hover:bg-gray-100 rounded-full transition ${
-                isSearchOpen ? "hidden md:inline-flex" : ""
-              }`}
-            >
-              <ShoppingBag size={20} />
-              {mounted && cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-gray-900 text-white text-[10px] font-bold flex items-center justify-center rounded-full">
-                  {cartCount}
-                </span>
-              )}
-            </button>
+            {!isCheckoutPage && (
+              <button
+                onClick={() => setIsCartOpen(true)}
+                className={`relative p-2 text-gray-900 hover:bg-gray-100 rounded-full transition ${
+                  isSearchOpen ? "hidden md:inline-flex" : ""
+                }`}
+              >
+                <ShoppingBag size={20} />
+                {mounted && cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-gray-900 text-white text-[10px] font-bold flex items-center justify-center rounded-full">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* ═══════════════════════════════════════════════════════════ */}
             {/* PROFILE BUTTON - AUTH-AWARE */}
@@ -460,7 +471,9 @@ export default function Header() {
       </AnimatePresence>
 
       {/* CART DRAWER */}
-      <CartDrawer isCartOpen={isCartOpen} setIsCartOpen={setIsCartOpen} />
+      {!isCheckoutPage && (
+        <CartDrawer isCartOpen={isCartOpen} setIsCartOpen={setIsCartOpen} />
+      )}
     </>
   );
 }
