@@ -145,7 +145,7 @@ export default function OrdersPage() {
                       </p>
                     </div>
                     <span className="text-sm font-medium text-[#002424] transition group-hover:translate-x-1">
-                      View details ->
+                      View details {"->"}
                     </span>
                   </div>
                 </div>

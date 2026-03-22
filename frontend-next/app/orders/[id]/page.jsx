@@ -78,7 +78,7 @@ export default function OrderDetailPage() {
                 href="/orders"
                 className="text-sm font-medium text-[#002424] transition hover:text-black"
               >
-                <- Back to orders
+                {"<-"} Back to orders
               </Link>
               <h1 className="mt-3 font-serif text-3xl font-bold text-gray-900 sm:text-4xl">
                 Order #{order.order_number}
