@@ -104,6 +104,16 @@ export function clearTokens() {
   }
 }
 
+export function clearStoredCart() {
+  if (!isBrowser) return;
+
+  try {
+    localStorage.removeItem('cart');
+  } catch (error) {
+    console.error('Error clearing cart:', error);
+  }
+}
+
 export function dispatchUserLogout() {
   if (!isBrowser) return;
   window.dispatchEvent(new Event('user-logout'));
@@ -111,6 +121,7 @@ export function dispatchUserLogout() {
 
 export function clearAuthSession({ redirectTo = null } = {}) {
   clearTokens();
+  clearStoredCart();
   dispatchUserLogout();
 
   if (redirectTo && isBrowser) {
@@ -316,6 +327,7 @@ export async function fetchWithAuth(url, options = {}) {
       });
     } else {
       // Refresh failed, user needs to login
+      clearAuthSession();
       throw new Error('Session expired. Please login again.');
     }
   }
