@@ -6,26 +6,121 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getOrderDetail } from "@/lib/api";
 
+const ORDER_PROGRESS_STEPS = [
+  { key: "pending", label: "Pending" },
+  { key: "processing", label: "Processing" },
+  { key: "shipped", label: "Shipped" },
+  { key: "delivered", label: "Delivered" },
+];
+
 function formatStatus(status = "") {
   return status.replaceAll("_", " ");
 }
 
-function getStatusClasses(status = "") {
-  const normalized = status.toLowerCase();
+function normalizeOrderStatus(status = "") {
+  const normalized = status.toLowerCase().replaceAll("_", " ").trim();
 
-  if (normalized.includes("delivered")) {
+  if (normalized.includes("cancel")) return "cancelled";
+  if (normalized.includes("deliver")) return "delivered";
+  if (normalized.includes("ship") || normalized.includes("dispatch")) return "shipped";
+  if (normalized.includes("process")) return "processing";
+  return "pending";
+}
+
+function getStatusClasses(status = "") {
+  const normalized = normalizeOrderStatus(status);
+
+  if (normalized === "delivered") {
     return "bg-emerald-100 text-emerald-800";
   }
 
-  if (normalized.includes("cancel")) {
+  if (normalized === "cancelled") {
     return "bg-rose-100 text-rose-700";
   }
 
-  if (normalized.includes("shipped") || normalized.includes("dispatch")) {
+  if (normalized === "shipped") {
     return "bg-sky-100 text-sky-700";
   }
 
   return "bg-amber-100 text-amber-800";
+}
+
+function OrderProgress({ status }) {
+  const normalizedStatus = normalizeOrderStatus(status);
+  const currentStepIndex = ORDER_PROGRESS_STEPS.findIndex(
+    (step) => step.key === normalizedStatus,
+  );
+
+  return (
+    <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-[#d7ead6] bg-[linear-gradient(135deg,rgba(240,255,223,0.95),rgba(255,255,255,0.98),rgba(226,247,245,0.92))] p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:p-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-teal-900/55">
+            Order Progress
+          </p>
+          <p className="mt-2 text-lg font-semibold text-gray-900">
+            {normalizedStatus === "delivered"
+              ? "Delivered successfully"
+              : `Currently ${formatStatus(status)}`}
+          </p>
+        </div>
+        <p className="text-sm text-gray-600">
+          {currentStepIndex + 1} of {ORDER_PROGRESS_STEPS.length} completed
+        </p>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-4">
+        {ORDER_PROGRESS_STEPS.map((step, index) => {
+          const isCompleted = index <= currentStepIndex;
+          const isCurrent = index === currentStepIndex;
+          const isLast = index === ORDER_PROGRESS_STEPS.length - 1;
+
+          return (
+            <div key={step.key} className="relative">
+              {!isLast && (
+                <div className="absolute left-[calc(50%+1rem)] right-[-1rem] top-4 hidden h-[3px] rounded-full bg-[#d6e9df] sm:block">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      index < currentStepIndex ? "w-full bg-[#0f766e]" : "w-0 bg-[#0f766e]"
+                    }`}
+                  />
+                </div>
+              )}
+
+              <div className="relative flex items-center gap-3 rounded-[1.25rem] border border-white/70 bg-white/75 px-4 py-3 backdrop-blur sm:block sm:min-h-[132px] sm:px-5 sm:py-5">
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition sm:h-10 sm:w-10 ${
+                    isCompleted
+                      ? "border-[#0f766e] bg-[#0f766e] text-white shadow-[0_10px_25px_rgba(15,118,110,0.24)]"
+                      : "border-[#c5d4ce] bg-white text-gray-500"
+                  }`}
+                >
+                  {index + 1}
+                </div>
+
+                <div className="min-w-0">
+                  <p
+                    className={`text-sm font-semibold uppercase tracking-[0.18em] ${
+                      isCompleted ? "text-teal-900" : "text-gray-400"
+                    }`}
+                  >
+                    {step.label}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {isCurrent
+                      ? "Current update"
+                      : isCompleted
+                        ? "Completed"
+                        : "Awaiting"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function OrderDetailPage() {
@@ -68,6 +163,9 @@ export default function OrderDetailPage() {
     );
   }
 
+  const normalizedStatus = normalizeOrderStatus(order.status);
+  const isCancelled = normalizedStatus === "cancelled";
+
   return (
     <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-10 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-screen-xl">
@@ -85,12 +183,16 @@ export default function OrderDetailPage() {
               </h1>
             </div>
 
-            <span
-              className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] ${getStatusClasses(order.status)}`}
-            >
-              {formatStatus(order.status)}
-            </span>
+            {isCancelled ? (
+              <span
+                className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] ${getStatusClasses(order.status)}`}
+              >
+                {formatStatus(order.status)}
+              </span>
+            ) : null}
           </div>
+
+          {!isCancelled ? <OrderProgress status={order.status} /> : null}
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
