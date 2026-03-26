@@ -9,6 +9,7 @@ import { useStore } from "@/context/StoreContext";
 import { formatPrice } from "@/lib/formatPrice";
 import ProductCard from "@/components/ProductCard";
 import { getProducts } from "@/lib/api";
+import { API_BASE } from "@/lib/config";
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalToast } from "@/context/ToastContext";
 import PageLoader from "@/components/ui/PageLoader";
@@ -57,7 +58,7 @@ export default function ProductDetailPage() {
     async function loadProduct() {
       try {
         // 1. Fetch Main Product
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/products/${id}/`)
+        const res = await fetch(`${API_BASE}/api/products/${id}/`)
         const data = await res.json();
 
         productIdRef.current = data.id;

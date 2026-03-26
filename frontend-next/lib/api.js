@@ -3,13 +3,7 @@ import {
   getAccessToken,
   refreshAccessToken,
 } from "./auth";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
-
-if (!API_BASE) {
-  console.warn("NEXT_PUBLIC_API_BASE environment variable is not set");
-}
+import { API_BASE, BACKEND } from "./config";
 
 export async function getProducts(filters = {}) {
   if (!API_BASE) {
@@ -372,7 +366,7 @@ export async function getCart() {
 
       image: product.image?.startsWith("http")
         ? product.image
-        : `${process.env.NEXT_PUBLIC_BACKEND_URL}${product.image}`,
+        : `${BACKEND}${product.image}`,
 
       category: product.category?.name || "Uncategorized",
 
@@ -398,7 +392,7 @@ export async function getCart() {
       custom_image: item.custom_image
         ? item.custom_image.startsWith("http")
           ? item.custom_image
-          : `${process.env.NEXT_PUBLIC_BACKEND_URL}${item.custom_image}`
+          : `${BACKEND}${item.custom_image}`
         : customImages[0] || null,
     };
   });
@@ -609,7 +603,7 @@ export async function getProfile() {
 
   // 🔥 Fix avatar URL
   if (data.profile?.avatar && !data.profile.avatar.startsWith("http")) {
-    data.profile.avatar = `${process.env.NEXT_PUBLIC_BACKEND_URL}${data.profile.avatar}`;
+    data.profile.avatar = `${BACKEND}${data.profile.avatar}`;
   }
 
   return data;
@@ -632,7 +626,7 @@ export async function updateProfile(formData) {
   const data = await response.json();
 
   if (data.profile?.avatar && !data.profile.avatar.startsWith("http")) {
-    data.profile.avatar = `${process.env.NEXT_PUBLIC_BACKEND_URL}${data.profile.avatar}`;
+    data.profile.avatar = `${BACKEND}${data.profile.avatar}`;
   }
 
   return data;
@@ -699,3 +693,4 @@ export async function createOrderWithAddress(addressId) {
 
   return res.json();
 }
+

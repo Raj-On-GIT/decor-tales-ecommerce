@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock, Shield } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { API_BASE } from "@/lib/config";
 
 export default function ChangePasswordPage() {
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
   const router = useRouter();
   const { logout } = useAuth();
 

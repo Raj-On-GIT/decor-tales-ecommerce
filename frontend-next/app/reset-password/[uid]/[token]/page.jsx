@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { API_BASE } from "@/lib/config";
 
 export default function ResetPasswordPage() {
   const { uid, token } = useParams();
@@ -26,7 +27,7 @@ export default function ResetPasswordPage() {
         return;
     }
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/auth/reset-password/", {
+      const res = await fetch(`${API_BASE}/api/auth/reset-password/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

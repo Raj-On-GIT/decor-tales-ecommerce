@@ -1,19 +1,25 @@
 import type { NextConfig } from "next";
 
+const rawApiUrl =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_BASE ||
+  process.env.NEXT_PUBLIC_BACKEND_URL;
+
+const apiUrl = rawApiUrl ? new URL(rawApiUrl) : null;
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "decor-tales-ecommerce.onrender.com",
-        pathname: "/media/**",
-      },
-      {
-        protocol: "http",
-        hostname: "127.0.0.1",
-        port: "8000",
-        pathname: "/media/**",
-      },
+      ...(apiUrl
+        ? [
+            {
+              protocol: apiUrl.protocol.replace(":", "") as "http" | "https",
+              hostname: apiUrl.hostname,
+              port: apiUrl.port || undefined,
+              pathname: "/media/**",
+            },
+          ]
+        : []),
       {
         protocol: "https",
         hostname: "res.cloudinary.com",

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useAuth } from "@/context/AuthContext";
+import { API_BASE } from "@/lib/config";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function SignupPage() {
 
     onSuccess: async (tokenResponse) => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/auth/google/", {
+        const res = await fetch(`${API_BASE}/api/auth/google/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -79,7 +80,7 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/auth/signup/", {
+      const response = await fetch(`${API_BASE}/api/auth/signup/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

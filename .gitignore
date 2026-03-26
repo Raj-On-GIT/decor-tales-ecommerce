@@ -30,7 +30,9 @@ backend/staticfiles/
 
 # Environment variables
 backend/.env
+backend/.env.local
 .env
+.env.local
 
 # =========================================================
 # Node / Next.js

@@ -4,10 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowLeft, Mail, Shield } from "lucide-react";
+import { API_BASE } from "@/lib/config";
 
 export default function ForgotPasswordPage() {
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
-
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
