@@ -106,7 +106,7 @@ function BannerImage({ banner, priority = false, backgroundColor = "#111827" }) 
         fill
         priority={priority}
         sizes="100vw"
-        className="object-contain"
+        className="object-cover object-center"
       />
     </>
   );
