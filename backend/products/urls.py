@@ -3,6 +3,7 @@ from . import views
 from .views import TrendingProductListView, record_cart_add, SearchView
 
 urlpatterns = [
+    path("banners/", views.ActiveBannerListView.as_view(), name="banner-list"),
     path("products/", views.ProductListView.as_view(), name="product-list"),
     # ✅ Static paths MUST come before <int:id> patterns
     path("products/trending/", TrendingProductListView.as_view(), name="product-trending"),

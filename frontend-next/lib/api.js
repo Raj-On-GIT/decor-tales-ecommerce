@@ -185,6 +185,41 @@ export async function getTrendingProducts() {
   }
 }
 
+export async function getBanners() {
+  if (!API_BASE) {
+    console.error("API_BASE is undefined. Check your .env.local file.");
+    return [];
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/banners/`, {
+      next: { revalidate: 60 },
+    });
+
+    if (!res.ok) {
+      throw new Error(`API error: ${res.status}`);
+    }
+
+    const data = await res.json();
+    const banners = Array.isArray(data) ? data : data.results || [];
+
+    return banners.map((banner) => ({
+      ...banner,
+      image:
+        banner.image && !banner.image.startsWith("http")
+          ? `${BACKEND}${banner.image}`
+          : banner.image || null,
+      metadata:
+        banner.metadata && typeof banner.metadata === "object"
+          ? banner.metadata
+          : {},
+    }));
+  } catch (error) {
+    console.error("Failed to fetch banners:", error.message);
+    return [];
+  }
+}
+
 function getMockCategories() {
   return [
     { id: 1, name: "Sunglasses", slug: "sunglasses" },

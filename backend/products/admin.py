@@ -1,10 +1,61 @@
 from django.contrib import admin
 from django import forms
-from .models import Category, SubCategory, Product, ProductVariant, ProductImage, Size, Color
+from .models import Banner, Category, SubCategory, Product, ProductVariant, ProductImage, Size, Color
 
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
     extra = 1
+
+
+@admin.register(Banner)
+class BannerAdmin(admin.ModelAdmin):
+    list_display = [
+        "title",
+        "type",
+        "priority",
+        "is_active",
+        "start_date",
+        "end_date",
+        "updated_at",
+    ]
+    list_filter = ["type", "is_active", "start_date", "end_date"]
+    search_fields = ["title", "subtitle", "description", "cta_text", "cta_link"]
+    ordering = ["priority", "-updated_at"]
+    readonly_fields = ["created_at", "updated_at"]
+    fieldsets = (
+        ("Content", {
+            "fields": (
+                "type",
+                "title",
+                "subtitle",
+                "description",
+                "image",
+                "cta_text",
+                "cta_link",
+            )
+        }),
+        ("Presentation", {
+            "fields": (
+                "background_color",
+                "text_color",
+                "priority",
+                "metadata",
+            )
+        }),
+        ("Scheduling", {
+            "fields": (
+                "is_active",
+                "start_date",
+                "end_date",
+            )
+        }),
+        ("Audit", {
+            "fields": (
+                "created_at",
+                "updated_at",
+            )
+        }),
+    )
 
 class ProductVariantInline(admin.TabularInline):
     model = ProductVariant

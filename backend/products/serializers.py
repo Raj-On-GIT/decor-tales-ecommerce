@@ -1,6 +1,39 @@
 from rest_framework import serializers
-from .models import Product, Category, SubCategory, ProductVariant, ProductImage
+from .models import Banner, Product, Category, SubCategory, ProductVariant, ProductImage
 from django.db.models import Count, Q
+
+
+class BannerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Banner
+        fields = [
+            "id",
+            "type",
+            "title",
+            "subtitle",
+            "description",
+            "image",
+            "cta_text",
+            "cta_link",
+            "background_color",
+            "text_color",
+            "priority",
+            "is_active",
+            "start_date",
+            "end_date",
+            "metadata",
+            "created_at",
+            "updated_at",
+        ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+
+        if instance.image and request:
+            data["image"] = request.build_absolute_uri(instance.image.url)
+
+        return data
 
 class ProductVariantSerializer(serializers.ModelSerializer):
     size_name = serializers.SerializerMethodField()

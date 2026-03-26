@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
 from django.core.validators import MinValueValidator
+from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
 
 
@@ -28,6 +29,63 @@ class Category(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class BannerQuerySet(models.QuerySet):
+    def active(self):
+        now = timezone.now()
+        return self.filter(
+            is_active=True,
+            start_date__lte=now,
+        ).filter(
+            models.Q(end_date__isnull=True) | models.Q(end_date__gte=now)
+        )
+
+
+class Banner(models.Model):
+    TYPE_IMAGE = "image"
+    TYPE_TEXT = "text"
+    TYPE_MIXED = "mixed"
+    TYPE_CHOICES = [
+        (TYPE_IMAGE, "Image"),
+        (TYPE_TEXT, "Text"),
+        (TYPE_MIXED, "Mixed"),
+    ]
+
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    title = models.CharField(max_length=255)
+    subtitle = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True, help_text="Supports HTML content.")
+    image = models.ImageField(upload_to="banners/", blank=True, null=True)
+    cta_text = models.CharField(max_length=120, blank=True)
+    cta_link = models.URLField(blank=True)
+    background_color = models.CharField(max_length=20, default="#111827")
+    text_color = models.CharField(max_length=20, default="#FFFFFF")
+    priority = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField(blank=True, null=True)
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Optional payload for countdowns, coupon codes, personalization, and future banner features.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = BannerQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["priority", "-created_at"]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.end_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": "End date must be after start date."})
+
+    def __str__(self):
+        return f"{self.title} ({self.type})"
 
 class SubCategory(models.Model):
     category = models.ForeignKey(

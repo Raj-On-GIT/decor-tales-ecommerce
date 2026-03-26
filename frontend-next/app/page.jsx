@@ -1,4 +1,4 @@
-import Hero from "@/components/Hero";
+import BannerSlider from "@/components/BannerSlider";
 import HomeGallery from "@/components/HomeGallery";
 import BrowseByCategory from "@/components/BrowseByCategory";
 import TrustSection from "@/components/TrustSection";
@@ -10,7 +10,7 @@ import CategoryGridSkeleton from "@/components/CategoryGridSkeleton";
 export default function Home() {
   return (
     <main>
-      <Hero />
+      <BannerSlider />
       <Suspense fallback={<ProductGridSkeleton count={4} />}>
         <HomeGallery />
       </Suspense>

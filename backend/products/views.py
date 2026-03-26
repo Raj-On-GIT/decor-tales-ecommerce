@@ -2,8 +2,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import generics
 from rest_framework.views import APIView
-from .models import Product, Category, SubCategory, ProductActivity
-from .serializers import ProductSerializer, CategorySerializer, SubCategorySerializer, CategoryProductSerializer
+from .models import Banner, Product, Category, SubCategory, ProductActivity
+from .serializers import BannerSerializer, ProductSerializer, CategorySerializer, SubCategorySerializer, CategoryProductSerializer
 from django.db.models import Count, Q, Sum, Case, When, IntegerField, Value
 from django.utils import timezone
 from datetime import timedelta
@@ -11,6 +11,18 @@ import logging
 
 
 logger = logging.getLogger(__name__)
+
+
+class ActiveBannerListView(generics.ListAPIView):
+    serializer_class = BannerSerializer
+
+    def get_queryset(self):
+        return Banner.objects.active().order_by("priority", "-created_at")
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
 
 class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
