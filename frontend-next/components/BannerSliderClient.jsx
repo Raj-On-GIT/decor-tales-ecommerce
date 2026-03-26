@@ -91,6 +91,23 @@ function BannerImage({ banner, priority = false }) {
   );
 }
 
+function ImageOnlyBannerContent({ banner }) {
+  if (!banner.cta_text || !banner.cta_link) {
+    return null;
+  }
+
+  return (
+    <div className="absolute bottom-6 left-6 z-10 sm:bottom-8 sm:left-8">
+      <Link
+        href={banner.cta_link}
+        className="inline-flex items-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-black shadow-lg transition hover:bg-white/90"
+      >
+        {banner.cta_text}
+      </Link>
+    </div>
+  );
+}
+
 function renderBannerByType(banner, isPriority) {
   const sharedStyle = {
     backgroundColor: banner.background_color || "#111827",
@@ -107,10 +124,7 @@ function renderBannerByType(banner, isPriority) {
           <div className="absolute inset-0">
             <BannerImage banner={banner} priority={isPriority} />
           </div>
-          <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/35 to-black/10" />
-          <div className="relative z-10 flex w-full items-end p-6 sm:p-10 lg:p-14">
-            <BannerContent banner={banner} />
-          </div>
+          <ImageOnlyBannerContent banner={banner} />
         </article>
       );
 
