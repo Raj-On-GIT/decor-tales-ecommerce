@@ -74,20 +74,53 @@ function BannerMeta({ banner }) {
   );
 }
 
-function BannerImage({ banner, priority = false }) {
+function BannerImage({ banner, priority = false, backgroundColor = "#111827" }) {
   if (!banner.image) {
     return null;
   }
 
   return (
-    <Image
-      src={banner.image}
-      alt={banner.title}
-      fill
-      priority={priority}
-      sizes="100vw"
-      className="object-contain"
-    />
+    <>
+      <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
+        <Image
+          src={banner.image}
+          alt=""
+          fill
+          priority={priority}
+          sizes="100vw"
+          className="scale-110 object-cover opacity-22 blur-3xl"
+          aria-hidden="true"
+        />
+      </div>
+
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `radial-gradient(circle at center, transparent 42%, ${backgroundColor}10 72%, ${backgroundColor}22 100%)`,
+        }}
+      />
+      <div
+        className="absolute inset-y-0 left-0 w-16 sm:w-24"
+        style={{
+          background: `linear-gradient(to right, ${backgroundColor}22, transparent)`,
+        }}
+      />
+      <div
+        className="absolute inset-y-0 right-0 w-16 sm:w-24"
+        style={{
+          background: `linear-gradient(to left, ${backgroundColor}22, transparent)`,
+        }}
+      />
+
+      <Image
+        src={banner.image}
+        alt={banner.title}
+        fill
+        priority={priority}
+        sizes="100vw"
+        className="object-contain"
+      />
+    </>
   );
 }
 
@@ -123,7 +156,11 @@ function renderBannerByType(banner, isPriority) {
           style={sharedStyle}
         >
           <div className="absolute inset-0 p-4 sm:p-6">
-            <BannerImage banner={banner} priority={isPriority} />
+            <BannerImage
+              banner={banner}
+              priority={isPriority}
+              backgroundColor={sharedStyle.backgroundColor}
+            />
           </div>
           <ImageOnlyBannerContent banner={banner} />
         </article>
@@ -151,7 +188,11 @@ function renderBannerByType(banner, isPriority) {
         >
           <div className="grid h-full grid-cols-1 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="relative order-2 min-h-[220px] lg:order-1 lg:min-h-full">
-              <BannerImage banner={banner} priority={isPriority} />
+              <BannerImage
+                banner={banner}
+                priority={isPriority}
+                backgroundColor={sharedStyle.backgroundColor}
+              />
             </div>
             <div className="relative order-1 flex items-center px-6 py-10 sm:px-10 lg:order-2 lg:px-14">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_30%)]" />
