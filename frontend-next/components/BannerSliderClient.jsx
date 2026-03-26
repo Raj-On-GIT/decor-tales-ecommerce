@@ -88,7 +88,7 @@ function BannerImage({ banner, priority = false, backgroundColor = "#111827" }) 
           fill
           priority={priority}
           sizes="100vw"
-          className="scale-110 object-cover opacity-40 blur-xl"
+          className="scale-110 object-cover opacity-70 blur-xl"
           aria-hidden="true"
         />
       </div>
