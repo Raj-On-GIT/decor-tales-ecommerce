@@ -70,29 +70,17 @@ export default function ProductDetailPage() {
         const allData = await getProducts();
 
         if (Array.isArray(allData)) {
-          // Prefer subcategory match first, fall back to category
-          const inSubCategory = data.sub_category
-            ? allData.filter(
-                (p) =>
-                  p.sub_category?.slug === data.sub_category.slug &&
-                  p.id !== data.id,
-              )
-            : [];
+          const relatedPool = allData.filter((p) => {
+            if (p.id === data.id) return false;
 
-          const inCategory = allData.filter(
-            (p) =>
-              p.category?.slug === data.category?.slug &&
-              p.id !== data.id &&
-              !inSubCategory.find((s) => s.id === p.id),
-          );
+            if (data.sub_category?.slug) {
+              return p.sub_category?.slug === data.sub_category.slug;
+            }
 
-          // Subcategory products first, then fill up with same-category products
-          const pool =
-            inSubCategory.length > 0
-              ? [...inSubCategory, ...inCategory]
-              : inCategory;
+            return p.category?.slug === data.category?.slug;
+          });
 
-          const related = pool
+          const related = relatedPool
             .sort(
               (a, b) =>
                 new Date(b.created_at || 0) - new Date(a.created_at || 0),
@@ -826,7 +814,8 @@ export default function ProductDetailPage() {
                   Similar products
                 </h2>
                 <p className="mt-1 text-sm text-gray-600 sm:mt-2 sm:text-base">
-                  Discover more from {product.category?.name}.
+                  Discover more from{" "}
+                  {product.sub_category?.name || product.category?.name}.
                 </p>
               </div>
 
