@@ -3,26 +3,26 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 function BannerContent({ banner }) {
   const hasCta = Boolean(banner.cta_text && banner.cta_link);
   const content = (
     <>
       {banner.subtitle ? (
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] opacity-80 sm:text-sm">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.32em] opacity-80 sm:text-sm">
           {banner.subtitle}
         </p>
       ) : null}
 
       <div className="space-y-4">
-        <h2 className="max-w-3xl font-serif text-3xl leading-tight sm:text-4xl lg:text-6xl">
+        <h2 className="max-w-3xl font-serif text-[2.1rem] leading-none sm:text-4xl lg:text-6xl">
           {banner.title}
         </h2>
 
         {banner.description ? (
           <div
-            className="max-w-2xl text-sm leading-7 opacity-90 sm:text-base"
+            className="max-w-2xl text-sm leading-6 opacity-90 sm:text-base sm:leading-7"
             dangerouslySetInnerHTML={{ __html: banner.description }}
           />
         ) : null}
@@ -33,7 +33,7 @@ function BannerContent({ banner }) {
       {hasCta ? (
         <Link
           href={banner.cta_link}
-          className="inline-flex w-fit items-center rounded-full border border-current px-5 py-3 text-sm font-semibold transition hover:bg-black/10"
+          className="inline-flex w-fit items-center rounded-full border border-current px-5 py-2.5 text-sm font-semibold transition hover:bg-black/10 sm:px-5 sm:py-3"
         >
           {banner.cta_text}
         </Link>
@@ -134,7 +134,7 @@ function renderBannerByType(banner, isPriority) {
     backgroundColor: banner.background_color || "#111827",
     color: banner.text_color || "#FFFFFF",
   };
-  const sharedHeight = "h-[440px] sm:h-[520px]";
+  const sharedHeight = "h-[360px] sm:h-[520px]";
 
   switch (banner.type) {
     case "image":
@@ -161,7 +161,7 @@ function renderBannerByType(banner, isPriority) {
           style={sharedStyle}
         >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.2),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.14),transparent_30%)]" />
-          <div className="relative z-10 flex h-full items-center px-6 py-12 sm:px-10 sm:py-16 lg:px-14">
+          <div className="relative z-10 flex h-full items-center px-10 py-8 sm:px-10 sm:py-12 lg:px-20">
             <BannerContent banner={banner} />
           </div>
         </article>
@@ -175,14 +175,14 @@ function renderBannerByType(banner, isPriority) {
           style={sharedStyle}
         >
           <div className="grid h-full grid-cols-1 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="relative order-2 min-h-[220px] lg:order-1 lg:min-h-full">
+            <div className="relative order-2 min-h-[160px] lg:order-1 lg:min-h-full">
               <BannerImage
                 banner={banner}
                 priority={isPriority}
                 backgroundColor={sharedStyle.backgroundColor}
               />
             </div>
-            <div className="relative order-1 flex items-center px-6 py-10 sm:px-10 lg:order-2 lg:px-14">
+            <div className="relative order-1 flex items-center px-6 py-8 sm:px-10 sm:py-10 lg:order-2 lg:px-20">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_30%)]" />
               <div className="relative z-10">
                 <BannerContent banner={banner} />
@@ -201,6 +201,8 @@ export default function BannerSliderClient({ banners, interval = 4000 }) {
   );
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const touchStartX = useRef(null);
+  const touchDeltaX = useRef(0);
 
   useEffect(() => {
     if (orderedBanners.length <= 1 || isPaused) {
@@ -225,12 +227,43 @@ export default function BannerSliderClient({ banners, interval = 4000 }) {
     );
   const goNext = () =>
     setActiveIndex((current) => (current + 1) % orderedBanners.length);
+  const handleTouchStart = (event) => {
+    touchStartX.current = event.touches[0]?.clientX ?? null;
+    touchDeltaX.current = 0;
+  };
+  const handleTouchMove = (event) => {
+    if (touchStartX.current === null) {
+      return;
+    }
+
+    touchDeltaX.current =
+      (event.touches[0]?.clientX ?? touchStartX.current) - touchStartX.current;
+  };
+  const handleTouchEnd = () => {
+    if (Math.abs(touchDeltaX.current) < 50) {
+      touchStartX.current = null;
+      touchDeltaX.current = 0;
+      return;
+    }
+
+    if (touchDeltaX.current > 0) {
+      goPrevious();
+    } else {
+      goNext();
+    }
+
+    touchStartX.current = null;
+    touchDeltaX.current = 0;
+  };
 
   return (
     <section
       className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       aria-label="Promotional banners"
     >
       <div className="relative overflow-hidden">
@@ -250,7 +283,7 @@ export default function BannerSliderClient({ banners, interval = 4000 }) {
             <button
               type="button"
               onClick={goPrevious}
-              className="absolute left-4 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/35 bg-black/30 text-white backdrop-blur transition hover:bg-black/45"
+              className="absolute left-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/35 bg-black/30 text-white backdrop-blur transition hover:bg-black/45 lg:inline-flex"
               aria-label="Previous banner"
             >
               <ChevronLeft size={20} />
@@ -259,7 +292,7 @@ export default function BannerSliderClient({ banners, interval = 4000 }) {
             <button
               type="button"
               onClick={goNext}
-              className="absolute right-4 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/35 bg-black/30 text-white backdrop-blur transition hover:bg-black/45"
+              className="absolute right-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/35 bg-black/30 text-white backdrop-blur transition hover:bg-black/45 lg:inline-flex"
               aria-label="Next banner"
             >
               <ChevronRight size={20} />
