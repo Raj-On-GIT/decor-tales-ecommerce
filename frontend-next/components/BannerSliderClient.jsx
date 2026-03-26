@@ -86,7 +86,7 @@ function BannerImage({ banner, priority = false }) {
       fill
       priority={priority}
       sizes="100vw"
-      className="object-cover"
+      className="object-contain"
     />
   );
 }
@@ -113,15 +113,16 @@ function renderBannerByType(banner, isPriority) {
     backgroundColor: banner.background_color || "#111827",
     color: banner.text_color || "#FFFFFF",
   };
+  const sharedHeight = "h-[440px] sm:h-[520px]";
 
   switch (banner.type) {
     case "image":
       return (
         <article
-          className="relative flex min-h-[440px] overflow-hidden rounded-[2rem] sm:min-h-[520px]"
+          className={`relative overflow-hidden rounded-[2rem] ${sharedHeight}`}
           style={sharedStyle}
         >
-          <div className="absolute inset-0">
+          <div className="absolute inset-0 p-4 sm:p-6">
             <BannerImage banner={banner} priority={isPriority} />
           </div>
           <ImageOnlyBannerContent banner={banner} />
@@ -131,11 +132,11 @@ function renderBannerByType(banner, isPriority) {
     case "text":
       return (
         <article
-          className="relative overflow-hidden rounded-[2rem] px-6 py-12 sm:px-10 sm:py-16 lg:px-14 lg:py-20"
+          className={`relative overflow-hidden rounded-[2rem] ${sharedHeight}`}
           style={sharedStyle}
         >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.2),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.14),transparent_30%)]" />
-          <div className="relative z-10">
+          <div className="relative z-10 flex h-full items-center px-6 py-12 sm:px-10 sm:py-16 lg:px-14">
             <BannerContent banner={banner} />
           </div>
         </article>
@@ -145,13 +146,12 @@ function renderBannerByType(banner, isPriority) {
     default:
       return (
         <article
-          className="relative overflow-hidden rounded-[2rem]"
+          className={`relative overflow-hidden rounded-[2rem] ${sharedHeight}`}
           style={sharedStyle}
         >
-          <div className="grid min-h-[440px] grid-cols-1 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="relative order-2 min-h-[240px] lg:order-1 lg:min-h-full">
+          <div className="grid h-full grid-cols-1 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="relative order-2 min-h-[220px] lg:order-1 lg:min-h-full">
               <BannerImage banner={banner} priority={isPriority} />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent lg:bg-gradient-to-r lg:from-transparent lg:to-black/10" />
             </div>
             <div className="relative order-1 flex items-center px-6 py-10 sm:px-10 lg:order-2 lg:px-14">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_30%)]" />
