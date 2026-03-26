@@ -88,7 +88,7 @@ function BannerImage({ banner, priority = false, backgroundColor = "#111827" }) 
           fill
           priority={priority}
           sizes="100vw"
-          className="scale-110 object-cover opacity-22 blur-3xl"
+          className="scale-110 object-cover opacity-55 blur-2xl"
           aria-hidden="true"
         />
       </div>
@@ -96,19 +96,7 @@ function BannerImage({ banner, priority = false, backgroundColor = "#111827" }) 
       <div
         className="absolute inset-0"
         style={{
-          background: `radial-gradient(circle at center, transparent 42%, ${backgroundColor}10 72%, ${backgroundColor}22 100%)`,
-        }}
-      />
-      <div
-        className="absolute inset-y-0 left-0 w-16 sm:w-24"
-        style={{
-          background: `linear-gradient(to right, ${backgroundColor}22, transparent)`,
-        }}
-      />
-      <div
-        className="absolute inset-y-0 right-0 w-16 sm:w-24"
-        style={{
-          background: `linear-gradient(to left, ${backgroundColor}22, transparent)`,
+          background: `linear-gradient(to right, ${backgroundColor}12, transparent 18%, transparent 82%, ${backgroundColor}12)`,
         }}
       />
 
