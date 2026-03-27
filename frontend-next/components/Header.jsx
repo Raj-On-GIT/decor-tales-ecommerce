@@ -397,6 +397,24 @@ export default function Header() {
                 </button>
               </div>
 
+              {isAuthenticated ? (
+                <div className="mb-6 rounded-2xl border border-gray-200 bg-gradient-to-br from-[#F7FFD9] via-white to-[#FFF3D6] px-4 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#002424] text-white shadow-sm">
+                      <User size={18} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
+                        Signed in as
+                      </p>
+                      <h3 className="truncate text-lg font-serif font-semibold text-gray-900">
+                        {visibleProfileName || "Your Account"}
+                      </h3>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               <nav className="flex flex-col divide-y">
                 <Link
                   href="/catalog"
