@@ -7,12 +7,14 @@ import { useAuth } from "@/context/AuthContext";
 import { useStore } from "@/context/StoreContext";
 import {
   getAddresses,
+  getAvailableCoupons,
   getCart,
   getCartStockIssues,
   createOrderWithAddress,
   syncCartStock,
 } from "@/lib/api";
 import { useGlobalToast } from "@/context/ToastContext";
+import { formatPrice } from "@/lib/formatPrice";
 
 export default function CheckoutPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -23,6 +25,8 @@ export default function CheckoutPage() {
   const [addresses, setAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [cart, setCart] = useState([]);
+  const [coupons, setCoupons] = useState([]);
+  const [selectedCoupon, setSelectedCoupon] = useState(null);
   const [placing, setPlacing] = useState(false);
 
   useEffect(() => {
@@ -49,6 +53,15 @@ export default function CheckoutPage() {
         setCart(nextItems);
         replaceCart(nextItems);
 
+        const couponData = await getAvailableCoupons();
+        const nextCoupons = couponData.coupons || [];
+        setCoupons(nextCoupons);
+        setSelectedCoupon((current) => {
+          if (!current) return null;
+          const updated = nextCoupons.find((coupon) => coupon.code === current.code);
+          return updated?.eligible ? updated : null;
+        });
+
         if (syncedCart.changed) {
           error("Cart updated to match current stock before checkout.");
         }
@@ -62,6 +75,8 @@ export default function CheckoutPage() {
 
   const total = cart.reduce((sum, item) => sum + item.qty * Number(item.price), 0);
   const itemCount = cart.reduce((sum, item) => sum + item.qty, 0);
+  const selectedCouponDiscount = Number(selectedCoupon?.discount_amount || 0);
+  const payableTotal = Math.max(0, total - selectedCouponDiscount);
 
   async function handlePlaceOrder() {
     if (!selectedAddress) {
@@ -80,6 +95,23 @@ export default function CheckoutPage() {
       setCart(nextItems);
       replaceCart(nextItems);
 
+      const couponData = await getAvailableCoupons();
+      const nextCoupons = couponData.coupons || [];
+      setCoupons(nextCoupons);
+
+      const refreshedSelectedCoupon = selectedCoupon
+        ? nextCoupons.find((coupon) => coupon.code === selectedCoupon.code)
+        : null;
+
+      if (selectedCoupon && !refreshedSelectedCoupon?.eligible) {
+        setSelectedCoupon(null);
+        error(
+          refreshedSelectedCoupon?.reason ||
+            "The selected coupon is no longer eligible for this cart.",
+        );
+        return;
+      }
+
       if (syncedCart.changed || issues.length > 0) {
         const firstIssue = syncedCart.adjustments[0] || issues[0];
         const itemLabel = firstIssue.variantLabel
@@ -94,7 +126,10 @@ export default function CheckoutPage() {
         return;
       }
 
-      const response = await createOrderWithAddress(selectedAddress);
+      const response = await createOrderWithAddress(
+        selectedAddress,
+        refreshedSelectedCoupon?.code || selectedCoupon?.code || "",
+      );
 
       replaceCart([]);
       success("Order placed successfully");
@@ -144,7 +179,7 @@ export default function CheckoutPage() {
                 {itemCount} item{itemCount === 1 ? "" : "s"}
               </div>
               <div className="rounded-full border border-gray-200 bg-white px-4 py-2 font-medium">
-                Total: Rs {total.toFixed(2)}
+                Total: Rs {formatPrice(payableTotal)}
               </div>
             </div>
           </div>
@@ -333,14 +368,139 @@ export default function CheckoutPage() {
               ))}
             </div>
 
+            <div className="mt-8 rounded-[1.5rem] border border-[#d8e5d8] bg-[#f7fbf4] p-5">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+                    Step 3
+                  </p>
+                  <h3 className="mt-2 text-2xl font-serif font-semibold text-gray-900">
+                    Available Coupons
+                  </h3>
+                </div>
+                <p className="text-sm text-gray-500">
+                  {coupons.length} offer{coupons.length === 1 ? "" : "s"}
+                </p>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {coupons.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No active coupons are available right now.
+                  </p>
+                ) : (
+                  coupons.map((coupon) => {
+                    const isApplied = selectedCoupon?.code === coupon.code;
+                    const isEligible = Boolean(coupon.eligible);
+
+                    return (
+                      <div
+                        key={coupon.code}
+                        className={`rounded-[1.25rem] border p-4 transition ${
+                          isApplied
+                            ? "border-[#002424] bg-white shadow-sm"
+                            : isEligible
+                              ? "border-[#cfe0cf] bg-white"
+                              : "border-gray-200 bg-gray-100/80 opacity-60"
+                        }`}
+                      >
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-[#002424] px-3 py-1 text-xs font-semibold tracking-[0.24em] text-white">
+                                {coupon.code}
+                              </span>
+                              {coupon.first_order_only ? (
+                                <span className="rounded-full bg-[#e7f3eb] px-3 py-1 text-xs font-medium text-[#185c37]">
+                                  New user
+                                </span>
+                              ) : null}
+                            </div>
+
+                            <h4 className="mt-3 text-lg font-semibold text-gray-900">
+                              {coupon.title}
+                            </h4>
+
+                            {coupon.description ? (
+                              <p className="mt-1 text-sm leading-6 text-gray-600">
+                                {coupon.description}
+                              </p>
+                            ) : null}
+
+                            <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
+                              <span className="rounded-full border border-gray-200 px-3 py-1">
+                                Min eligible spend: Rs {formatPrice(coupon.min_order_amount)}
+                              </span>
+                              <span className="rounded-full border border-gray-200 px-3 py-1">
+                                Savings: Rs {formatPrice(coupon.discount_amount)}
+                              </span>
+                            </div>
+
+                            {!isEligible && coupon.reason ? (
+                              <p className="mt-3 text-sm text-gray-500">
+                                {coupon.reason}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-2">
+                            {isApplied ? (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCoupon(null)}
+                                className="rounded-full border border-[#002424] px-4 py-2 text-sm font-medium text-[#002424] transition hover:bg-[#eef5ee]"
+                              >
+                                Remove
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={!isEligible}
+                                onClick={() => setSelectedCoupon(coupon)}
+                                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                                  isEligible
+                                    ? "bg-[#002424] text-white hover:bg-[#013535]"
+                                    : "cursor-not-allowed bg-gray-200 text-gray-500"
+                                }`}
+                              >
+                                Apply
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
             <div className="mt-8 rounded-[1.5rem] bg-[#002424] px-5 py-5 text-white">
               <div className="flex justify-between text-sm text-white/70">
                 <span>Items</span>
                 <span>{itemCount}</span>
               </div>
+              <div className="mt-3 flex justify-between text-sm text-white/70">
+                <span>Subtotal</span>
+                <span>Rs {formatPrice(total)}</span>
+              </div>
+              <div className="mt-3 flex justify-between text-sm text-white/70">
+                <span>Coupon</span>
+                <span>
+                  {selectedCoupon
+                    ? `- Rs ${formatPrice(selectedCouponDiscount)}`
+                    : "Not applied"}
+                </span>
+              </div>
+              {selectedCoupon ? (
+                <div className="mt-2 flex justify-between text-sm text-emerald-200">
+                  <span>{selectedCoupon.code}</span>
+                  <span>Applied</span>
+                </div>
+              ) : null}
               <div className="mt-3 flex justify-between text-lg font-semibold">
                 <span>Total</span>
-                <span>Rs {total.toFixed(2)}</span>
+                <span>Rs {formatPrice(payableTotal)}</span>
               </div>
             </div>
 

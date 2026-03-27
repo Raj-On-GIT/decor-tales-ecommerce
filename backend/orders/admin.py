@@ -2,7 +2,32 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-from .models import Order, OrderItem, OrderItemImage, Cart, CartItem, CartItemImage
+from .models import Coupon, CouponUsage, Order, OrderItem, OrderItemImage, Cart, CartItem, CartItemImage
+
+
+@admin.register(Coupon)
+class CouponAdmin(admin.ModelAdmin):
+    list_display = (
+        "code",
+        "title",
+        "discount_type",
+        "discount_value",
+        "min_order_amount",
+        "first_order_only",
+        "is_active",
+        "start_date",
+        "end_date",
+    )
+    list_filter = ("discount_type", "first_order_only", "is_active", "start_date", "end_date")
+    search_fields = ("code", "title", "description")
+    filter_horizontal = ("categories", "subcategories")
+
+
+@admin.register(CouponUsage)
+class CouponUsageAdmin(admin.ModelAdmin):
+    list_display = ("coupon", "user", "order", "discount_amount", "created_at")
+    search_fields = ("coupon__code", "user__username", "user__email", "order__order_number")
+    readonly_fields = ("created_at",)
 
 
 class CartItemImageInline(admin.TabularInline):
@@ -105,6 +130,8 @@ class OrderAdmin(admin.ModelAdmin):
         "customer_email",
         "username",
         "status",
+        "coupon_code",
+        "discount_amount",
         "total_amount",
         "items_count",
         "city",

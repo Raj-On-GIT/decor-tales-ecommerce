@@ -1,35 +1,36 @@
+from decimal import Decimal
+
+from django.db import transaction
+from django.db.models import F, Q
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
-from django.shortcuts import get_object_or_404
-from django.db.models import F,Q
-from django.db import transaction
 
 from .models import (
-    Order,
     Cart,
     CartItem,
     CartItemImage,
+    Coupon,
+    CouponUsage,
+    Order,
     OrderItem,
     OrderItemImage,
 )
 from products.models import Product, ProductVariant
 
 
-# ============================================================================
-# HELPER
-# ============================================================================
-
 def get_product_price(product):
-    """
-    Returns effective price considering discount.
-    """
     return product.slashed_price or product.mrp
 
 
 def build_image_urls(request, image_objects):
-    return [request.build_absolute_uri(image.image.url) for image in image_objects if image.image]
+    return [
+        request.build_absolute_uri(image.image.url)
+        for image in image_objects
+        if image.image
+    ]
 
 
 def get_custom_image_files(request):
@@ -42,9 +43,172 @@ def get_custom_image_files(request):
     return [legacy_image] if legacy_image else []
 
 
-# ============================================================================
-# CART APIs (PROTECTED)
-# ============================================================================
+def get_coupon_queryset():
+    now = timezone.now()
+    return (
+        Coupon.objects.filter(
+            is_active=True,
+            start_date__lte=now,
+        )
+        .filter(Q(end_date__isnull=True) | Q(end_date__gte=now))
+        .prefetch_related("categories", "subcategories")
+    )
+
+
+def get_coupon_usage_queryset():
+    return CouponUsage.objects.exclude(order__status="cancelled")
+
+
+def get_cart_line_items(cart_items):
+    line_items = []
+
+    for item in cart_items:
+        product = item.product
+        variant = item.variant
+
+        if product.stock_type == "variants":
+            price = variant.slashed_price or variant.mrp or Decimal("0.00")
+        else:
+            price = get_product_price(product) or Decimal("0.00")
+
+        price = Decimal(price)
+        line_items.append(
+            {
+                "item": item,
+                "product": product,
+                "variant": variant,
+                "price": price,
+                "line_total": price * item.quantity,
+            }
+        )
+
+    return line_items
+
+
+def get_coupon_eligible_subtotal(coupon, cart_items):
+    category_ids = set(coupon.categories.values_list("id", flat=True))
+    subcategory_ids = set(coupon.subcategories.values_list("id", flat=True))
+
+    if not category_ids and not subcategory_ids:
+        return sum((item["line_total"] for item in cart_items), Decimal("0.00"))
+
+    eligible_total = Decimal("0.00")
+    for item in cart_items:
+        product = item["product"]
+        if (
+            product.category_id in category_ids
+            or product.sub_category_id in subcategory_ids
+        ):
+            eligible_total += item["line_total"]
+
+    return eligible_total
+
+
+def evaluate_coupon_for_cart(coupon, user, cart_items):
+    subtotal = sum((item["line_total"] for item in cart_items), Decimal("0.00"))
+    eligible_subtotal = get_coupon_eligible_subtotal(coupon, cart_items)
+
+    if not cart_items:
+        return {
+            "eligible": False,
+            "reason": "Your cart is empty.",
+            "eligible_subtotal": eligible_subtotal,
+            "discount_amount": Decimal("0.00"),
+            "subtotal": subtotal,
+        }
+
+    if eligible_subtotal <= 0:
+        return {
+            "eligible": False,
+            "reason": "No items in your cart qualify for this coupon.",
+            "eligible_subtotal": eligible_subtotal,
+            "discount_amount": Decimal("0.00"),
+            "subtotal": subtotal,
+        }
+
+    if coupon.min_order_amount and eligible_subtotal < coupon.min_order_amount:
+        shortfall = coupon.min_order_amount - eligible_subtotal
+        return {
+            "eligible": False,
+            "reason": f"Add Rs {shortfall:.2f} more in eligible items to use this coupon.",
+            "eligible_subtotal": eligible_subtotal,
+            "discount_amount": Decimal("0.00"),
+            "subtotal": subtotal,
+        }
+
+    usage_qs = get_coupon_usage_queryset().filter(coupon=coupon)
+
+    if coupon.usage_limit is not None and usage_qs.count() >= coupon.usage_limit:
+        return {
+            "eligible": False,
+            "reason": "This coupon has reached its usage limit.",
+            "eligible_subtotal": eligible_subtotal,
+            "discount_amount": Decimal("0.00"),
+            "subtotal": subtotal,
+        }
+
+    if (
+        coupon.usage_limit_per_user is not None
+        and usage_qs.filter(user=user).count() >= coupon.usage_limit_per_user
+    ):
+        return {
+            "eligible": False,
+            "reason": "You have already used this coupon the maximum number of times.",
+            "eligible_subtotal": eligible_subtotal,
+            "discount_amount": Decimal("0.00"),
+            "subtotal": subtotal,
+        }
+
+    if coupon.first_order_only and user.orders.exclude(status="cancelled").exists():
+        return {
+            "eligible": False,
+            "reason": "This coupon is only available on your first order.",
+            "eligible_subtotal": eligible_subtotal,
+            "discount_amount": Decimal("0.00"),
+            "subtotal": subtotal,
+        }
+
+    if coupon.discount_type == Coupon.TYPE_PERCENT:
+        discount_amount = (eligible_subtotal * coupon.discount_value) / Decimal("100")
+    else:
+        discount_amount = coupon.discount_value
+
+    if coupon.max_discount_amount is not None:
+        discount_amount = min(discount_amount, coupon.max_discount_amount)
+
+    discount_amount = min(discount_amount, eligible_subtotal).quantize(
+        Decimal("0.01")
+    )
+
+    return {
+        "eligible": discount_amount > 0,
+        "reason": "" if discount_amount > 0 else "This coupon is not eligible for this cart.",
+        "eligible_subtotal": eligible_subtotal,
+        "discount_amount": discount_amount,
+        "subtotal": subtotal,
+    }
+
+
+def serialize_coupon(coupon, evaluation):
+    return {
+        "code": coupon.code,
+        "title": coupon.title,
+        "description": coupon.description,
+        "discount_type": coupon.discount_type,
+        "discount_value": str(coupon.discount_value),
+        "min_order_amount": str(coupon.min_order_amount),
+        "max_discount_amount": (
+            str(coupon.max_discount_amount)
+            if coupon.max_discount_amount is not None
+            else None
+        ),
+        "first_order_only": coupon.first_order_only,
+        "eligible": evaluation["eligible"],
+        "reason": evaluation["reason"],
+        "eligible_subtotal": str(evaluation["eligible_subtotal"]),
+        "discount_amount": str(evaluation["discount_amount"]),
+    }
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -65,18 +229,13 @@ def add_to_cart(request):
         custom_text = request.data.get("custom_text")
         custom_images = get_custom_image_files(request)
 
-        # normalize empty values
         if custom_text == "":
             custom_text = None
-
-        # --------------------------------------------------
-        # VALIDATE CUSTOMIZATION PERMISSIONS
-        # --------------------------------------------------
 
         if custom_images and not product.allow_custom_image:
             return Response(
                 {"error": "This product does not allow image customization."},
-                status=400
+                status=400,
             )
 
         if custom_images and len(custom_images) > product.custom_image_limit:
@@ -84,54 +243,40 @@ def add_to_cart(request):
                 {
                     "error": f"This product allows only {product.custom_image_limit} custom image(s)."
                 },
-                status=400
+                status=400,
             )
 
         if custom_text and not product.allow_custom_text:
             return Response(
                 {"error": "This product does not allow text customization."},
-                status=400
+                status=400,
             )
-
-        # --------------------------------------------------
-        # DETERMINE AVAILABLE STOCK
-        # --------------------------------------------------
 
         available_stock = variant.stock if variant else product.stock
 
-        # --------------------------------------------------
-        # NORMAL PRODUCT (NO CUSTOMIZATION)
-        # Merge quantities
-        # --------------------------------------------------
-
         if custom_text is None and not custom_images:
-
-            cart_item = CartItem.objects.filter(
-                cart=cart,
-                product=product,
-                variant=variant,
-                custom_images__isnull=True,
-            ).filter(
-                Q(custom_text__isnull=True) | Q(custom_text="")
-            ).filter(
-                Q(custom_image__isnull=True) | Q(custom_image="")
-            ).first()
-
+            cart_item = (
+                CartItem.objects.filter(
+                    cart=cart,
+                    product=product,
+                    variant=variant,
+                    custom_images__isnull=True,
+                )
+                .filter(Q(custom_text__isnull=True) | Q(custom_text=""))
+                .filter(Q(custom_image__isnull=True) | Q(custom_image=""))
+                .first()
+            )
 
             if cart_item:
-
                 CartItem.objects.filter(id=cart_item.id).update(
                     quantity=F("quantity") + quantity
                 )
-
                 cart_item.refresh_from_db()
 
                 if cart_item.quantity > available_stock:
                     cart_item.quantity = available_stock
                     cart_item.save()
-
             else:
-
                 if quantity > available_stock:
                     quantity = available_stock
 
@@ -141,16 +286,9 @@ def add_to_cart(request):
                     variant=variant,
                     quantity=quantity,
                     custom_text=None,
-                    custom_image=None
+                    custom_image=None,
                 )
-
-        # --------------------------------------------------
-        # CUSTOMIZED PRODUCT
-        # Always create a new cart item
-        # --------------------------------------------------
-
         else:
-
             if quantity > available_stock:
                 quantity = available_stock
 
@@ -160,32 +298,29 @@ def add_to_cart(request):
                 variant=variant,
                 quantity=quantity,
                 custom_text=custom_text,
-                custom_image=None
+                custom_image=None,
             )
 
             for image_file in custom_images:
                 CartItemImage.objects.create(cart_item=cart_item, image=image_file)
 
-        # --------------------------------------------------
-        # PRICE CALCULATION
-        # --------------------------------------------------
-
         price = (
-            variant.slashed_price
-            or variant.mrp
-            or get_product_price(product)
+            variant.slashed_price or variant.mrp or get_product_price(product)
             if variant
             else get_product_price(product)
         )
 
-        return Response({
-            "message": "Product added to cart",
-            "cart_item": {
-                "id": cart_item.id,
-                "quantity": cart_item.quantity,
-                "total": str(cart_item.quantity * price)
-            }
-        }, status=201)
+        return Response(
+            {
+                "message": "Product added to cart",
+                "cart_item": {
+                    "id": cart_item.id,
+                    "quantity": cart_item.quantity,
+                    "total": str(cart_item.quantity * price),
+                },
+            },
+            status=201,
+        )
 
     except Exception as e:
         print("ADD TO CART ERROR:", str(e))
@@ -199,15 +334,10 @@ def get_cart(request):
         cart = Cart.objects.filter(user=request.user).first()
 
         if not cart:
-            return Response({
-                "items": [],
-                "total": "0.00",
-                "count": 0
-            })
+            return Response({"items": [], "total": "0.00", "count": 0})
 
         cart_items = (
-            CartItem.objects
-            .filter(cart=cart)
+            CartItem.objects.filter(cart=cart)
             .select_related("product", "variant", "variant__size", "variant__color")
             .prefetch_related("custom_images")
         )
@@ -216,14 +346,8 @@ def get_cart(request):
         total = 0
 
         for item in cart_items:
-
-            # ✅ Variant-aware safe pricing
             if item.variant:
-                price = (
-                    item.variant.slashed_price
-                    or item.variant.mrp
-                    or 0
-                )
+                price = item.variant.slashed_price or item.variant.mrp or 0
             else:
                 price = get_product_price(item.product) or 0
 
@@ -231,55 +355,65 @@ def get_cart(request):
             item_total = price * item.quantity
             total += item_total
 
-            items.append({
-                "id": item.id,
-
-                "product": {
-                    "id": item.product.id,
-                    "title": item.product.title,
-                    "price": str(price),
-
-                    "image": (
-                        request.build_absolute_uri(item.product.image.url)
-                        if item.product.image else None
+            items.append(
+                {
+                    "id": item.id,
+                    "product": {
+                        "id": item.product.id,
+                        "title": item.product.title,
+                        "price": str(price),
+                        "image": (
+                            request.build_absolute_uri(item.product.image.url)
+                            if item.product.image
+                            else None
+                        ),
+                        "category": (
+                            {
+                                "name": item.product.category.name,
+                                "slug": item.product.category.slug,
+                            }
+                            if item.product.category
+                            else None
+                        ),
+                        "sub_category": (
+                            {
+                                "name": item.product.sub_category.name,
+                                "slug": item.product.sub_category.slug,
+                            }
+                            if item.product.sub_category
+                            else None
+                        ),
+                        "stock": item.product.stock,
+                        "stock_type": item.product.stock_type,
+                        "allow_custom_text": item.product.allow_custom_text,
+                        "allow_custom_image": item.product.allow_custom_image,
+                    },
+                    "variant": (
+                        {
+                            "id": item.variant.id,
+                            "size_name": item.variant.size.name if item.variant.size else None,
+                            "color_name": item.variant.color.name if item.variant.color else None,
+                            "stock": item.variant.stock,
+                        }
+                        if item.variant
+                        else None
                     ),
+                    "quantity": item.quantity,
+                    "custom_text": item.custom_text,
+                    "custom_images": build_image_urls(request, item.custom_images.all()),
+                    "custom_image": (
+                        request.build_absolute_uri(item.custom_image.url)
+                        if item.custom_image
+                        else (
+                            request.build_absolute_uri(item.custom_images.first().image.url)
+                            if item.custom_images.exists()
+                            else None
+                        )
+                    ),
+                }
+            )
 
-                    "category": {
-                        "name": item.product.category.name,
-                        "slug": item.product.category.slug,
-                    } if item.product.category else None,
-
-                    "stock": item.product.stock,
-                    "stock_type": item.product.stock_type,
-                    "allow_custom_text": item.product.allow_custom_text,
-                    "allow_custom_image": item.product.allow_custom_image,
-                },
-
-                "variant": {
-                    "id": item.variant.id,
-                    "size_name": item.variant.size.name if item.variant.size else None,
-                    "color_name": item.variant.color.name if item.variant.color else None,
-                    "stock": item.variant.stock,
-                } if item.variant else None,
-
-                "quantity": item.quantity,
-
-                "custom_text": item.custom_text,
-                "custom_images": build_image_urls(request, item.custom_images.all()),
-                "custom_image": (
-                    request.build_absolute_uri(item.custom_image.url)
-                    if item.custom_image else (
-                        request.build_absolute_uri(item.custom_images.first().image.url)
-                        if item.custom_images.exists() else None
-                    )
-                ),
-            })
-
-        return Response({
-            "items": items,
-            "total": str(total),
-            "count": len(items)
-        })
+        return Response({"items": items, "total": str(total), "count": len(items)})
 
     except Exception as e:
         print("GET CART ERROR:", str(e))
@@ -314,34 +448,33 @@ def update_cart_item(request, item_id):
 
     cart_item = get_object_or_404(CartItem, id=item_id, cart=cart)
 
-    # 🔥 Enforce stock limit
-    if cart_item.variant:
-        available_stock = cart_item.variant.stock
-    else:
-        available_stock = cart_item.product.stock
+    available_stock = cart_item.variant.stock if cart_item.variant else cart_item.product.stock
 
     if quantity > available_stock:
-        return Response({
-            "error": f"Only {available_stock} items available in stock."
-        }, status=400)
+        return Response(
+            {"error": f"Only {available_stock} items available in stock."},
+            status=400,
+        )
 
     cart_item.quantity = quantity
     cart_item.save()
 
-    # 🔥 Correct price handling
     if cart_item.variant:
         price = cart_item.variant.slashed_price or cart_item.variant.mrp
     else:
         price = get_product_price(cart_item.product)
 
-    return Response({
-        "message": "Cart updated",
-        "cart_item": {
-            "id": cart_item.id,
-            "quantity": cart_item.quantity,
-            "total": str(cart_item.quantity * price)
+    return Response(
+        {
+            "message": "Cart updated",
+            "cart_item": {
+                "id": cart_item.id,
+                "quantity": cart_item.quantity,
+                "total": str(cart_item.quantity * price),
+            },
         }
-    })
+    )
+
 
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
@@ -354,9 +487,30 @@ def clear_cart(request):
     return Response({"message": "Cart cleared"})
 
 
-# ============================================================================
-# ORDER APIs (PROTECTED)
-# ============================================================================
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_available_coupons(request):
+    cart = Cart.objects.filter(user=request.user).first()
+    cart_items = []
+
+    if cart:
+        cart_items = list(
+            CartItem.objects.select_related(
+                "product",
+                "product__category",
+                "product__sub_category",
+                "variant",
+            ).filter(cart=cart)
+        )
+
+    line_items = get_cart_line_items(cart_items)
+    coupons = [
+        serialize_coupon(coupon, evaluate_coupon_for_cart(coupon, request.user, line_items))
+        for coupon in get_coupon_queryset()
+    ]
+
+    return Response({"coupons": coupons})
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -374,17 +528,21 @@ def create_order(request):
             return Response({"error": "Address required"}, status=400)
 
         from accounts.models import Address
+
         address = get_object_or_404(Address, id=address_id, user=request.user)
 
         cart_items = CartItem.objects.select_related(
-            "product", "variant"
+            "product",
+            "product__category",
+            "product__sub_category",
+            "variant",
         ).prefetch_related("custom_images").filter(cart=cart)
 
-        total_amount = 0
+        subtotal_amount = Decimal("0.00")
+        discount_amount = Decimal("0.00")
+        applied_coupon = None
 
-        # 🔥 STOCK VALIDATION + PRICE CALCULATION
         for item in cart_items:
-
             product = item.product
             variant = item.variant
 
@@ -396,26 +554,51 @@ def create_order(request):
                 price = get_product_price(product)
 
             if item.quantity > available_stock:
-                return Response({
-                    "error": f"{product.title} has only {available_stock} left in stock."
-                }, status=400)
+                return Response(
+                    {"error": f"{product.title} has only {available_stock} left in stock."},
+                    status=400,
+                )
 
-            total_amount += price * item.quantity
+            subtotal_amount += Decimal(price) * item.quantity
 
-        # ✅ Create Order
+        coupon_code = (request.data.get("coupon_code") or "").strip().upper()
+
+        if coupon_code:
+            try:
+                applied_coupon = get_coupon_queryset().get(code=coupon_code)
+            except Coupon.DoesNotExist:
+                return Response({"error": "Coupon is invalid or unavailable."}, status=400)
+
+            evaluation = evaluate_coupon_for_cart(
+                applied_coupon,
+                request.user,
+                get_cart_line_items(cart_items),
+            )
+
+            if not evaluation["eligible"]:
+                return Response(
+                    {"error": evaluation["reason"] or "Coupon is not eligible for this cart."},
+                    status=400,
+                )
+
+            discount_amount = evaluation["discount_amount"]
+
+        total_amount = subtotal_amount - discount_amount
+
         order = Order.objects.create(
             user=request.user,
+            subtotal_amount=subtotal_amount,
+            discount_amount=discount_amount,
             total_amount=total_amount,
+            coupon_code=applied_coupon.code if applied_coupon else "",
             shipping_address=f"{address.address_line_1}, {address.address_line_2}",
             city=address.city,
             postal_code=address.postal_code,
             phone=address.phone,
-            status="pending"
+            status="pending",
         )
 
-        # 🔥 Create Order Items + Reduce Stock
         for item in cart_items:
-
             product = item.product
             variant = item.variant
 
@@ -424,7 +607,6 @@ def create_order(request):
             else:
                 price = get_product_price(product)
 
-            # ✅ Save variant in OrderItem
             order_item = OrderItem.objects.create(
                 order=order,
                 product=product,
@@ -432,16 +614,12 @@ def create_order(request):
                 quantity=item.quantity,
                 price=price,
                 custom_text=item.custom_text,
-                custom_image=item.custom_image if not item.custom_images.exists() else None
+                custom_image=item.custom_image if not item.custom_images.exists() else None,
             )
 
             for image in item.custom_images.all():
-                OrderItemImage.objects.create(
-                    order_item=order_item,
-                    image=image.image,
-                )
+                OrderItemImage.objects.create(order_item=order_item, image=image.image)
 
-            # 🔥 Reduce correct stock
             if product.stock_type == "variants":
                 ProductVariant.objects.filter(id=variant.id).update(
                     stock=F("stock") - item.quantity
@@ -451,18 +629,32 @@ def create_order(request):
                     stock=F("stock") - item.quantity
                 )
 
+        if applied_coupon and discount_amount > 0:
+            CouponUsage.objects.create(
+                coupon=applied_coupon,
+                user=request.user,
+                order=order,
+                discount_amount=discount_amount,
+            )
+
         cart_items.delete()
 
-        return Response({
-            "message": "Order created",
-            "order": {
-                "id": order.id,
-                "order_number": str(order.order_number),
-                "total": str(order.total_amount),
-                "status": order.status,
-                "created_at": order.created_at
-            }
-        }, status=201)
+        return Response(
+            {
+                "message": "Order created",
+                "order": {
+                    "id": order.id,
+                    "order_number": str(order.order_number),
+                    "subtotal": str(order.subtotal_amount),
+                    "discount": str(order.discount_amount),
+                    "coupon_code": order.coupon_code,
+                    "total": str(order.total_amount),
+                    "status": order.status,
+                    "created_at": order.created_at,
+                },
+            },
+            status=201,
+        )
 
     except Exception as e:
         return Response({"error": str(e)}, status=400)
@@ -473,14 +665,20 @@ def create_order(request):
 def get_my_orders(request):
     orders = Order.objects.filter(user=request.user).order_by("-created_at")
 
-    data = [{
-        "id": o.id,
-        "order_number": str(o.order_number),
-        "total": str(o.total_amount),
-        "status": o.status,
-        "created_at": o.created_at,
-        "items_count": o.items.count()
-    } for o in orders]
+    data = [
+        {
+            "id": order.id,
+            "order_number": str(order.order_number),
+            "subtotal": str(order.subtotal_amount),
+            "discount": str(order.discount_amount),
+            "coupon_code": order.coupon_code,
+            "total": str(order.total_amount),
+            "status": order.status,
+            "created_at": order.created_at,
+            "items_count": order.items.count(),
+        }
+        for order in orders
+    ]
 
     return Response({"orders": data, "count": len(data)})
 
@@ -490,59 +688,70 @@ def get_my_orders(request):
 def get_order_detail(request, order_id):
     order = get_object_or_404(Order, id=order_id, user=request.user)
 
-    items = [{
-        "product": {
-            "id": i.product.id,
-            "title": i.product.title,
-            "image": (
-                request.build_absolute_uri(i.product.image.url)
-                if i.product.image else None
+    items = [
+        {
+            "product": {
+                "id": item.product.id,
+                "title": item.product.title,
+                "image": (
+                    request.build_absolute_uri(item.product.image.url)
+                    if item.product.image
+                    else None
+                ),
+                "category": (
+                    {"name": item.product.category.name}
+                    if item.product.category
+                    else None
+                ),
+            },
+            "variant": (
+                {
+                    "size_name": item.variant.size.name if item.variant and item.variant.size else None,
+                    "color_name": item.variant.color.name if item.variant and item.variant.color else None,
+                }
+                if item.variant
+                else None
             ),
-            "category": {
-                "name": i.product.category.name,
-            } if i.product.category else None,
-        },
-
-        "variant": {
-            "size_name": i.variant.size.name if i.variant and i.variant.size else None,
-            "color_name": i.variant.color.name if i.variant and i.variant.color else None,
-        } if i.variant else None,
-
-        "quantity": i.quantity,
-        "price": str(i.price),
-        "total": str(i.price * i.quantity),
-
-        # Customization fields
-        "custom_text": i.custom_text,
-        "custom_images": build_image_urls(request, i.custom_images.all()),
-
-        "custom_image": (
-            request.build_absolute_uri(i.custom_image.url)
-            if i.custom_image else (
-                request.build_absolute_uri(i.custom_images.first().image.url)
-                if i.custom_images.exists() else None
-            )
-        )
-
-    } for i in order.items.select_related(
-        "product",
-        "product__category",
-        "variant",
-        "variant__size",
-        "variant__color"
-    ).prefetch_related("custom_images")]
-
-    return Response({
-        "order": {
-            "id": order.id,
-            "order_number": str(order.order_number),
-            "total": str(order.total_amount),
-            "status": order.status,
-            "created_at": order.created_at,
-            "shipping_address": order.shipping_address,
-            "city": order.city,
-            "postal_code": order.postal_code,
-            "phone": order.phone,
-            "items": items
+            "quantity": item.quantity,
+            "price": str(item.price),
+            "total": str(item.price * item.quantity),
+            "custom_text": item.custom_text,
+            "custom_images": build_image_urls(request, item.custom_images.all()),
+            "custom_image": (
+                request.build_absolute_uri(item.custom_image.url)
+                if item.custom_image
+                else (
+                    request.build_absolute_uri(item.custom_images.first().image.url)
+                    if item.custom_images.exists()
+                    else None
+                )
+            ),
         }
-    })
+        for item in order.items.select_related(
+            "product",
+            "product__category",
+            "variant",
+            "variant__size",
+            "variant__color",
+        ).prefetch_related("custom_images")
+    ]
+
+    return Response(
+        {
+            "order": {
+                "id": order.id,
+                "order_number": str(order.order_number),
+                "subtotal": str(order.subtotal_amount),
+                "discount": str(order.discount_amount),
+                "coupon_code": order.coupon_code,
+                "total": str(order.total_amount),
+                "status": order.status,
+                "created_at": order.created_at,
+                "shipping_address": order.shipping_address,
+                "city": order.city,
+                "postal_code": order.postal_code,
+                "phone": order.phone,
+                "items": items,
+            }
+        }
+    )

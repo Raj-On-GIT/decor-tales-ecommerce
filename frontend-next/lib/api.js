@@ -369,6 +369,9 @@ export async function getCart() {
         : `${BACKEND}${product.image}`,
 
       category: product.category?.name || "Uncategorized",
+      category_slug: product.category?.slug || null,
+      sub_category: product.sub_category?.name || null,
+      sub_category_slug: product.sub_category?.slug || null,
 
       stock: product.stock,
       stock_type: product.stock_type,
@@ -402,6 +405,16 @@ export async function getCart() {
     total: data.total,
     count: data.count,
   };
+}
+
+export async function getAvailableCoupons() {
+  const response = await fetchWithAuth(`${API_BASE}/api/orders/coupons/available/`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch coupons");
+  }
+
+  return response.json();
 }
 
 function getCartStockBucketKey(item) {
@@ -679,11 +692,14 @@ export async function deleteAddress(id) {
   return res.json();
 }
 
-export async function createOrderWithAddress(addressId) {
+export async function createOrderWithAddress(addressId, couponCode = "") {
   const res = await fetchWithAuth(`${API_BASE}/api/orders/create/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address_id: addressId }),
+    body: JSON.stringify({
+      address_id: addressId,
+      coupon_code: couponCode || "",
+    }),
   });
 
   if (!res.ok) {
