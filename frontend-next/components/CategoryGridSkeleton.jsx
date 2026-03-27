@@ -1,8 +1,8 @@
 export default function CategoryGridSkeleton({ count = 4 }) {
   return (
-    <section className="max-w-screen-xl mx-auto px-6 py-10">
+    <section className="max-w-screen-xl mx-auto px-6 py-8 sm:py-10">
       {/* Heading Skeleton */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-12">
+      <div className="flex flex-col gap-4 mb-6 sm:mb-12 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="h-10 w-72 bg-gray-200 rounded animate-pulse mb-3"></div>
           <div className="h-4 w-64 bg-gray-200 rounded animate-pulse"></div>

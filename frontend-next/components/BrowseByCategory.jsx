@@ -15,7 +15,7 @@ export default async function BrowseByCategory() {
       className="
       max-w-screen-xl mx-auto
       px-4 sm:px-6
-      py-14 sm:py-16 md:py-20
+      py-8 sm:py-16 md:py-20
     "
     >
       {/* Heading Row */}
@@ -23,7 +23,7 @@ export default async function BrowseByCategory() {
         className="
         flex flex-col sm:flex-row
         sm:justify-between sm:items-end
-        gap-4 mb-8 md:mb-10
+        gap-4 mb-5 md:mb-10
       "
       >
         <div>

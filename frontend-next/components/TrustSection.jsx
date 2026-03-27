@@ -20,7 +20,7 @@ export default function TrustSection() {
   ];
 
   return (
-    <section className="bg-white py-16">
+    <section className="bg-white py-8 sm:py-16">
       <div className="mx-auto grid max-w-screen-2xl grid-cols-1 gap-4 px-5 sm:grid-cols-2 sm:gap-6 sm:px-6 md:px-10 lg:grid-cols-3 lg:gap-10 xl:px-35">
         {items.map((item, index) => (
           <div
