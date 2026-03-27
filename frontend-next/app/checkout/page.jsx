@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { useGlobalToast } from "@/context/ToastContext";
 import { formatPrice } from "@/lib/formatPrice";
+import PageLoader from "@/components/ui/PageLoader";
 
 function getCouponDescriptionLines(coupon) {
   if (Array.isArray(coupon?.description_lines) && coupon.description_lines.length > 0) {
@@ -39,6 +40,7 @@ export default function CheckoutPage() {
   const [coupons, setCoupons] = useState([]);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
   const [placing, setPlacing] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -51,6 +53,7 @@ export default function CheckoutPage() {
 
     async function loadData() {
       try {
+        setInitialLoading(true);
         const addr = await getAddresses();
         setAddresses(addr);
 
@@ -78,6 +81,8 @@ export default function CheckoutPage() {
         }
       } catch {
         error("Failed to load checkout data");
+      } finally {
+        setInitialLoading(false);
       }
     }
 
@@ -150,6 +155,16 @@ export default function CheckoutPage() {
     } finally {
       setPlacing(false);
     }
+  }
+
+  if (authLoading || (isAuthenticated && initialLoading)) {
+    return (
+      <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-10 sm:px-6 sm:py-12">
+        <div className="mx-auto flex min-h-[60vh] max-w-screen-xl items-center justify-center rounded-[2rem] border border-white/70 bg-white/70 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
+          <PageLoader text="Loading checkout..." />
+        </div>
+      </section>
+    );
   }
 
   if (!cart.length) {
@@ -379,7 +394,7 @@ export default function CheckoutPage() {
               ))}
             </div>
 
-            <div className="mt-8 rounded-[1.5rem] border border-[#dce7db] bg-white/70 p-4 shadow-[0_10px_35px_rgba(15,23,42,0.04)] sm:p-5">
+            <div className="mt-8">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
@@ -388,16 +403,18 @@ export default function CheckoutPage() {
                   <h3 className="mt-2 text-2xl font-serif font-semibold text-gray-900">
                     Available Coupons
                   </h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Apply the best offer available for this order.
-                  </p>
                 </div>
                 <p className="text-sm text-gray-500">
                   {coupons.length} offer{coupons.length === 1 ? "" : "s"}
                 </p>
               </div>
 
-              <div className="mt-4 space-y-2.5 sm:space-y-3">
+              <div className="mt-4 rounded-[1.5rem] border border-[#dce7db] bg-white/70 p-4 shadow-[0_10px_35px_rgba(15,23,42,0.04)] sm:p-5">
+                <p className="text-sm text-gray-500">
+                  Apply the best offer available for this order.
+                </p>
+
+                <div className="mt-4 space-y-2.5 sm:space-y-3">
                 {coupons.length === 0 ? (
                   <p className="rounded-2xl border border-dashed border-gray-200 bg-[#fafaf7] px-4 py-4 text-sm text-gray-500">
                     No active coupons are available right now.
@@ -498,6 +515,7 @@ export default function CheckoutPage() {
                     );
                   })
                 )}
+                </div>
               </div>
             </div>
 

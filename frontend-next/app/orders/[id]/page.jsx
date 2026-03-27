@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getOrderDetail } from "@/lib/api";
+import PageLoader from "@/components/ui/PageLoader";
 
 const ORDER_PROGRESS_STEPS = [
   { key: "pending", label: "Pending" },
@@ -154,10 +155,8 @@ export default function OrderDetailPage() {
   if (!order) {
     return (
       <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-10 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-screen-xl">
-          <div className="rounded-[2rem] border border-white/70 bg-white/80 px-8 py-12 text-center shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur">
-            <p className="text-lg font-medium text-gray-800">Loading order...</p>
-          </div>
+        <div className="mx-auto flex min-h-[60vh] max-w-screen-xl items-center justify-center rounded-[2rem] border border-white/70 bg-white/70 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
+          <PageLoader text="Loading order..." />
         </div>
       </section>
     );
@@ -313,11 +312,32 @@ export default function OrderDetailPage() {
 
                 <div className="rounded-[1.5rem] bg-[#f8faef] px-5 py-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
-                    Order Total
+                    Price Breakdown
                   </p>
-                  <p className="mt-2 text-2xl font-semibold text-gray-900">
-                    Rs {Number(order.total || 0).toFixed(2)}
-                  </p>
+                  <div className="mt-4 space-y-3">
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      <span>Subtotal</span>
+                      <span>Rs {Number(order.subtotal || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      <span>Coupon</span>
+                      <span>
+                        {order.coupon_code
+                          ? `- Rs ${Number(order.discount || 0).toFixed(2)}`
+                          : "Not applied"}
+                      </span>
+                    </div>
+                    {order.coupon_code ? (
+                      <div className="flex items-center justify-between text-sm text-emerald-700">
+                        <span>{order.coupon_code}</span>
+                        <span>Applied</span>
+                      </div>
+                    ) : null}
+                    <div className="flex items-center justify-between border-t border-[#d7e5cf] pt-3 text-lg font-semibold text-gray-900">
+                      <span>Total</span>
+                      <span>Rs {Number(order.total || 0).toFixed(2)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
