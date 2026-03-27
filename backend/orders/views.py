@@ -59,6 +59,10 @@ def get_coupon_usage_queryset():
     return CouponUsage.objects.exclude(order__status="cancelled")
 
 
+def get_coupon_description_lines(description):
+    return [line.strip("•- \t") for line in (description or "").splitlines() if line.strip()]
+
+
 def get_cart_line_items(cart_items):
     line_items = []
 
@@ -115,25 +119,7 @@ def evaluate_coupon_for_cart(coupon, user, cart_items):
             "eligible_subtotal": eligible_subtotal,
             "discount_amount": Decimal("0.00"),
             "subtotal": subtotal,
-        }
-
-    if eligible_subtotal <= 0:
-        return {
-            "eligible": False,
-            "reason": "No items in your cart qualify for this coupon.",
-            "eligible_subtotal": eligible_subtotal,
-            "discount_amount": Decimal("0.00"),
-            "subtotal": subtotal,
-        }
-
-    if coupon.min_order_amount and eligible_subtotal < coupon.min_order_amount:
-        shortfall = coupon.min_order_amount - eligible_subtotal
-        return {
-            "eligible": False,
-            "reason": f"Add Rs {shortfall:.2f} more in eligible items to use this coupon.",
-            "eligible_subtotal": eligible_subtotal,
-            "discount_amount": Decimal("0.00"),
-            "subtotal": subtotal,
+            "display_in_list": True,
         }
 
     usage_qs = get_coupon_usage_queryset().filter(coupon=coupon)
@@ -145,6 +131,7 @@ def evaluate_coupon_for_cart(coupon, user, cart_items):
             "eligible_subtotal": eligible_subtotal,
             "discount_amount": Decimal("0.00"),
             "subtotal": subtotal,
+            "display_in_list": False,
         }
 
     if (
@@ -157,6 +144,7 @@ def evaluate_coupon_for_cart(coupon, user, cart_items):
             "eligible_subtotal": eligible_subtotal,
             "discount_amount": Decimal("0.00"),
             "subtotal": subtotal,
+            "display_in_list": False,
         }
 
     if coupon.first_order_only and user.orders.exclude(status="cancelled").exists():
@@ -166,6 +154,28 @@ def evaluate_coupon_for_cart(coupon, user, cart_items):
             "eligible_subtotal": eligible_subtotal,
             "discount_amount": Decimal("0.00"),
             "subtotal": subtotal,
+            "display_in_list": False,
+        }
+
+    if eligible_subtotal <= 0:
+        return {
+            "eligible": False,
+            "reason": "No items in your cart qualify for this coupon.",
+            "eligible_subtotal": eligible_subtotal,
+            "discount_amount": Decimal("0.00"),
+            "subtotal": subtotal,
+            "display_in_list": True,
+        }
+
+    if coupon.min_order_amount and eligible_subtotal < coupon.min_order_amount:
+        shortfall = coupon.min_order_amount - eligible_subtotal
+        return {
+            "eligible": False,
+            "reason": f"Add Rs {shortfall:.2f} more in eligible items to use this coupon.",
+            "eligible_subtotal": eligible_subtotal,
+            "discount_amount": Decimal("0.00"),
+            "subtotal": subtotal,
+            "display_in_list": True,
         }
 
     if coupon.discount_type == Coupon.TYPE_PERCENT:
@@ -186,14 +196,17 @@ def evaluate_coupon_for_cart(coupon, user, cart_items):
         "eligible_subtotal": eligible_subtotal,
         "discount_amount": discount_amount,
         "subtotal": subtotal,
+        "display_in_list": True,
     }
 
 
 def serialize_coupon(coupon, evaluation):
+    description_lines = get_coupon_description_lines(coupon.description)
     return {
         "code": coupon.code,
         "title": coupon.title,
         "description": coupon.description,
+        "description_lines": description_lines,
         "discount_type": coupon.discount_type,
         "discount_value": str(coupon.discount_value),
         "min_order_amount": str(coupon.min_order_amount),
@@ -504,10 +517,12 @@ def get_available_coupons(request):
         )
 
     line_items = get_cart_line_items(cart_items)
-    coupons = [
-        serialize_coupon(coupon, evaluate_coupon_for_cart(coupon, request.user, line_items))
-        for coupon in get_coupon_queryset()
-    ]
+    coupons = []
+    for coupon in get_coupon_queryset():
+        evaluation = evaluate_coupon_for_cart(coupon, request.user, line_items)
+        if not evaluation["display_in_list"]:
+            continue
+        coupons.append(serialize_coupon(coupon, evaluation))
 
     return Response({"coupons": coupons})
 

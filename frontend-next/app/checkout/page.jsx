@@ -16,6 +16,17 @@ import {
 import { useGlobalToast } from "@/context/ToastContext";
 import { formatPrice } from "@/lib/formatPrice";
 
+function getCouponDescriptionLines(coupon) {
+  if (Array.isArray(coupon?.description_lines) && coupon.description_lines.length > 0) {
+    return coupon.description_lines.filter(Boolean);
+  }
+
+  return String(coupon?.description || "")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^[•\-]\s*/, "").trim())
+    .filter(Boolean);
+}
+
 export default function CheckoutPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { replaceCart } = useStore();
@@ -368,8 +379,8 @@ export default function CheckoutPage() {
               ))}
             </div>
 
-            <div className="mt-8 rounded-[1.5rem] border border-[#d8e5d8] bg-[#f7fbf4] p-5">
-              <div className="flex items-end justify-between gap-4">
+            <div className="mt-8 rounded-[1.5rem] border border-[#dce7db] bg-white/70 p-4 shadow-[0_10px_35px_rgba(15,23,42,0.04)] sm:p-5">
+              <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
                     Step 3
@@ -377,73 +388,88 @@ export default function CheckoutPage() {
                   <h3 className="mt-2 text-2xl font-serif font-semibold text-gray-900">
                     Available Coupons
                   </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Apply the best offer available for this order.
+                  </p>
                 </div>
                 <p className="text-sm text-gray-500">
                   {coupons.length} offer{coupons.length === 1 ? "" : "s"}
                 </p>
               </div>
 
-              <div className="mt-5 space-y-3">
+              <div className="mt-4 space-y-2.5 sm:space-y-3">
                 {coupons.length === 0 ? (
-                  <p className="text-sm text-gray-500">
+                  <p className="rounded-2xl border border-dashed border-gray-200 bg-[#fafaf7] px-4 py-4 text-sm text-gray-500">
                     No active coupons are available right now.
                   </p>
                 ) : (
                   coupons.map((coupon) => {
                     const isApplied = selectedCoupon?.code === coupon.code;
                     const isEligible = Boolean(coupon.eligible);
+                    const descriptionLines = getCouponDescriptionLines(coupon);
 
                     return (
                       <div
                         key={coupon.code}
-                        className={`rounded-[1.25rem] border p-4 transition ${
+                        className={`rounded-[1.25rem] border px-4 py-3.5 transition sm:px-5 sm:py-4 ${
                           isApplied
-                            ? "border-[#002424] bg-white shadow-sm"
+                            ? "border-[#002424] bg-[#fcfef9] shadow-[0_12px_30px_rgba(0,36,36,0.08)]"
                             : isEligible
-                              ? "border-[#cfe0cf] bg-white"
-                              : "border-gray-200 bg-gray-100/80 opacity-60"
+                              ? "border-[#d8e5d8] bg-white"
+                              : "border-[#e6ebe6] bg-[#fbfcfa]"
                         }`}
                       >
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full bg-[#002424] px-3 py-1 text-xs font-semibold tracking-[0.24em] text-white">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2.5">
+                              <span className="rounded-full bg-[#002424] px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-white">
                                 {coupon.code}
                               </span>
                               {coupon.first_order_only ? (
-                                <span className="rounded-full bg-[#e7f3eb] px-3 py-1 text-xs font-medium text-[#185c37]">
+                                <span className="rounded-full bg-[#edf6ee] px-3 py-1 text-[11px] font-medium text-[#185c37]">
                                   New user
+                                </span>
+                              ) : null}
+                              {isApplied ? (
+                                <span className="rounded-full border border-[#b8d0bc] bg-[#f3faf3] px-3 py-1 text-[11px] font-medium text-[#185c37]">
+                                  Applied
                                 </span>
                               ) : null}
                             </div>
 
-                            <h4 className="mt-3 text-lg font-semibold text-gray-900">
+                            <h4 className="mt-3 text-base font-semibold text-gray-900 sm:text-lg">
                               {coupon.title}
                             </h4>
 
-                            {coupon.description ? (
-                              <p className="mt-1 text-sm leading-6 text-gray-600">
-                                {coupon.description}
+                            {descriptionLines.length > 1 ? (
+                              <ul className="mt-2 space-y-1.5 pl-4 text-sm leading-6 text-gray-600">
+                                {descriptionLines.map((line) => (
+                                  <li key={`${coupon.code}-${line}`}>{line}</li>
+                                ))}
+                              </ul>
+                            ) : descriptionLines.length === 1 ? (
+                              <p className="mt-2 text-sm leading-6 text-gray-600">
+                                {descriptionLines[0]}
                               </p>
                             ) : null}
 
                             <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
-                              <span className="rounded-full border border-gray-200 px-3 py-1">
+                              <span className="rounded-full bg-[#f5f7f3] px-3 py-1">
                                 Min eligible spend: Rs {formatPrice(coupon.min_order_amount)}
                               </span>
-                              <span className="rounded-full border border-gray-200 px-3 py-1">
+                              <span className="rounded-full bg-[#f5f7f3] px-3 py-1">
                                 Savings: Rs {formatPrice(coupon.discount_amount)}
                               </span>
                             </div>
 
                             {!isEligible && coupon.reason ? (
-                              <p className="mt-3 text-sm text-gray-500">
+                              <p className="mt-3 text-sm leading-6 text-amber-700">
                                 {coupon.reason}
                               </p>
                             ) : null}
                           </div>
 
-                          <div className="flex shrink-0 items-center gap-2">
+                          <div className="flex shrink-0 items-center gap-2 self-start">
                             {isApplied ? (
                               <button
                                 type="button"

@@ -1,6 +1,8 @@
 from django.contrib import admin
+from django import forms
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.db import models
 
 from .models import Coupon, CouponUsage, Order, OrderItem, OrderItemImage, Cart, CartItem, CartItemImage
 
@@ -21,6 +23,16 @@ class CouponAdmin(admin.ModelAdmin):
     list_filter = ("discount_type", "first_order_only", "is_active", "start_date", "end_date")
     search_fields = ("code", "title", "description")
     filter_horizontal = ("categories", "subcategories")
+    formfield_overrides = {
+        models.TextField: {
+            "widget": forms.Textarea(
+                attrs={
+                    "rows": 6,
+                    "placeholder": "Enter one benefit or condition per line.",
+                }
+            )
+        }
+    }
 
 
 @admin.register(CouponUsage)
