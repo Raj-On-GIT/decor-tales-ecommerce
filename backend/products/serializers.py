@@ -3,7 +3,24 @@ from .models import Banner, Product, Category, SubCategory, ProductVariant, Prod
 from django.db.models import Count, Q
 
 
+def build_safe_media_url(request, file_field):
+    if not file_field:
+        return None
+
+    try:
+        url = file_field.url
+    except Exception:
+        return None
+
+    if request:
+        return request.build_absolute_uri(url)
+
+    return url
+
+
 class BannerSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = Banner
         fields = [
@@ -26,14 +43,8 @@ class BannerSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        request = self.context.get("request")
-
-        if instance.image and request:
-            data["image"] = request.build_absolute_uri(instance.image.url)
-
-        return data
+    def get_image(self, obj):
+        return build_safe_media_url(self.context.get("request"), obj.image)
 
 class ProductVariantSerializer(serializers.ModelSerializer):
     size_name = serializers.SerializerMethodField()
@@ -54,11 +65,17 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         return obj.color.hex_code if obj.color else None
 
 class ProductImageSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = ProductImage
         fields = ['id', 'image']
 
+    def get_image(self, obj):
+        return build_safe_media_url(self.context.get("request"), obj.image)
+
 class ProductSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
     images = ProductImageSerializer(many=True, read_only=True)
     variants = ProductVariantSerializer(many=True, read_only=True)
     category = serializers.SerializerMethodField()
@@ -71,6 +88,9 @@ class ProductSerializer(serializers.ModelSerializer):
     
     def get_total_stock(self, obj):
         return obj.get_total_stock()
+
+    def get_image(self, obj):
+        return build_safe_media_url(self.context.get("request"), obj.image)
 
     def get_category(self, obj):
         if not obj.category:
@@ -118,6 +138,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
 
     productCount = serializers.SerializerMethodField()
     subcategoryCount = serializers.SerializerMethodField()
@@ -144,20 +165,12 @@ class CategorySerializer(serializers.ModelSerializer):
             )
         ).filter(productCount__gt=0).count()
 
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-
-        request = self.context.get("request")
-        if instance.image and request:
-            data["image"] = request.build_absolute_uri(
-                instance.image.url
-            )
-
-        return data
+    def get_image(self, obj):
+        return build_safe_media_url(self.context.get("request"), obj.image)
 
 
 class SubCategorySerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
 
     productCount = serializers.IntegerField(read_only=True)
     category = serializers.SerializerMethodField()
@@ -180,6 +193,9 @@ class SubCategorySerializer(serializers.ModelSerializer):
             "name": obj.category.name,
             "slug": obj.category.slug
         }
+
+    def get_image(self, obj):
+        return build_safe_media_url(self.context.get("request"), obj.image)
 
 class CategoryProductSerializer(ProductSerializer):
     class Meta(ProductSerializer.Meta):

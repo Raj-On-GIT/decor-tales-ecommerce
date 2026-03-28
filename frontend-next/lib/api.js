@@ -359,18 +359,22 @@ export async function getCart() {
       cart_item_id: item.id, // unique cart row id
       id: product.id, // product id used across UI
       product_id: product.id,
+      slug: product.slug,
 
       title: product.title,
 
-      price: Number(product.price || 0),
+      price: Number(product.price || product.slashed_price || product.mrp || 0),
+      mrp: Number(product.mrp || 0),
+      slashed_price: Number(product.slashed_price || product.price || product.mrp || 0),
+      discount_percent: Number(product.discount_percent || 0),
 
       image: product.image?.startsWith("http")
         ? product.image
         : `${BACKEND}${product.image}`,
 
-      category: product.category?.name || "Uncategorized",
+      category: product.category || null,
       category_slug: product.category?.slug || null,
-      sub_category: product.sub_category?.name || null,
+      sub_category: product.sub_category || null,
       sub_category_slug: product.sub_category?.slug || null,
 
       stock: product.stock,
@@ -386,6 +390,11 @@ export async function getCart() {
             size_name: variant.size_name,
             color_name: variant.color_name,
             stock: variant.stock,
+            mrp: Number(variant.mrp || 0),
+            slashed_price: Number(
+              variant.slashed_price || product.slashed_price || product.price || variant.mrp || 0,
+            ),
+            discount_percent: Number(variant.discount_percent || 0),
           }
         : null,
 

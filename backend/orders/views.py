@@ -25,6 +25,52 @@ def get_product_price(product):
     return product.slashed_price or product.mrp
 
 
+def serialize_category_trail(product):
+    return {
+        "category": (
+            {
+                "name": product.category.name,
+                "slug": product.category.slug,
+            }
+            if product.category
+            else None
+        ),
+        "sub_category": (
+            {
+                "name": product.sub_category.name,
+                "slug": product.sub_category.slug,
+            }
+            if product.sub_category
+            else None
+        ),
+    }
+
+
+def serialize_pricing(product, variant=None, effective_price=None):
+    original_price = None
+    sale_price = None
+    discount_percent = None
+
+    if variant:
+        original_price = variant.mrp
+        sale_price = variant.slashed_price or variant.mrp
+        discount_percent = variant.discount_percent
+    else:
+        original_price = product.mrp
+        sale_price = product.slashed_price or product.mrp
+        discount_percent = product.discount_percent
+
+    if effective_price is not None:
+        sale_price = effective_price
+
+    return {
+        "price": str(sale_price or Decimal("0.00")),
+        "mrp": str(original_price) if original_price is not None else None,
+        "slashed_price": str(sale_price) if sale_price is not None else None,
+        "discount_percent": discount_percent,
+    }
+
+
 def build_image_urls(request, image_objects):
     return [
         request.build_absolute_uri(image.image.url)
@@ -374,32 +420,18 @@ def get_cart(request):
                     "product": {
                         "id": item.product.id,
                         "title": item.product.title,
-                        "price": str(price),
+                        "slug": item.product.slug,
                         "image": (
                             request.build_absolute_uri(item.product.image.url)
                             if item.product.image
-                            else None
-                        ),
-                        "category": (
-                            {
-                                "name": item.product.category.name,
-                                "slug": item.product.category.slug,
-                            }
-                            if item.product.category
-                            else None
-                        ),
-                        "sub_category": (
-                            {
-                                "name": item.product.sub_category.name,
-                                "slug": item.product.sub_category.slug,
-                            }
-                            if item.product.sub_category
                             else None
                         ),
                         "stock": item.product.stock,
                         "stock_type": item.product.stock_type,
                         "allow_custom_text": item.product.allow_custom_text,
                         "allow_custom_image": item.product.allow_custom_image,
+                        **serialize_category_trail(item.product),
+                        **serialize_pricing(item.product, item.variant, Decimal(str(price))),
                     },
                     "variant": (
                         {
@@ -407,6 +439,13 @@ def get_cart(request):
                             "size_name": item.variant.size.name if item.variant.size else None,
                             "color_name": item.variant.color.name if item.variant.color else None,
                             "stock": item.variant.stock,
+                            "mrp": str(item.variant.mrp) if item.variant.mrp is not None else None,
+                            "slashed_price": (
+                                str(item.variant.slashed_price)
+                                if item.variant.slashed_price is not None
+                                else None
+                            ),
+                            "discount_percent": item.variant.discount_percent,
                         }
                         if item.variant
                         else None
@@ -682,15 +721,55 @@ def get_my_orders(request):
 
     data = [
         {
-            "id": order.id,
-            "order_number": str(order.order_number),
-            "subtotal": str(order.subtotal_amount),
-            "discount": str(order.discount_amount),
-            "coupon_code": order.coupon_code,
-            "total": str(order.total_amount),
-            "status": order.status,
-            "created_at": order.created_at,
-            "items_count": order.items.count(),
+                "id": order.id,
+                "order_number": str(order.order_number),
+                "subtotal": str(order.subtotal_amount),
+                "discount": str(order.discount_amount),
+                "coupon_code": order.coupon_code,
+                "total": str(order.total_amount),
+                "status": order.status,
+                "created_at": order.created_at,
+                "items_count": order.items.count(),
+                "items": [
+                    {
+                        "product": {
+                            "id": item.product.id,
+                            "title": item.product.title,
+                            "slug": item.product.slug,
+                            "image": (
+                                request.build_absolute_uri(item.product.image.url)
+                                if item.product.image
+                                else None
+                            ),
+                            **serialize_category_trail(item.product),
+                            **serialize_pricing(item.product, item.variant, item.price),
+                        },
+                        "variant": (
+                            {
+                                "size_name": item.variant.size.name if item.variant and item.variant.size else None,
+                                "color_name": item.variant.color.name if item.variant and item.variant.color else None,
+                                "mrp": str(item.variant.mrp) if item.variant and item.variant.mrp is not None else None,
+                                "slashed_price": (
+                                    str(item.variant.slashed_price)
+                                    if item.variant and item.variant.slashed_price is not None
+                                    else None
+                                ),
+                                "discount_percent": item.variant.discount_percent if item.variant else None,
+                            }
+                            if item.variant
+                            else None
+                        ),
+                        "quantity": item.quantity,
+                    }
+                    for item in order.items.select_related(
+                        "product",
+                        "product__category",
+                        "product__sub_category",
+                        "variant",
+                        "variant__size",
+                        "variant__color",
+                    )
+                ],
         }
         for order in orders
     ]
@@ -713,16 +792,21 @@ def get_order_detail(request, order_id):
                     if item.product.image
                     else None
                 ),
-                "category": (
-                    {"name": item.product.category.name}
-                    if item.product.category
-                    else None
-                ),
+                "slug": item.product.slug,
+                **serialize_category_trail(item.product),
+                **serialize_pricing(item.product, item.variant, item.price),
             },
             "variant": (
                 {
                     "size_name": item.variant.size.name if item.variant and item.variant.size else None,
                     "color_name": item.variant.color.name if item.variant and item.variant.color else None,
+                    "mrp": str(item.variant.mrp) if item.variant and item.variant.mrp is not None else None,
+                    "slashed_price": (
+                        str(item.variant.slashed_price)
+                        if item.variant and item.variant.slashed_price is not None
+                        else None
+                    ),
+                    "discount_percent": item.variant.discount_percent if item.variant else None,
                 }
                 if item.variant
                 else None
@@ -745,6 +829,7 @@ def get_order_detail(request, order_id):
         for item in order.items.select_related(
             "product",
             "product__category",
+            "product__sub_category",
             "variant",
             "variant__size",
             "variant__color",

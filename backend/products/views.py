@@ -28,7 +28,12 @@ class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
 
     def get_queryset(self):
-        queryset = Product.objects.filter(is_active=True).select_related("category").prefetch_related("images", "variants")
+        queryset = (
+            Product.objects.filter(is_active=True)
+            .select_related("category", "sub_category")
+            .prefetch_related("images", "variants")
+            .order_by("-created_at", "-id")
+        )
         category_slug = self.request.query_params.get("category_slug")
         logger.info(f"Received category_slug: {category_slug}")
         
@@ -39,7 +44,7 @@ class ProductListView(generics.ListAPIView):
         return queryset
 
 class CategoryListView(generics.ListAPIView):
-    queryset = Category.objects.all()
+    queryset = Category.objects.all().order_by("name", "id")
     serializer_class = CategorySerializer
 
     def get_serializer_context(self):
@@ -50,7 +55,7 @@ class CategoryListView(generics.ListAPIView):
 class ProductDetailView(generics.RetrieveAPIView):
     serializer_class = ProductSerializer
     queryset = Product.objects.filter(is_active=True) \
-        .select_related("category") \
+        .select_related("category", "sub_category") \
         .prefetch_related("images", "variants")
 
     lookup_field = "id"
@@ -103,7 +108,7 @@ class TrendingProductListView(generics.ListAPIView):
                 )
             )
             .filter(trend_score__gt=0)
-            .order_by("-trend_score")[:20]
+            .order_by("-trend_score", "-created_at", "-id")[:20]
         )
 
 # ================= CATEGORY DETAIL (Subcategory → Product Flow) =================
@@ -123,6 +128,7 @@ def category_detail(request, slug):
             productCount=Count("products", filter=Q(products__is_active=True))
         )
         .filter(productCount__gt=0)
+        .order_by("name", "id")
     )
 
 
@@ -146,7 +152,7 @@ def category_detail(request, slug):
     products = Product.objects.filter(
         category=category,
         is_active=True
-    )
+    ).order_by("-created_at", "-id")
 
     prod_serializer = CategoryProductSerializer(
         products,
@@ -182,7 +188,7 @@ def subcategory_detail(request, category_slug, sub_slug):
         category=subcategory.category,
         sub_category=subcategory,
         is_active=True
-    )
+    ).order_by("-created_at", "-id")
 
     serializer = CategoryProductSerializer(
         products,
@@ -239,17 +245,17 @@ class SearchView(APIView):
             Q(category__name__icontains=query) |
             Q(sub_category__name__icontains=query),
             is_active=True
-        ).select_related('category', 'sub_category').distinct()[:10]
+        ).select_related('category', 'sub_category').distinct().order_by("-created_at", "-id")[:10]
         
         # Search categories
         categories = Category.objects.filter(
             name__icontains=query
-        )[:5]
+        ).order_by("name", "id")[:5]
         
         # Search subcategories
         subcategories = SubCategory.objects.filter(
             name__icontains=query
-        ).select_related('category')[:5]
+        ).select_related('category').order_by("name", "id")[:5]
         
         return Response({
             'products': ProductSerializer(products, many=True, context={'request': request}).data,

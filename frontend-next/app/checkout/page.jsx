@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -19,6 +20,8 @@ import { useGlobalToast } from "@/context/ToastContext";
 import { formatPrice } from "@/lib/formatPrice";
 import PageLoader from "@/components/ui/PageLoader";
 import { RAZORPAY_KEY } from "@/lib/config";
+import CategoryTrail from "@/components/CategoryTrail";
+import PriceDisplay from "@/components/PriceDisplay";
 
 function loadRazorpayScript() {
   if (typeof window === "undefined") {
@@ -438,16 +441,31 @@ export default function CheckoutPage() {
                   }
                   className="flex items-start justify-between gap-4 rounded-[1.5rem] border border-gray-100 bg-white/90 p-4"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex min-w-0 items-center gap-4">
                     {item.image && (
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="h-16 w-16 rounded-xl object-cover"
-                      />
+                      <Link href={`/products/${item.id}`} className="shrink-0">
+                        <img
+                          src={item.image}
+                          alt={item.title}
+                          className="h-16 w-16 rounded-xl object-cover"
+                        />
+                      </Link>
                     )}
                     <div>
-                      <div className="font-medium text-gray-900">{item.title}</div>
+                      <Link
+                        href={`/products/${item.id}`}
+                        className="font-medium text-gray-900 transition hover:text-[#002424]"
+                      >
+                        {item.title}
+                      </Link>
+
+                      <CategoryTrail
+                        category={item.category}
+                        subCategory={item.sub_category}
+                        className="mt-1 text-xs sm:text-sm"
+                        linkClassName="rounded-full border border-[#dbe7d6] bg-[#f8fbf5] px-2.5 py-1 font-medium text-[#002424] transition hover:border-[#002424] hover:bg-white"
+                        separatorClassName="text-gray-400"
+                      />
 
                       {item.variant && (
                         <div className="text-sm text-gray-500">
@@ -503,8 +521,20 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  <div className="text-right font-medium text-gray-900">
-                    Rs {(item.qty * Number(item.price)).toFixed(2)}
+                  <div className="shrink-0 text-right font-medium text-gray-900">
+                    <PriceDisplay
+                      price={item.price}
+                      originalPrice={item.variant?.mrp || item.mrp}
+                      discountPercent={item.variant?.discount_percent || item.discount_percent}
+                      className="justify-end"
+                      currentPriceClassName="text-sm"
+                      originalPriceClassName="text-xs"
+                      badgeClassName="px-2 py-0.5 text-[10px]"
+                      currencyPrefix="Rs "
+                    />
+                    <div className="mt-1">
+                      Rs {(item.qty * Number(item.price)).toFixed(2)}
+                    </div>
                   </div>
                 </div>
               ))}

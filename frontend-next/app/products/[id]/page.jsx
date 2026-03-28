@@ -6,13 +6,14 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Loader2, ShoppingBag } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
-import { formatPrice } from "@/lib/formatPrice";
 import ProductCard from "@/components/ProductCard";
 import { getProducts } from "@/lib/api";
 import { API_BASE } from "@/lib/config";
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalToast } from "@/context/ToastContext";
 import PageLoader from "@/components/ui/PageLoader";
+import CategoryTrail from "@/components/CategoryTrail";
+import PriceDisplay from "@/components/PriceDisplay";
 
 export default function ProductDetailPage() {
   const { isAuthenticated } = useAuth();
@@ -432,9 +433,16 @@ export default function ProductDetailPage() {
               {/* Title + Price */}
               <div>
                 <h1 className="text-3xl font-bold leading-tight sm:text-4xl">{product.title}</h1>
-                <p className="mt-2 text-sm text-gray-700 sm:text-base">
-                  In: {product.category?.name}
-                </p>
+                <div className="mt-3">
+                  <CategoryTrail
+                    category={product.category}
+                    subCategory={product.sub_category}
+                    prefix="In:"
+                    className="gap-2"
+                    linkClassName="rounded-full border border-[#d9e5d3] bg-[#f7fbf4] px-3 py-1 text-[13px] font-medium text-[#002424] transition hover:border-[#002424] hover:bg-white"
+                    separatorClassName="text-gray-400"
+                  />
+                </div>
                 <p className="mt-2 text-sm leading-relaxed whitespace-normal text-left text-gray-600 sm:text-base sm:text-justify">
                   {product.description}
                 </p>
@@ -614,45 +622,27 @@ export default function ProductDetailPage() {
 
                 {/* ✅ Price Block */}
                 {product.stock_type === "variants" && selectedVariant ? (
-                  <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-3">
-                    {selectedVariant.slashed_price && (
-                      <span className="text-base text-gray-500 line-through sm:text-lg">
-                        ₹{formatPrice(selectedVariant.mrp)}
-                      </span>
-                    )}
-
-                    <span className="text-2xl font-bold text-black sm:text-3xl">
-                      ₹
-                      {formatPrice(
-                        selectedVariant.slashed_price || selectedVariant.mrp,
-                      )}
-                    </span>
-
-                    {selectedVariant.discount_percent && (
-                      <span className="rounded-full bg-green-700 px-3 py-1 text-xs text-white sm:text-sm">
-                        {selectedVariant.discount_percent}% OFF
-                      </span>
-                    )}
-                  </div>
+                  <PriceDisplay
+                    className="mt-3 gap-3"
+                    price={selectedVariant.slashed_price || selectedVariant.mrp}
+                    originalPrice={selectedVariant.mrp}
+                    discountPercent={selectedVariant.discount_percent}
+                    currentPriceClassName="text-2xl sm:text-3xl"
+                    originalPriceClassName="text-base sm:text-lg"
+                    badgeClassName="px-3 py-1 text-xs sm:text-sm"
+                    currencyPrefix="Rs "
+                  />
                 ) : (
                   <div className="mt-3">
-                    {product.slashed_price ? (
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                        <span className="text-base text-gray-500 line-through sm:text-lg">
-                          ₹{formatPrice(product.mrp)}
-                        </span>
-                        <span className="text-2xl font-bold text-black sm:text-3xl">
-                          ₹{formatPrice(product.slashed_price)}
-                        </span>
-                        <span className="rounded-full bg-green-700 px-3 py-1 text-xs text-white sm:text-sm">
-                          {product.discount_percent}% OFF
-                        </span>
-                      </div>
-                    ) : (
-                      <h2 className="text-2xl font-bold sm:text-3xl">
-                        ₹{formatPrice(product.mrp)}
-                      </h2>
-                    )}
+                    <PriceDisplay
+                      price={product.slashed_price || product.mrp}
+                      originalPrice={product.mrp}
+                      discountPercent={product.discount_percent}
+                      currentPriceClassName="text-2xl sm:text-3xl"
+                      originalPriceClassName="text-base sm:text-lg"
+                      badgeClassName="px-3 py-1 text-xs sm:text-sm"
+                      currencyPrefix="Rs "
+                    />
                   </div>
                 )}
 

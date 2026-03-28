@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, ShoppingBag, ArrowRight, Loader2 } from "lucide-react";
@@ -9,19 +10,8 @@ import { useStore } from "@/context/StoreContext";
 import { useGlobalToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
 import { getCart, getCartStockIssues, syncCartStock } from "@/lib/api";
-
-const normalizeCategory = (category) => {
-  if (!category) {
-    return { name: "Uncategorized", slug: "uncategorized" };
-  }
-  if (typeof category === "string") {
-    return {
-      name: category,
-      slug: category.toLowerCase().replace(/ /g, "-"),
-    };
-  }
-  return category;
-};
+import CategoryTrail from "@/components/CategoryTrail";
+import PriceDisplay from "@/components/PriceDisplay";
 
 function getCustomizationTag(item) {
   const isCustomized = Boolean(
@@ -195,23 +185,35 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                     className="flex space-x-4 items-start"
                   >
                     {/* IMAGE */}
-                    <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                    <Link
+                      href={`/products/${item.id}`}
+                      onClick={() => setIsCartOpen(false)}
+                      className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100"
+                    >
                       <img
                         src={item.image || "https://via.placeholder.com/100"}
                         alt={item.title}
                         className="w-full h-full object-cover"
                       />
-                    </div>
+                    </Link>
 
                     {/* DETAILS */}
                     <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">
+                      <Link
+                        href={`/products/${item.id}`}
+                        onClick={() => setIsCartOpen(false)}
+                        className="font-medium text-gray-900 transition hover:text-[#002424]"
+                      >
                         {item.title}
-                      </h3>
+                      </Link>
 
-                      <p className="text-sm text-gray-500">
-                        {normalizeCategory(item.category).name}
-                      </p>
+                      <CategoryTrail
+                        category={item.category}
+                        subCategory={item.sub_category}
+                        className="mt-1 text-xs sm:text-sm"
+                        linkClassName="rounded-full border border-[#dbe7d6] bg-[#f8fbf5] px-2.5 py-1 font-medium text-[#002424] transition hover:border-[#002424] hover:bg-white"
+                        separatorClassName="text-gray-400"
+                      />
 
                       {/* VARIANT LINE */}
                       {item.variant &&
@@ -248,9 +250,16 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                         </p>
                       )}
 
-                      <p className="font-semibold mt-2">
-                        ₹{formatPrice(item.price)}
-                      </p>
+                      <PriceDisplay
+                        className="mt-2 gap-1.5"
+                        price={item.price}
+                        originalPrice={item.variant?.mrp || item.mrp}
+                        discountPercent={item.variant?.discount_percent || item.discount_percent}
+                        currentPriceClassName="text-sm"
+                        originalPriceClassName="text-xs"
+                        badgeClassName="px-2 py-0.5 text-[10px]"
+                        currencyPrefix="Rs "
+                      />
                     </div>
 
                     {/* RIGHT CONTROLS */}
