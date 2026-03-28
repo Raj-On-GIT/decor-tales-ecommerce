@@ -8,6 +8,8 @@ import { Suspense } from "react";
 import ProductGridSkeleton from "@/components/ProductGridSkeleton";
 import CategoryGridSkeleton from "@/components/CategoryGridSkeleton";
 
+export const dynamic = "force-dynamic";
+
 export default function Home() {
   return (
     <main>

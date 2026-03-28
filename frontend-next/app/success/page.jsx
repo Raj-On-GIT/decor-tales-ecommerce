@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useStore } from "@/context/StoreContext";
 import Link from "next/link";
 import { CheckCircle } from "lucide-react";
 
-export default function SuccessPage() {
+function SuccessPageContent() {
   const { clearCart } = useStore();
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
@@ -44,5 +44,13 @@ export default function SuccessPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={null}>
+      <SuccessPageContent />
+    </Suspense>
   );
 }
