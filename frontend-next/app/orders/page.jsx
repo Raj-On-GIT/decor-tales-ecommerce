@@ -24,7 +24,15 @@ function getStatusClasses(status = "") {
     return "bg-emerald-100 text-emerald-800";
   }
 
+  if (normalized.includes("paid")) {
+    return "bg-teal-100 text-teal-800";
+  }
+
   if (normalized.includes("cancel")) {
+    return "bg-rose-100 text-rose-700";
+  }
+
+  if (normalized.includes("fail")) {
     return "bg-rose-100 text-rose-700";
   }
 
@@ -52,7 +60,7 @@ export default function OrdersPage() {
       try {
         const data = await getMyOrders();
         setOrders(data.orders || []);
-      } catch (err) {
+      } catch {
         console.error("Failed to fetch orders");
       } finally {
         setLoadingOrders(false);

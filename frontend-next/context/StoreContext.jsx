@@ -82,6 +82,7 @@ export function StoreProvider({ children }) {
     return [];
   });
   const [pendingCartActions, setPendingCartActions] = useState({});
+  const [isCheckoutLocked, setIsCheckoutLocked] = useState(false);
 
   const setPendingAction = useCallback((key, action) => {
     if (!key) return;
@@ -133,7 +134,20 @@ export function StoreProvider({ children }) {
     return product.stock || 0;
   }
 
+  function guardCheckoutLock() {
+    if (!isCheckoutLocked) {
+      return false;
+    }
+
+    error("Cart editing is disabled while payment is being processed.");
+    return true;
+  }
+
   async function addToCart(product) {
+    if (guardCheckoutLock()) {
+      return { ok: false };
+    }
+
     const availableStock = getAvailableStock(product);
     const productIdentity = getCartIdentity(product);
     const pendingKey = getPendingKey(product);
@@ -231,6 +245,10 @@ export function StoreProvider({ children }) {
   }
 
   async function removeFromCart(product) {
+    if (guardCheckoutLock()) {
+      return { ok: false };
+    }
+
     const rowId = getCartRowId(product);
     const productIdentity = getCartIdentity(product);
     const pendingKey = getPendingKey(product);
@@ -263,6 +281,10 @@ export function StoreProvider({ children }) {
   }
 
   async function decreaseQty(product) {
+    if (guardCheckoutLock()) {
+      return { ok: false };
+    }
+
     const rowId = getCartRowId(product);
     const productIdentity = getCartIdentity(product);
     const pendingKey = getPendingKey(product);
@@ -311,6 +333,10 @@ export function StoreProvider({ children }) {
   }
 
   async function increaseQty(product) {
+    if (guardCheckoutLock()) {
+      return { ok: false };
+    }
+
     const rowId = getCartRowId(product);
     const productIdentity = getCartIdentity(product);
     const pendingKey = getPendingKey(product);
@@ -424,6 +450,8 @@ export function StoreProvider({ children }) {
         total,
         getCartAction,
         isCartItemPending,
+        isCheckoutLocked,
+        setCartLock: setIsCheckoutLocked,
       }}
     >
       {children}

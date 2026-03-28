@@ -41,6 +41,7 @@ urlpatterns = [
 
     path("api/", include("products.urls")),
     path("api/orders/", include("orders.urls")),
+    path("api/payments/", include("orders.payment_urls")),
 
     path("api/auth/forgot-password/", forgot_password_view),
     path("api/auth/reset-password/", reset_password_view),

@@ -10,12 +10,41 @@ import {
   getAvailableCoupons,
   getCart,
   getCartStockIssues,
-  createOrderWithAddress,
+  createRazorpayOrder,
+  markRazorpayPaymentFailed,
   syncCartStock,
+  verifyRazorpayPayment,
 } from "@/lib/api";
 import { useGlobalToast } from "@/context/ToastContext";
 import { formatPrice } from "@/lib/formatPrice";
 import PageLoader from "@/components/ui/PageLoader";
+import { RAZORPAY_KEY } from "@/lib/config";
+
+function loadRazorpayScript() {
+  if (typeof window === "undefined") {
+    return Promise.resolve(false);
+  }
+
+  if (window.Razorpay) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve) => {
+    const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(true), { once: true });
+      existingScript.addEventListener("error", () => resolve(false), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 function getCouponDescriptionLines(coupon) {
   if (Array.isArray(coupon?.description_lines) && coupon.description_lines.length > 0) {
@@ -30,7 +59,7 @@ function getCouponDescriptionLines(coupon) {
 
 export default function CheckoutPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const { replaceCart } = useStore();
+  const { replaceCart, setCartLock } = useStore();
   const router = useRouter();
   const { success, error } = useGlobalToast();
 
@@ -39,8 +68,15 @@ export default function CheckoutPage() {
   const [cart, setCart] = useState([]);
   const [coupons, setCoupons] = useState([]);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
-  const [placing, setPlacing] = useState(false);
+  const [paymentInitializing, setPaymentInitializing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [paymentError, setPaymentError] = useState("");
+
+  useEffect(() => {
+    return () => {
+      setCartLock(false);
+    };
+  }, [setCartLock]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -100,7 +136,9 @@ export default function CheckoutPage() {
       return;
     }
 
-    setPlacing(true);
+    setPaymentError("");
+    setPaymentInitializing(true);
+    setCartLock(true);
 
     try {
       const latestCart = await getCart();
@@ -142,18 +180,96 @@ export default function CheckoutPage() {
         return;
       }
 
-      const response = await createOrderWithAddress(
+      const isRazorpayLoaded = await loadRazorpayScript();
+      if (!isRazorpayLoaded) {
+        throw new Error("Unable to load Razorpay checkout. Please try again.");
+      }
+
+      const response = await createRazorpayOrder(
         selectedAddress,
         refreshedSelectedCoupon?.code || selectedCoupon?.code || "",
       );
 
-      replaceCart([]);
-      success("Order placed successfully");
-      router.push(`/orders/${response.order.id}`);
+      const razorpayKey = RAZORPAY_KEY || response.payment?.key_id;
+      if (!razorpayKey) {
+        throw new Error("Razorpay public key is not configured.");
+      }
+
+      const razorpay = new window.Razorpay({
+        key: razorpayKey,
+        amount: response.payment.amount,
+        currency: response.payment.currency,
+        name: "Luxe Frames",
+        description: `Order ${response.order.order_number}`,
+        order_id: response.payment.razorpay_order_id,
+        handler: async (paymentResult) => {
+          try {
+            const verification = await verifyRazorpayPayment({
+              order_id: response.order.id,
+              razorpay_order_id: paymentResult.razorpay_order_id,
+              razorpay_payment_id: paymentResult.razorpay_payment_id,
+              razorpay_signature: paymentResult.razorpay_signature,
+            });
+
+            replaceCart([]);
+            setCartLock(false);
+            success("Payment successful");
+            router.push(
+              `/success?orderId=${verification.order.id}&orderNumber=${encodeURIComponent(verification.order.order_number)}`,
+            );
+          } catch (verificationError) {
+            setPaymentError(verificationError.message || "Payment verification failed.");
+            error(verificationError.message || "Payment verification failed.");
+            setCartLock(false);
+          } finally {
+            setPaymentInitializing(false);
+          }
+        },
+        prefill: {},
+        theme: {
+          color: "#002424",
+        },
+        modal: {
+          ondismiss: async () => {
+            try {
+              await markRazorpayPaymentFailed(
+                response.order.id,
+                "Payment window closed before completion.",
+              );
+            } catch {}
+
+            setPaymentError("Payment was cancelled before completion.");
+            setPaymentInitializing(false);
+            setCartLock(false);
+          },
+        },
+      });
+
+      razorpay.on("payment.failed", async (paymentFailure) => {
+        try {
+          await markRazorpayPaymentFailed(
+            response.order.id,
+            paymentFailure?.error?.description || "Payment failed.",
+          );
+        } catch {}
+
+        setPaymentError(
+          paymentFailure?.error?.description || "Payment failed. Please try again.",
+        );
+        error(paymentFailure?.error?.description || "Payment failed. Please try again.");
+        setPaymentInitializing(false);
+        setCartLock(false);
+      });
+
+      razorpay.open();
     } catch (err) {
+      setPaymentError(err.message || "Unable to start payment.");
       error(err.message);
+      setCartLock(false);
     } finally {
-      setPlacing(false);
+      if (!window.Razorpay) {
+        setPaymentInitializing(false);
+      }
     }
   }
 
@@ -196,7 +312,7 @@ export default function CheckoutPage() {
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600 sm:text-base">
                 Confirm your shipping address and final cart details before
-                placing the order.
+                starting a secure Razorpay payment.
               </p>
             </div>
 
@@ -548,12 +664,22 @@ export default function CheckoutPage() {
               </div>
             </div>
 
+            {paymentError ? (
+              <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {paymentError}
+              </div>
+            ) : null}
+
+            <div className="mt-5 rounded-[1.5rem] border border-[#dce7db] bg-white/80 px-4 py-3 text-sm text-gray-600">
+              Prices and stock are rechecked on the server before payment starts and once more before stock is deducted.
+            </div>
+
             <button
               onClick={handlePlaceOrder}
-              disabled={placing}
+              disabled={paymentInitializing || !selectedAddress || !cart.length}
               className="mt-6 w-full rounded-2xl bg-black py-4 text-lg font-medium tracking-wide text-white transition-all hover:opacity-90 disabled:opacity-50"
             >
-              {placing ? "Placing Order..." : "Confirm & Place Order"}
+              {paymentInitializing ? "Starting Secure Payment..." : "Pay Now"}
             </button>
           </motion.div>
         </div>

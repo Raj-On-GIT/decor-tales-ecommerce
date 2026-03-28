@@ -56,7 +56,7 @@ def get_coupon_queryset():
 
 
 def get_coupon_usage_queryset():
-    return CouponUsage.objects.exclude(order__status="cancelled")
+    return CouponUsage.objects.exclude(order__status__in=["cancelled", "failed"])
 
 
 def get_coupon_description_lines(description):
@@ -147,7 +147,7 @@ def evaluate_coupon_for_cart(coupon, user, cart_items):
             "display_in_list": False,
         }
 
-    if coupon.first_order_only and user.orders.exclude(status="cancelled").exists():
+    if coupon.first_order_only and user.orders.exclude(status__in=["cancelled", "failed"]).exists():
         return {
             "eligible": False,
             "reason": "This coupon is only available on your first order.",

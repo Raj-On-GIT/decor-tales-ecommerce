@@ -9,6 +9,7 @@ import PageLoader from "@/components/ui/PageLoader";
 
 const ORDER_PROGRESS_STEPS = [
   { key: "pending", label: "Pending" },
+  { key: "paid", label: "Paid" },
   { key: "processing", label: "Processing" },
   { key: "shipped", label: "Shipped" },
   { key: "delivered", label: "Delivered" },
@@ -22,9 +23,11 @@ function normalizeOrderStatus(status = "") {
   const normalized = status.toLowerCase().replaceAll("_", " ").trim();
 
   if (normalized.includes("cancel")) return "cancelled";
+  if (normalized.includes("fail")) return "failed";
   if (normalized.includes("deliver")) return "delivered";
   if (normalized.includes("ship") || normalized.includes("dispatch")) return "shipped";
   if (normalized.includes("process")) return "processing";
+  if (normalized.includes("paid")) return "paid";
   return "pending";
 }
 
@@ -35,12 +38,16 @@ function getStatusClasses(status = "") {
     return "bg-emerald-100 text-emerald-800";
   }
 
-  if (normalized === "cancelled") {
+  if (normalized === "cancelled" || normalized === "failed") {
     return "bg-rose-100 text-rose-700";
   }
 
   if (normalized === "shipped") {
     return "bg-sky-100 text-sky-700";
+  }
+
+  if (normalized === "paid") {
+    return "bg-teal-100 text-teal-800";
   }
 
   return "bg-amber-100 text-amber-800";
@@ -62,6 +69,8 @@ function OrderProgress({ status }) {
           <p className="mt-2 text-lg font-semibold text-gray-900">
             {normalizedStatus === "delivered"
               ? "Delivered successfully"
+              : normalizedStatus === "paid"
+                ? "Payment verified"
               : `Currently ${formatStatus(status)}`}
           </p>
         </div>
@@ -142,7 +151,7 @@ export default function OrderDetailPage() {
       try {
         const data = await getOrderDetail(id);
         setOrder(data.order);
-      } catch (err) {
+      } catch {
         console.error("Failed to load order");
       }
     }
@@ -164,6 +173,7 @@ export default function OrderDetailPage() {
 
   const normalizedStatus = normalizeOrderStatus(order.status);
   const isCancelled = normalizedStatus === "cancelled";
+  const isFailed = normalizedStatus === "failed";
 
   return (
     <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-10 sm:px-6 sm:py-12">
@@ -182,7 +192,7 @@ export default function OrderDetailPage() {
               </h1>
             </div>
 
-            {isCancelled ? (
+            {isCancelled || isFailed ? (
               <span
                 className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] ${getStatusClasses(order.status)}`}
               >
@@ -191,7 +201,7 @@ export default function OrderDetailPage() {
             ) : null}
           </div>
 
-          {!isCancelled ? <OrderProgress status={order.status} /> : null}
+          {!isCancelled && !isFailed ? <OrderProgress status={order.status} /> : null}
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">

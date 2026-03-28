@@ -3,7 +3,7 @@ import {
   getAccessToken,
   refreshAccessToken,
 } from "./auth";
-import { API_BASE, BACKEND } from "./config";
+import { API_BASE, BACKEND, RAZORPAY_KEY } from "./config";
 
 export async function getProducts(filters = {}) {
   if (!API_BASE) {
@@ -332,7 +332,7 @@ export async function addToCart(
     try {
       const errorData = await response.json();
       message = errorData.error || message;
-    } catch (_) {}
+    } catch {}
 
     throw new Error(message);
   }
@@ -708,5 +708,65 @@ export async function createOrderWithAddress(addressId, couponCode = "") {
   }
 
   return res.json();
+}
+
+export async function createRazorpayOrder(addressId, couponCode = "") {
+  const res = await fetchWithAuth(`${API_BASE}/api/payments/create-order/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      address_id: addressId,
+      coupon_code: couponCode || "",
+    }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || "Unable to initialize payment.");
+  }
+
+  return {
+    ...data,
+    payment: {
+      ...data.payment,
+      key_id: RAZORPAY_KEY || data.payment?.key_id || "",
+    },
+  };
+}
+
+export async function verifyRazorpayPayment(payload) {
+  const res = await fetchWithAuth(`${API_BASE}/api/payments/verify/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || "Payment verification failed.");
+  }
+
+  return data;
+}
+
+export async function markRazorpayPaymentFailed(orderId, message = "") {
+  const res = await fetchWithAuth(`${API_BASE}/api/payments/failed/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      order_id: orderId,
+      message,
+    }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || "Unable to update payment status.");
+  }
+
+  return data;
 }
 

@@ -133,6 +133,8 @@ class CartItemImage(models.Model):
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('failed', 'Failed'),
         ('processing', 'Processing'),
         ('shipped', 'Shipped'),
         ('delivered', 'Delivered'),
@@ -146,6 +148,11 @@ class Order(models.Model):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     coupon_code = models.CharField(max_length=50, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    razorpay_order_id = models.CharField(max_length=120, blank=True, null=True, unique=True)
+    razorpay_payment_id = models.CharField(max_length=120, blank=True)
+    razorpay_signature = models.CharField(max_length=255, blank=True)
+    payment_provider = models.CharField(max_length=30, default="razorpay")
+    payment_verified_at = models.DateTimeField(blank=True, null=True)
     
     # Shipping details
     shipping_address = models.TextField()
