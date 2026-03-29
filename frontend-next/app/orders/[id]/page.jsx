@@ -226,8 +226,7 @@ export default function OrderDetailPage() {
                   category={item.product.category}
                   subCategory={item.product.sub_category}
                   categoryTrailProps={{
-                    variant: "chip",
-                    chipClassName: "p-2 bg-gray-100 text-gray-600",
+                    chipClassName: "text-gray-600",
                     linkClassName:
                       "text-gray-600 transition hover:text-gray-800 hover:underline underline-offset-2",
                   }}

@@ -51,9 +51,7 @@ export default function ProductListItem({
             className="block text-sm font-semibold leading-5 text-gray-900 transition hover:text-[#002424] sm:text-base"
           >
             {title}
-          </Link>
-
-          {primaryContent ? <div className="mt-1.5">{primaryContent}</div> : null}
+          </Link>          
 
           <CategoryTrail
             category={category}
@@ -65,6 +63,8 @@ export default function ProductListItem({
           {variantText ? (
             <p className="mt-1 text-xs text-gray-500 sm:text-sm">{variantText}</p>
           ) : null}
+
+          {primaryContent ? <div className="mt-1.5">{primaryContent}</div> : null}
 
           {typeof quantity === "number" ? (
             <p className="mt-1 text-xs text-gray-500 sm:text-sm">Qty: {quantity}</p>
