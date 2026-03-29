@@ -42,7 +42,7 @@ export default function CategoryTrail({
         singleLine ? "max-w-full flex-nowrap overflow-hidden" : "flex-wrap"
       } ${className}`.trim()}
     >
-      {prefix ? <span className="text-gray-500">{prefix}</span> : null}
+      {prefix ? <span className="text-gray-500 font-semibold">{prefix}</span> : null}
       <span
         className={`inline-flex items-center gap-x-1 gap-y-0.5 rounded-full py-1 text-xs sm:text-sm ${
           singleLine ? "max-w-full min-w-0 flex-nowrap overflow-hidden whitespace-nowrap" : "flex-wrap"

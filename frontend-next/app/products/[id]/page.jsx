@@ -437,14 +437,14 @@ export default function ProductDetailPage() {
                   <CategoryTrail
                     category={product.category}
                     subCategory={product.sub_category}
-                    prefix="In:"
+                    prefix="Viewing In:"
                     className="text-sm"
                     variant="chip"
-                    chipClassName="bg-gray-100 text-gray-600"
+                    chipClassName="p-2 bg-gray-100 text-gray-600"
                     linkClassName="text-gray-600 transition hover:text-gray-800 hover:underline underline-offset-2"
                   />
                 </div>
-                <p className="mt-4 text-sm leading-7 whitespace-normal text-left text-gray-600 sm:text-base sm:text-justify">
+                <p className="mt-4 text-sm leading-7 whitespace-normal text-justify text-gray-600 sm:text-base">
                   {product.description}
                 </p>
 
