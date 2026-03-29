@@ -15,6 +15,9 @@ import PageLoader from "@/components/ui/PageLoader";
 import CategoryTrail from "@/components/CategoryTrail";
 import PriceDisplay from "@/components/PriceDisplay";
 
+const MAX_CUSTOM_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_CUSTOM_TEXT_LENGTH = 120;
+
 export default function ProductDetailPage() {
   const { isAuthenticated } = useAuth();
   const { id } = useParams();
@@ -290,8 +293,20 @@ export default function ProductDetailPage() {
 
   // ✅ Handle Custom Image Uploads
   const handleCustomImageUpload = (e, index) => {
+    const file = e.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (file.size > MAX_CUSTOM_IMAGE_SIZE_BYTES) {
+      error("Each uploaded image must be 5 MB or smaller.");
+      e.target.value = "";
+      return;
+    }
+
     const files = [...customImages];
-    files[index] = e.target.files[0];
+    files[index] = file;
     setCustomImages(files);
   };
 
@@ -465,7 +480,7 @@ export default function ProductDetailPage() {
                               <label
                                 className={`flex items-center justify-center gap-2
                             border rounded-lg cursor-pointer
-                            min-h-11 w-full px-2 py-2
+                            px-4 py-2
                             text-xs font-medium sm:text-sm
                             hover:bg-gray-200 transition
                             ${
@@ -488,7 +503,7 @@ export default function ProductDetailPage() {
                                     d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0l-4 4m4-4l4 4"
                                   />
                                 </svg>
-                                Upload {index + 1}
+                                Upload: {index + 1}
                                 <input
                                   key={uploadResetKey}
                                   type="file"
@@ -521,10 +536,16 @@ export default function ProductDetailPage() {
                     <textarea
                       rows={1}
                       value={customText}
-                      onChange={(e) => setCustomText(e.target.value)}
+                      maxLength={MAX_CUSTOM_TEXT_LENGTH}
+                      onChange={(e) =>
+                        setCustomText(e.target.value.slice(0, MAX_CUSTOM_TEXT_LENGTH))
+                      }
                       placeholder="Enter text for engraving..."
-                      className="mt-1 block w-full resize-none rounded-lg border p-2 text-sm"
+                      className="mt-1 block w-full resize-none rounded-lg border border-gray-400 p-2 text-sm"
                     />
+                    <p className="mt-1 text-right text-xs text-gray-500">
+                      {customText.length}/{MAX_CUSTOM_TEXT_LENGTH}
+                    </p>
                   </>
                 )}
 
