@@ -6,8 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getOrderDetail } from "@/lib/api";
 import PageLoader from "@/components/ui/PageLoader";
-import CategoryTrail from "@/components/CategoryTrail";
-import PriceDisplay from "@/components/PriceDisplay";
+import ProductListItem from "@/components/ProductListItem";
 
 const ORDER_PROGRESS_STEPS = [
   { key: "pending", label: "Pending" },
@@ -219,110 +218,70 @@ export default function OrderDetailPage() {
 
             <div className="space-y-4">
               {order.items.map((item, index) => (
-                <div
+                <ProductListItem
                   key={index}
-                  className="flex flex-col gap-4 rounded-[1.5rem] border border-gray-100 bg-white/90 p-4 sm:flex-row sm:items-start sm:justify-between"
-                >
-                  <div className="flex min-w-0 items-center gap-4">
-                    {item.product.image && (
-                      <Link href={`/products/${item.product.id}`} className="shrink-0">
-                        <img
-                          src={item.product.image}
-                          className="h-20 w-20 rounded-xl object-cover"
-                          alt={item.product.title}
-                        />
-                      </Link>
-                    )}
+                  href={`/products/${item.product.id}`}
+                  image={item.product.image}
+                  title={item.product.title}
+                  category={item.product.category}
+                  subCategory={item.product.sub_category}
+                  variant={item.variant}
+                  primaryContent={(
+                    <p className="text-sm font-semibold text-gray-900 sm:text-base">
+                      Rs {Number(item.price || 0).toFixed(2)}
+                    </p>
+                  )}
+                  secondaryContent={(
+                    <p className="text-xs text-gray-500">Final unit price</p>
+                  )}
+                  customizationContent={
+                    (item.custom_text || item.custom_image || item.custom_images?.length > 0) ? (
+                      <details className="text-sm">
+                        <summary className="cursor-pointer text-gray-600 hover:text-black">
+                          View Customization
+                        </summary>
 
-                    <div>
-                      <Link
-                        href={`/products/${item.product.id}`}
-                        className="font-medium text-gray-900 transition hover:text-[#002424]"
-                      >
-                        {item.product.title}
-                      </Link>
+                        <div className="mt-2 space-y-2">
+                          {item.custom_text && (
+                            <div className="text-gray-700">
+                              <strong>Text:</strong> {item.custom_text}
+                            </div>
+                          )}
 
-                      <CategoryTrail
-                        category={item.product.category}
-                        subCategory={item.product.sub_category}
-                        className="mt-1 text-xs sm:text-sm"
-                        linkClassName="rounded-full border border-[#dbe7d6] bg-[#f8fbf5] px-2.5 py-1 font-medium text-[#002424] transition hover:border-[#002424] hover:bg-white"
-                        separatorClassName="text-gray-400"
-                      />
-
-                      {item.variant && (
-                        <p className="mt-1 text-sm text-gray-500">
-                          {item.variant.size_name &&
-                            `Size: ${item.variant.size_name}`}
-                          {item.variant.color_name &&
-                            `${item.variant.size_name ? " | " : ""}Color: ${item.variant.color_name}`}
-                        </p>
-                      )}
-
-                      <p className="mt-1 text-sm text-gray-500">
-                        Qty: {item.quantity}
-                      </p>
-
-                      {(item.custom_text ||
-                        item.custom_image ||
-                        item.custom_images?.length > 0) && (
-                        <details className="mt-2 text-sm">
-                          <summary className="cursor-pointer text-gray-600 hover:text-black">
-                            View Customization
-                          </summary>
-
-                          <div className="mt-2 space-y-2">
-                            {item.custom_text && (
-                              <div className="text-gray-700">
-                                <strong>Text:</strong> {item.custom_text}
-                              </div>
-                            )}
-
-                            {item.custom_images?.length > 0 ? (
-                              <div className="flex flex-wrap gap-2">
-                                {item.custom_images.map((image, imageIndex) => (
-                                  <img
-                                    key={`order-custom-${imageIndex}`}
-                                    src={image}
-                                    alt={`custom-${imageIndex + 1}`}
-                                    className="h-16 w-16 rounded-lg border object-cover"
-                                  />
-                                ))}
-                              </div>
-                            ) : item.custom_image ? (
-                              <div className="flex flex-wrap gap-2">
+                          {item.custom_images?.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {item.custom_images.map((image, imageIndex) => (
                                 <img
-                                  src={item.custom_image}
-                                  alt="custom"
+                                  key={`order-custom-${imageIndex}`}
+                                  src={image}
+                                  alt={`custom-${imageIndex + 1}`}
                                   className="h-16 w-16 rounded-lg border object-cover"
                                 />
-                              </div>
-                            ) : null}
-                          </div>
-                        </details>
-                      )}
+                              ))}
+                            </div>
+                          ) : item.custom_image ? (
+                            <div className="flex flex-wrap gap-2">
+                              <img
+                                src={item.custom_image}
+                                alt="custom"
+                                className="h-16 w-16 rounded-lg border object-cover"
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      </details>
+                    ) : null
+                  }
+                  actions={(
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">
+                        Rs {Number(item.total || 0).toFixed(2)}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">Qty: {item.quantity}</p>
                     </div>
-                  </div>
-
-                  <div className="text-right">
-                    <PriceDisplay
-                      price={item.price}
-                      originalPrice={item.variant?.mrp || item.product?.mrp}
-                      discountPercent={item.variant?.discount_percent || item.product?.discount_percent}
-                      className="justify-end"
-                      currentPriceClassName="text-sm"
-                      originalPriceClassName="text-xs"
-                      badgeClassName="px-2 py-0.5 text-[10px]"
-                      currencyPrefix="Rs "
-                    />
-                    <p className="font-semibold text-gray-900">
-                      Rs {Number(item.total || 0).toFixed(2)}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Rs {Number(item.price || 0).toFixed(2)} each
-                    </p>
-                  </div>
-                </div>
+                  )}
+                  asideClassName="sm:self-center"
+                />
               ))}
             </div>
           </div>

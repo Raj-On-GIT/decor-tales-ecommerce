@@ -5,8 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getMyOrders } from "@/lib/api";
-import CategoryTrail from "@/components/CategoryTrail";
-import PriceDisplay from "@/components/PriceDisplay";
+import ProductListItem from "@/components/ProductListItem";
 
 function formatOrderDate(value) {
   return new Date(value).toLocaleString("en-IN", {
@@ -120,9 +119,8 @@ export default function OrdersPage() {
         ) : (
           <div className="grid gap-5">
             {orders.map((order) => (
-              <Link
+              <div
                 key={order.id}
-                href={`/orders/${order.id}`}
                 className="group rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_30px_80px_rgba(15,23,42,0.12)]"
               >
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -147,60 +145,18 @@ export default function OrdersPage() {
                     {Array.isArray(order.items) && order.items.length > 0 ? (
                       <div className="mt-5 grid gap-3">
                         {order.items.slice(0, 2).map((item, index) => (
-                          <div
+                          <ProductListItem
                             key={`${order.id}-${item.product.id}-${index}`}
-                            className="flex flex-col gap-3 rounded-[1.25rem] border border-gray-100 bg-[#fafcf7] p-3 sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div className="flex min-w-0 items-center gap-3">
-                              {item.product.image ? (
-                                <Link href={`/products/${item.product.id}`} className="shrink-0">
-                                  <img
-                                    src={item.product.image}
-                                    alt={item.product.title}
-                                    className="h-14 w-14 rounded-lg object-cover"
-                                  />
-                                </Link>
-                              ) : null}
-                              <div className="min-w-0">
-                                <Link
-                                  href={`/products/${item.product.id}`}
-                                  className="line-clamp-1 font-medium text-gray-900 transition hover:text-[#002424]"
-                                >
-                                  {item.product.title}
-                                </Link>
-                                <CategoryTrail
-                                  category={item.product.category}
-                                  subCategory={item.product.sub_category}
-                                  className="mt-1 text-xs"
-                                  linkClassName="rounded-full border border-[#dbe7d6] bg-white px-2 py-0.5 font-medium text-[#002424] transition hover:border-[#002424]"
-                                  separatorClassName="text-gray-400"
-                                />
-                                {item.variant?.size_name || item.variant?.color_name ? (
-                                  <p className="mt-1 text-xs text-gray-500">
-                                    {[item.variant?.size_name, item.variant?.color_name]
-                                      .filter(Boolean)
-                                      .join(" | ")}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-
-                            <div className="sm:text-right">
-                              <PriceDisplay
-                                price={item.product.slashed_price || item.product.price}
-                                originalPrice={item.variant?.mrp || item.product.mrp}
-                                discountPercent={item.variant?.discount_percent || item.product.discount_percent}
-                                className="sm:justify-end"
-                                currentPriceClassName="text-sm"
-                                originalPriceClassName="text-xs"
-                                badgeClassName="px-2 py-0.5 text-[10px]"
-                                currencyPrefix="Rs "
-                              />
-                              <p className="mt-1 text-xs text-gray-500">
-                                Qty: {item.quantity}
-                              </p>
-                            </div>
-                          </div>
+                            href={`/products/${item.product.id}`}
+                            image={item.product.image}
+                            title={item.product.title}
+                            category={item.product.category}
+                            subCategory={item.product.sub_category}
+                            variant={item.variant}
+                            quantity={item.quantity}
+                            className="rounded-[1.25rem] bg-[#fafcf7] p-3"
+                            imageClassName="h-14 w-14 rounded-lg sm:h-14 sm:w-14"
+                          />
                         ))}
                         {order.items.length > 2 ? (
                           <p className="text-xs text-gray-500">
@@ -220,12 +176,15 @@ export default function OrdersPage() {
                         Rs {Number(order.total || 0).toFixed(2)}
                       </p>
                     </div>
-                    <span className="text-sm font-medium text-[#002424] transition group-hover:translate-x-1">
+                    <Link
+                      href={`/orders/${order.id}`}
+                      className="text-sm font-medium text-[#002424] transition group-hover:translate-x-1 hover:underline"
+                    >
                       View details {"->"}
-                    </span>
+                    </Link>
                   </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}

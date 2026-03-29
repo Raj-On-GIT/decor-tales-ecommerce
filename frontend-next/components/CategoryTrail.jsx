@@ -28,12 +28,14 @@ export default function CategoryTrail({
 
   const categoryHref = getCategoryHref(category, null);
   const subCategoryHref = getCategoryHref(category, subCategory);
+  const resolvedLinkClassName =
+    linkClassName || "transition hover:underline underline-offset-2";
 
   return (
-    <div className={`flex flex-wrap items-center gap-1.5 text-sm text-gray-600 ${className}`.trim()}>
+    <div className={`flex flex-wrap items-center gap-x-1 gap-y-0.5 text-sm text-gray-500 ${className}`.trim()}>
       {prefix ? <span className="text-gray-500">{prefix}</span> : null}
       {categoryHref ? (
-        <Link href={categoryHref} className={linkClassName}>
+        <Link href={categoryHref} className={resolvedLinkClassName}>
           {category.name}
         </Link>
       ) : (
@@ -41,9 +43,9 @@ export default function CategoryTrail({
       )}
       {subCategory?.name ? (
         <>
-          <span className={separatorClassName}>{">"}</span>
+          <span className={separatorClassName || "text-gray-400"}>{">"}</span>
           {subCategoryHref ? (
-            <Link href={subCategoryHref} className={linkClassName}>
+            <Link href={subCategoryHref} className={resolvedLinkClassName}>
               {subCategory.name}
             </Link>
           ) : (

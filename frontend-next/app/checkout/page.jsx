@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -20,8 +19,7 @@ import { useGlobalToast } from "@/context/ToastContext";
 import { formatPrice } from "@/lib/formatPrice";
 import PageLoader from "@/components/ui/PageLoader";
 import { RAZORPAY_KEY } from "@/lib/config";
-import CategoryTrail from "@/components/CategoryTrail";
-import PriceDisplay from "@/components/PriceDisplay";
+import ProductListItem from "@/components/ProductListItem";
 
 function loadRazorpayScript() {
   if (typeof window === "undefined") {
@@ -434,109 +432,70 @@ export default function CheckoutPage() {
 
             <div className="space-y-4">
               {cart.map((item) => (
-                <div
+                <ProductListItem
                   key={
                     item.cart_item_id ||
                     `${item.id}-${item.variant?.id || "v0"}-${item.custom_text || "plain"}-${item.custom_image || "noimg"}`
                   }
-                  className="flex items-start justify-between gap-4 rounded-[1.5rem] border border-gray-100 bg-white/90 p-4"
-                >
-                  <div className="flex min-w-0 items-center gap-4">
-                    {item.image && (
-                      <Link href={`/products/${item.id}`} className="shrink-0">
-                        <img
-                          src={item.image}
-                          alt={item.title}
-                          className="h-16 w-16 rounded-xl object-cover"
-                        />
-                      </Link>
-                    )}
-                    <div>
-                      <Link
-                        href={`/products/${item.id}`}
-                        className="font-medium text-gray-900 transition hover:text-[#002424]"
-                      >
-                        {item.title}
-                      </Link>
+                  href={`/products/${item.id}`}
+                  image={item.image}
+                  title={item.title}
+                  category={item.category}
+                  subCategory={item.sub_category}
+                  variant={item.variant}
+                  primaryContent={(
+                    <p className="text-sm font-semibold text-gray-900 sm:text-base">
+                      Rs {formatPrice(item.price)}
+                    </p>
+                  )}
+                  customizationContent={
+                    (item.custom_text || item.custom_image || item.custom_images?.length > 0) ? (
+                      <details className="text-sm">
+                        <summary className="cursor-pointer text-gray-600 hover:text-black">
+                          View Customization
+                        </summary>
 
-                      <CategoryTrail
-                        category={item.category}
-                        subCategory={item.sub_category}
-                        className="mt-1 text-xs sm:text-sm"
-                        linkClassName="rounded-full border border-[#dbe7d6] bg-[#f8fbf5] px-2.5 py-1 font-medium text-[#002424] transition hover:border-[#002424] hover:bg-white"
-                        separatorClassName="text-gray-400"
-                      />
+                        <div className="mt-2 space-y-2">
+                          {item.custom_text && (
+                            <div className="text-gray-700">
+                              <strong>Text:</strong> {item.custom_text}
+                            </div>
+                          )}
 
-                      {item.variant && (
-                        <div className="text-sm text-gray-500">
-                          {item.variant.size_name &&
-                            `Size: ${item.variant.size_name}`}
-                          {item.variant.color_name &&
-                            `${item.variant.size_name ? " | " : ""}Color: ${item.variant.color_name}`}
-                        </div>
-                      )}
-
-                      <div className="mt-1 text-sm text-gray-500">
-                        Qty: {item.qty}
-                      </div>
-
-                      {(item.custom_text ||
-                        item.custom_image ||
-                        item.custom_images?.length > 0) && (
-                        <details className="mt-2 text-sm">
-                          <summary className="cursor-pointer text-gray-600 hover:text-black">
-                            View Customization
-                          </summary>
-
-                          <div className="mt-2 space-y-2">
-                            {item.custom_text && (
-                              <div className="text-gray-700">
-                                <strong>Text:</strong> {item.custom_text}
-                              </div>
-                            )}
-
-                            {item.custom_images?.length > 0 ? (
-                              <div className="flex flex-wrap gap-2">
-                                {item.custom_images.map((image, index) => (
-                                  <img
-                                    key={`${item.cart_item_id || item.id}-custom-${index}`}
-                                    src={image}
-                                    alt={`custom-${index + 1}`}
-                                    className="h-14 w-14 rounded-lg border object-cover"
-                                  />
-                                ))}
-                              </div>
-                            ) : item.custom_image ? (
-                              <div className="flex flex-wrap gap-2">
+                          {item.custom_images?.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {item.custom_images.map((image, index) => (
                                 <img
-                                  src={item.custom_image}
-                                  alt="custom"
+                                  key={`${item.cart_item_id || item.id}-custom-${index}`}
+                                  src={image}
+                                  alt={`custom-${index + 1}`}
                                   className="h-14 w-14 rounded-lg border object-cover"
                                 />
-                              </div>
-                            ) : null}
-                          </div>
-                        </details>
-                      )}
+                              ))}
+                            </div>
+                          ) : item.custom_image ? (
+                            <div className="flex flex-wrap gap-2">
+                              <img
+                                src={item.custom_image}
+                                alt="custom"
+                                className="h-14 w-14 rounded-lg border object-cover"
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      </details>
+                    ) : null
+                  }
+                  actions={(
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">
+                        Rs {(item.qty * Number(item.price)).toFixed(2)}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">Qty: {item.qty}</p>
                     </div>
-                  </div>
-
-                  <div className="shrink-0 text-right font-medium text-gray-900">
-                    <PriceDisplay
-                      price={item.price}
-                      originalPrice={item.variant?.mrp || item.mrp}
-                      discountPercent={item.variant?.discount_percent || item.discount_percent}
-                      className="justify-end"
-                      currentPriceClassName="text-sm"
-                      originalPriceClassName="text-xs"
-                      badgeClassName="px-2 py-0.5 text-[10px]"
-                      currencyPrefix="Rs "
-                    />
-                    <div className="mt-1">
-                      Rs {(item.qty * Number(item.price)).toFixed(2)}
-                    </div>
-                  </div>
-                </div>
+                  )}
+                  asideClassName="sm:self-center"
+                />
               ))}
             </div>
 
