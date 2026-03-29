@@ -9,6 +9,8 @@ import {
 import {
   clearAuthSession,
   getAccessToken,
+  isTokenExpired,
+  shouldRefreshToken,
   refreshAccessToken,
 } from "@/lib/auth";
 
@@ -140,7 +142,18 @@ export function AuthProvider({ children }) {
         // Try refresh first so sessions survive normal inactivity windows.
         const refreshed = await refreshAccessToken();
 
-        if (!refreshed) {
+        if (!refreshed.ok) {
+          if (!refreshed.shouldLogout) {
+            setUser({
+              id: userData.user_id,
+              exp: userData.exp,
+              iat: userData.iat,
+            });
+            setIsAuthenticated(true);
+            setLoading(false);
+            return;
+          }
+
           console.warn("Access token expired and refresh failed");
           clearAuthSession();
           setUser(null);
@@ -212,6 +225,76 @@ export function AuthProvider({ children }) {
     }, 0);
 
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    async function maintainSession() {
+      const accessToken = getAccessToken();
+
+      if (!accessToken) {
+        return;
+      }
+
+      const userData = decodeToken(accessToken);
+
+      if (!userData) {
+        return;
+      }
+
+      if (!isTokenExpired(userData) && !shouldRefreshToken()) {
+        return;
+      }
+
+      const refreshed = await refreshAccessToken();
+
+      if (!refreshed.ok) {
+        if (refreshed.shouldLogout) {
+          clearAuthSession();
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+        return;
+      }
+
+      const nextAccessToken = getAccessToken();
+      const nextUserData = decodeToken(nextAccessToken);
+
+      if (!nextUserData) {
+        return;
+      }
+
+      setUser({
+        id: nextUserData.user_id,
+        exp: nextUserData.exp,
+        iat: nextUserData.iat,
+      });
+      setIsAuthenticated(true);
+    }
+
+    function handleVisibilityOrFocus() {
+      if (document.visibilityState === "visible") {
+        void maintainSession();
+      }
+    }
+
+    const intervalId = window.setInterval(() => {
+      void maintainSession();
+    }, 4 * 60 * 1000);
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    window.addEventListener("online", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      window.removeEventListener("online", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+    };
   }, []);
 
   /**
@@ -419,21 +502,6 @@ function decodeToken(token) {
     console.error("Error decoding token:", error);
     return null;
   }
-}
-
-/**
- * Check if JWT token is expired
- *
- * @param {object} payload - Decoded JWT payload
- * @returns {boolean} True if token is expired
- */
-function isTokenExpired(payload) {
-  if (!payload || !payload.exp) return true;
-
-  // exp is in seconds, Date.now() is in milliseconds
-  const currentTime = Date.now() / 1000;
-
-  return payload.exp < currentTime;
 }
 
 export default AuthContext;

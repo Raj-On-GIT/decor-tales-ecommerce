@@ -272,7 +272,7 @@ async function fetchWithAuth(url, options = {}) {
   if (response.status === 401) {
     const refreshed = await refreshAccessToken();
 
-    if (refreshed) {
+    if (refreshed.ok) {
       token = getAccessToken();
 
       response = await fetch(url, {
@@ -282,9 +282,11 @@ async function fetchWithAuth(url, options = {}) {
           Authorization: `Bearer ${token}`,
         },
       });
-    } else {
+    } else if (refreshed.shouldLogout) {
       clearAuthSession({ redirectTo: "/login" });
       throw new Error("Session expired");
+    } else {
+      throw new Error("Unable to refresh session right now.");
     }
   }
 

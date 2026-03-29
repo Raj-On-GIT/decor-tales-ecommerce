@@ -247,7 +247,11 @@ export async function refreshAccessToken() {
   
   if (!refreshToken) {
     console.error('No refresh token available');
-    return false;
+    return {
+      ok: false,
+      shouldLogout: true,
+      reason: 'missing_refresh',
+    };
   }
   
   try {
@@ -263,18 +267,30 @@ export async function refreshAccessToken() {
     
     if (!response.ok) {
       console.error('Token refresh failed:', response.status);
-      return false;
+      return {
+        ok: false,
+        shouldLogout: response.status === 400 || response.status === 401,
+        reason: `http_${response.status}`,
+      };
     }
     
     const data = await response.json();
     
-    // Save new tokens (rotation enabled, so both are new)
-    setTokens(data.access, data.refresh);
+    // Preserve existing refresh token if backend returns only a new access token.
+    setTokens(data.access, data.refresh || refreshToken);
     
-    return true;
+    return {
+      ok: true,
+      shouldLogout: false,
+      reason: null,
+    };
   } catch (error) {
     console.error('Error refreshing token:', error);
-    return false;
+    return {
+      ok: false,
+      shouldLogout: false,
+      reason: 'network_error',
+    };
   }
 }
 
@@ -315,7 +331,7 @@ export async function fetchWithAuth(url, options = {}) {
     
     const refreshed = await refreshAccessToken();
     
-    if (refreshed) {
+    if (refreshed.ok) {
       // Retry with new token
       const newToken = getAccessToken();
       headers.Authorization = `Bearer ${newToken}`;
@@ -324,10 +340,12 @@ export async function fetchWithAuth(url, options = {}) {
         ...options,
         headers,
       });
-    } else {
+    } else if (refreshed.shouldLogout) {
       // Refresh failed, user needs to login
       clearAuthSession();
       throw new Error('Session expired. Please login again.');
+    } else {
+      throw new Error('Unable to refresh session right now. Please try again.');
     }
   }
   
