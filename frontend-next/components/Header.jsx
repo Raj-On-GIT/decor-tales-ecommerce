@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
-import { ShoppingBag, Search, Menu, User, LogOut } from "lucide-react";
+import { ShoppingBag, Search, Menu, User, LogOut, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../context/StoreContext";
 import { useAuth } from "../context/AuthContext";
@@ -21,6 +21,7 @@ export default function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState("");
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
   const toast = useGlobalToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -53,6 +54,7 @@ export default function Header() {
     let cancelled = false;
 
     async function loadProfileName() {
+      setIsProfileLoading(true);
       try {
         const profile = await getProfile();
         if (cancelled) return;
@@ -67,12 +69,20 @@ export default function Header() {
         if (!cancelled) {
           setProfileName("Your Account");
         }
+      } finally {
+        if (!cancelled) {
+          setIsProfileLoading(false);
+        }
       }
     }
 
-    if (!isAuthenticated) return () => {
-      cancelled = true;
-    };
+    if (!isAuthenticated) {
+      setProfileName("");
+      setIsProfileLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     loadProfileName();
 
@@ -82,6 +92,7 @@ export default function Header() {
   }, [isAuthenticated, user?.id]);
 
   const visibleProfileName = isAuthenticated ? profileName : "";
+  const isIdentityLoading = loading || (isAuthenticated && isProfileLoading);
   const firstName =
     visibleProfileName && visibleProfileName !== "Your Account"
       ? visibleProfileName.trim().split(/\s+/)[0]
@@ -233,9 +244,9 @@ export default function Header() {
             >
               {/* Profile Icon */}
               <button
-                disabled={loading}
+                disabled={isIdentityLoading}
                 onClick={() => {
-                  if (!loading) setIsProfileOpen(!isProfileOpen);
+                  if (!isIdentityLoading) setIsProfileOpen(!isProfileOpen);
                 }}
                 className="flex items-center gap-2 rounded-full border border-transparent px-2 py-1.5 text-gray-900 transition hover:border-gray-200 hover:bg-white/70 disabled:opacity-50"
               >
@@ -244,7 +255,7 @@ export default function Header() {
                     {firstName}
                   </span>
                 ) : null}
-                {loading ? (
+                {isIdentityLoading ? (
                   <div className="w-5 h-5 border-2 border-gray-300 border-t-black rounded-full animate-spin" />
                 ) : (
                   <User size={20} />
@@ -265,7 +276,7 @@ export default function Header() {
                               rounded-2xl shadow-xl
                               overflow-hidden z-50"
                   >
-                    {loading ? (
+                    {isIdentityLoading ? (
                       /* LOADING STATE */
                       <div className="px-5 py-8 text-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
@@ -399,19 +410,35 @@ export default function Header() {
 
               {isAuthenticated ? (
                 <div className="mb-6 rounded-2xl border border-gray-200 bg-gradient-to-br from-[#F7FFD9] via-white to-[#FFF3D6] px-4 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#002424] text-white shadow-sm">
-                      <User size={18} />
+                  {isIdentityLoading ? (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#002424] text-white shadow-sm">
+                        <Loader2 size={18} className="animate-spin" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
+                          Signed in as
+                        </p>
+                        <p className="text-sm font-medium text-gray-500">
+                          Loading profile...
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
-                        Signed in as
-                      </p>
-                      <h3 className="truncate text-lg font-serif font-semibold text-gray-900">
-                        {visibleProfileName || "Your Account"}
-                      </h3>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#002424] text-white shadow-sm">
+                        <User size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
+                          Signed in as
+                        </p>
+                        <h3 className="truncate text-lg font-serif font-semibold text-gray-900">
+                          {visibleProfileName || "Your Account"}
+                        </h3>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : null}
 

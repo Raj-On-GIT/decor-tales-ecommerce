@@ -144,7 +144,7 @@ export default function OrdersPage() {
 
                     {Array.isArray(order.items) && order.items.length > 0 ? (
                       <div className="mt-5 grid gap-3">
-                        {order.items.slice(0, 2).map((item, index) => (
+                        {order.items.slice(0, 1).map((item, index) => (
                           <ProductListItem
                             key={`${order.id}-${item.product.id}-${index}`}
                             href={`/products/${item.product.id}`}
@@ -158,9 +158,9 @@ export default function OrdersPage() {
                             imageClassName="h-14 w-14 rounded-lg sm:h-14 sm:w-14"
                           />
                         ))}
-                        {order.items.length > 2 ? (
+                        {order.items.length > 1 ? (
                           <p className="text-xs text-gray-500">
-                            +{order.items.length - 2} more item{order.items.length - 2 === 1 ? "" : "s"}
+                            +{order.items.length - 1} more item{order.items.length - 1 === 1 ? "" : "s"}
                           </p>
                         ) : null}
                       </div>
