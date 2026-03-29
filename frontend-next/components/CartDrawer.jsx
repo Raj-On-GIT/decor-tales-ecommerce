@@ -240,7 +240,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                                     }
                                   }}
                                   disabled={itemPending}
-                                  className="flex h-9 w-9 items-center justify-center border-r border-gray-300 text-base text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="flex h-8 w-8 items-center justify-center border-r border-gray-300 text-base text-gray-700 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {itemAction === "updating" || itemAction === "removing" ? (
                                     <Loader2 size={12} className="mx-auto animate-spin" />
@@ -248,7 +248,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                                     "-"
                                   )}
                                 </button>
-                                <span className="flex h-9 min-w-10 items-center justify-center px-2 text-sm font-semibold text-gray-900">
+                                <span className="flex h-8 min-w-9 items-center justify-center px-2 text-sm font-semibold text-gray-900">
                                   {item.qty}
                                 </span>
                                 <button
@@ -260,7 +260,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                                     }
                                   }}
                                   disabled={itemPending}
-                                  className="flex h-9 w-9 items-center justify-center border-l border-gray-300 text-base text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="flex h-8 w-8 items-center justify-center border-l border-gray-300 text-base text-gray-700 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {itemAction === "updating" ? (
                                     <Loader2 size={12} className="mx-auto animate-spin" />
