@@ -31,7 +31,7 @@ export default function ProductListItem({
 
   return (
     <div
-      className={`flex flex-col gap-4 rounded-[1.5rem] border border-gray-100 bg-white/90 p-2 sm:flex-row sm:items-start sm:justify-between ${className}`.trim()}
+      className={`flex flex-col gap-4 rounded-[1.5rem] border border-gray-100 bg-white/90 p-1 sm:flex-row sm:items-start sm:justify-between ${className}`.trim()}
     >
       <div className={`flex min-w-0 items-start gap-4 ${contentClassName}`.trim()}>
         {image ? (

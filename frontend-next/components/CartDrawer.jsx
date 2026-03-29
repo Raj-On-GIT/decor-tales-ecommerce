@@ -140,7 +140,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
 
               <button
                 onClick={() => setIsCartOpen(false)}
-                className="rounded-full p-2 hover:bg-gray-100"
+                className="rounded-full p-1 hover:bg-gray-100"
               >
                 <X size={20} />
               </button>
