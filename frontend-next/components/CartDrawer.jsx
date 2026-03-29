@@ -188,17 +188,13 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                           subCategory={item.sub_category}
                           categoryTrailProps={{
                             variant: "chip",
-                            chipClassName: "bg-gray-100 text-gray-600",
+                            singleLine: true,
+                            chipClassName: "bg-gray-100 text-gray-600 text-[11px] px-2.5 py-1",
                             linkClassName:
                               "text-gray-600 transition hover:text-gray-800 hover:underline underline-offset-2",
                           }}
                           variant={item.variant}
                           quantity={undefined}
-                          primaryContent={(
-                            <p className="text-sm font-semibold text-gray-900">
-                              Rs {formatPrice(item.price)}
-                            </p>
-                          )}
                           secondaryContent={
                             customizationTag ? (
                               <p className="text-[11px] uppercase tracking-[0.16em] text-gray-400">
@@ -207,17 +203,22 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                             ) : null
                           }
                           noteContent={
-                            stockIssue ? (
-                              <p className="text-xs font-medium text-red-600">
-                                {stockIssue.suggestedQty > 0
-                                  ? `Only ${stockIssue.suggestedQty} can be ordered right now`
-                                  : "Out of stock"}
+                            <>
+                              {stockIssue ? (
+                                <p className="text-xs font-medium text-red-600">
+                                  {stockIssue.suggestedQty > 0
+                                    ? `Only ${stockIssue.suggestedQty} can be ordered right now`
+                                    : "Out of stock"}
+                                </p>
+                              ) : null}
+                              <p className="text-sm font-semibold text-gray-900">
+                                Rs {formatPrice(item.price)}
                               </p>
-                            ) : null
+                            </>
                           }
                           onNavigate={() => setIsCartOpen(false)}
                           actions={(
-                            <div className="flex flex-col items-end gap-4">
+                            <div className="flex flex-col items-end gap-3">
                               <button
                                 onClick={() => removeFromCart(item)}
                                 disabled={itemPending}
@@ -230,7 +231,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                                 )}
                               </button>
 
-                              <div className="flex items-center gap-2">
+                              <div className="inline-flex items-center overflow-hidden rounded-md border border-gray-300 bg-white">
                                 <button
                                   onClick={async () => {
                                     try {
@@ -240,7 +241,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                                     }
                                   }}
                                   disabled={itemPending}
-                                  className="h-8 w-8 rounded-full border text-sm transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="flex h-9 w-9 items-center justify-center border-r border-gray-300 text-base text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {itemAction === "updating" || itemAction === "removing" ? (
                                     <Loader2 size={12} className="mx-auto animate-spin" />
@@ -248,7 +249,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                                     "-"
                                   )}
                                 </button>
-                                <span className="w-6 text-center text-sm font-semibold">
+                                <span className="flex h-9 min-w-10 items-center justify-center px-2 text-sm font-semibold text-gray-900">
                                   {item.qty}
                                 </span>
                                 <button
@@ -260,7 +261,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                                     }
                                   }}
                                   disabled={itemPending}
-                                  className="h-8 w-8 rounded-full border text-sm transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="flex h-9 w-9 items-center justify-center border-l border-gray-300 text-base text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {itemAction === "updating" ? (
                                     <Loader2 size={12} className="mx-auto animate-spin" />

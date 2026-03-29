@@ -23,6 +23,7 @@ export default function CategoryTrail({
   separatorClassName = "",
   variant = "plain",
   chipClassName = "",
+  singleLine = false,
 }) {
   if (!category?.name) {
     return null;
@@ -35,15 +36,24 @@ export default function CategoryTrail({
   const isChip = variant === "chip";
 
   return (
-    <div className={`flex flex-wrap items-center gap-x-1 gap-y-1 text-sm text-gray-500 ${className}`.trim()}>
+    <div
+      className={`flex items-center gap-x-1 gap-y-1 text-sm text-gray-500 ${
+        singleLine ? "max-w-full flex-nowrap overflow-hidden" : "flex-wrap"
+      } ${className}`.trim()}
+    >
       {prefix ? <span className="text-gray-500">{prefix}</span> : null}
       <span
-        className={`inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 rounded-full px-3 py-1 text-xs sm:text-sm ${
+        className={`inline-flex items-center gap-x-1 gap-y-0.5 rounded-full px-3 py-1 text-xs sm:text-sm ${
+          singleLine ? "max-w-full min-w-0 flex-nowrap overflow-hidden whitespace-nowrap" : "flex-wrap"
+        } ${
           isChip ? "bg-gray-100 text-gray-600" : ""
         } ${chipClassName}`.trim()}
       >
         {categoryHref ? (
-          <Link href={categoryHref} className={resolvedLinkClassName}>
+          <Link
+            href={categoryHref}
+            className={`${resolvedLinkClassName} ${singleLine ? "shrink-0" : ""}`.trim()}
+          >
             {category.name}
           </Link>
         ) : (
@@ -51,13 +61,16 @@ export default function CategoryTrail({
         )}
         {subCategory?.name ? (
           <>
-            <span className={separatorClassName || "text-gray-400"}>{">"}</span>
+            <span className={`${separatorClassName || "text-gray-400"} ${singleLine ? "shrink-0" : ""}`.trim()}>{">"}</span>
             {subCategoryHref ? (
-              <Link href={subCategoryHref} className={resolvedLinkClassName}>
+              <Link
+                href={subCategoryHref}
+                className={`${resolvedLinkClassName} ${singleLine ? "min-w-0 truncate" : ""}`.trim()}
+              >
                 {subCategory.name}
               </Link>
             ) : (
-              <span>{subCategory.name}</span>
+              <span className={singleLine ? "min-w-0 truncate" : ""}>{subCategory.name}</span>
             )}
           </>
         ) : null}
