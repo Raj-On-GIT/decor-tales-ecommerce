@@ -438,12 +438,11 @@ export default function ProductDetailPage() {
                     category={product.category}
                     subCategory={product.sub_category}
                     prefix="In:"
-                    className="gap-2"
-                    linkClassName="rounded-full border border-[#d9e5d3] bg-[#f7fbf4] px-3 py-1 text-[13px] font-medium text-[#002424] transition hover:border-[#002424] hover:bg-white"
-                    separatorClassName="text-gray-400"
+                    className="text-sm"
+                    linkClassName="text-gray-500 transition hover:text-gray-700 hover:underline underline-offset-2"
                   />
                 </div>
-                <p className="mt-2 text-sm leading-relaxed whitespace-normal text-left text-gray-600 sm:text-base sm:text-justify">
+                <p className="mt-4 text-sm leading-7 whitespace-normal text-left text-gray-600 sm:text-base sm:text-justify">
                   {product.description}
                 </p>
 
@@ -607,17 +606,26 @@ export default function ProductDetailPage() {
                 {activeStock !== undefined &&
                   activeStock !== null &&
                   (activeStock === 0 ? (
-                    <p className="text-sm text-red-700 font-semibold mt-3">
-                      Out of stock
-                    </p>
+                    <div className="mt-4 flex items-center gap-2 text-sm">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                        Stock
+                      </span>
+                      <span className="font-medium text-red-700">Out of stock</span>
+                    </div>
                   ) : activeStock <= 3 ? (
-                    <p className="text-sm text-red-600 font-semibold mt-3">
-                      Only {activeStock} left
-                    </p>
+                    <div className="mt-4 flex items-center gap-2 text-sm">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                        Stock
+                      </span>
+                      <span className="font-medium text-red-600">Only {activeStock} left</span>
+                    </div>
                   ) : (
-                    <p className="text-sm text-gray-600 mt-3">
-                      Available stock: {activeStock}
-                    </p>
+                    <div className="mt-4 flex items-center gap-2 text-sm">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                        Stock
+                      </span>
+                      <span className="font-medium text-gray-700">{activeStock} available</span>
+                    </div>
                   ))}
 
                 {/* ✅ Price Block */}
