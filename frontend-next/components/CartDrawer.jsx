@@ -188,6 +188,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                           subCategory={item.sub_category}
                           categoryTrailProps={{
                             singleLine: true,
+                            onLinkClick: () => setIsCartOpen(false),
                             chipClassName: "text-gray-600 text-[11px]",
                             linkClassName:
                               "text-gray-600 transition hover:text-gray-800 hover:underline underline-offset-2",
@@ -271,8 +272,9 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                               </div>
                             </div>
                           )}
-                          className="border-0 bg-transparent p-0"
-                          contentClassName="items-center"
+                          className="flex-row items-start justify-between border-0 bg-transparent p-0"
+                          contentClassName="min-w-0 flex-1 items-center"
+                          asideClassName="pt-0"
                         />
                       </motion.div>
                     );

@@ -24,6 +24,7 @@ export default function CategoryTrail({
   variant = "plain",
   chipClassName = "",
   singleLine = false,
+  onLinkClick,
 }) {
   if (!category?.name) {
     return null;
@@ -52,6 +53,7 @@ export default function CategoryTrail({
         {categoryHref ? (
           <Link
             href={categoryHref}
+            onClick={onLinkClick}
             className={`${resolvedLinkClassName} ${singleLine ? "shrink-0" : ""}`.trim()}
           >
             {category.name}
@@ -65,6 +67,7 @@ export default function CategoryTrail({
             {subCategoryHref ? (
               <Link
                 href={subCategoryHref}
+                onClick={onLinkClick}
                 className={`${resolvedLinkClassName} ${singleLine ? "min-w-0 truncate" : ""}`.trim()}
               >
                 {subCategory.name}
