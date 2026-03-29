@@ -21,6 +21,8 @@ export default function CategoryTrail({
   className = "",
   linkClassName = "",
   separatorClassName = "",
+  variant = "plain",
+  chipClassName = "",
 }) {
   if (!category?.name) {
     return null;
@@ -30,29 +32,36 @@ export default function CategoryTrail({
   const subCategoryHref = getCategoryHref(category, subCategory);
   const resolvedLinkClassName =
     linkClassName || "transition hover:underline underline-offset-2";
+  const isChip = variant === "chip";
 
   return (
-    <div className={`flex flex-wrap items-center gap-x-1 gap-y-0.5 text-sm text-gray-500 ${className}`.trim()}>
+    <div className={`flex flex-wrap items-center gap-x-1 gap-y-1 text-sm text-gray-500 ${className}`.trim()}>
       {prefix ? <span className="text-gray-500">{prefix}</span> : null}
-      {categoryHref ? (
-        <Link href={categoryHref} className={resolvedLinkClassName}>
-          {category.name}
-        </Link>
-      ) : (
-        <span>{category.name}</span>
-      )}
-      {subCategory?.name ? (
-        <>
-          <span className={separatorClassName || "text-gray-400"}>{">"}</span>
-          {subCategoryHref ? (
-            <Link href={subCategoryHref} className={resolvedLinkClassName}>
-              {subCategory.name}
-            </Link>
-          ) : (
-            <span>{subCategory.name}</span>
-          )}
-        </>
-      ) : null}
+      <span
+        className={`inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 rounded-full px-3 py-1 text-xs sm:text-sm ${
+          isChip ? "bg-gray-100 text-gray-600" : ""
+        } ${chipClassName}`.trim()}
+      >
+        {categoryHref ? (
+          <Link href={categoryHref} className={resolvedLinkClassName}>
+            {category.name}
+          </Link>
+        ) : (
+          <span>{category.name}</span>
+        )}
+        {subCategory?.name ? (
+          <>
+            <span className={separatorClassName || "text-gray-400"}>{">"}</span>
+            {subCategoryHref ? (
+              <Link href={subCategoryHref} className={resolvedLinkClassName}>
+                {subCategory.name}
+              </Link>
+            ) : (
+              <span>{subCategory.name}</span>
+            )}
+          </>
+        ) : null}
+      </span>
     </div>
   );
 }

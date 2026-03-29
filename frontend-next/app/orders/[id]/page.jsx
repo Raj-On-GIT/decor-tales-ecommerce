@@ -225,6 +225,12 @@ export default function OrderDetailPage() {
                   title={item.product.title}
                   category={item.product.category}
                   subCategory={item.product.sub_category}
+                  categoryTrailProps={{
+                    variant: "chip",
+                    chipClassName: "bg-gray-100 text-gray-600",
+                    linkClassName:
+                      "text-gray-600 transition hover:text-gray-800 hover:underline underline-offset-2",
+                  }}
                   variant={item.variant}
                   primaryContent={(
                     <p className="text-sm font-semibold text-gray-900 sm:text-base">

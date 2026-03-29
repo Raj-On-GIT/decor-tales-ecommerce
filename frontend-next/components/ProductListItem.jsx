@@ -13,6 +13,7 @@ export default function ProductListItem({
   title,
   category,
   subCategory,
+  categoryTrailProps = null,
   variant,
   quantity,
   primaryContent = null,
@@ -58,6 +59,7 @@ export default function ProductListItem({
             category={category}
             subCategory={subCategory}
             className="mt-1 text-xs sm:text-sm"
+            {...categoryTrailProps}
           />
 
           {variantText ? (
