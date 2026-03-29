@@ -21,14 +21,14 @@ export default async function SubcategoryPage({ params }) {
   const sortedProducts = sortProductsInStockFirst(data.products || []);
 
   return (
-    <section className="mx-auto max-w-screen-xl px-6 py-10">
+    <section className="mx-auto max-w-screen-xl px-4 py-10 sm:px-6 sm:py-14 md:py-16">
       <h1 className="mb-2 font-serif text-3xl font-bold sm:text-4xl">
         {data.category}
       </h1>
 
-      <p className="mb-8 text-gray-600">{data.subcategory}</p>
+      <p className="mb-6 text-sm text-gray-600 sm:mb-8 sm:text-base">{data.subcategory}</p>
 
-      <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-8 md:gap-10 lg:grid-cols-4">
         {sortedProducts.length > 0 ? (
           sortedProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
