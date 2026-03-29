@@ -187,9 +187,8 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                           category={item.category}
                           subCategory={item.sub_category}
                           categoryTrailProps={{
-                            variant: "chip",
                             singleLine: true,
-                            chipClassName: "bg-gray-100 text-gray-600 text-[11px] px-2.5 py-1",
+                            chipClassName: "text-gray-600 text-[11px]",
                             linkClassName:
                               "text-gray-600 transition hover:text-gray-800 hover:underline underline-offset-2",
                           }}

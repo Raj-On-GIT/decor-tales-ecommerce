@@ -43,7 +43,7 @@ export default function CategoryTrail({
     >
       {prefix ? <span className="text-gray-500">{prefix}</span> : null}
       <span
-        className={`inline-flex items-center gap-x-1 gap-y-0.5 rounded-full px-3 py-1 text-xs sm:text-sm ${
+        className={`inline-flex items-center gap-x-1 gap-y-0.5 rounded-full py-1 text-xs sm:text-sm ${
           singleLine ? "max-w-full min-w-0 flex-nowrap overflow-hidden whitespace-nowrap" : "flex-wrap"
         } ${
           isChip ? "bg-gray-100 text-gray-600" : ""
