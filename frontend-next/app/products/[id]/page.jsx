@@ -642,14 +642,7 @@ export default function ProductDetailPage() {
                       </span>
                       <span className="font-medium text-red-600">Only {activeStock} left</span>
                     </div>
-                  ) : (
-                    <div className="mt-4 flex items-center gap-2 text-sm">
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
-                        Stock
-                      </span>
-                      <span className="font-medium text-gray-700">{activeStock} available</span>
-                    </div>
-                  ))}
+                  ) : null)}
 
                 {/* ✅ Price Block */}
                 {product.stock_type === "variants" && selectedVariant ? (
