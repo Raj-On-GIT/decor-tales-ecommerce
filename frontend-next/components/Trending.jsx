@@ -2,12 +2,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { getTrendingProducts } from "@/lib/api";
 import TrendingClient from "./TrendingClient";
+import { isProductOutOfStock } from "@/lib/utils";
 
 export default async function Trending() {
   const products = await getTrendingProducts(); // Show only top 4 trending products
+  const visibleProducts = (products || []).filter(
+    (product) => !isProductOutOfStock(product),
+  );
 
   // Don't render the section at all if there's nothing trending yet
-  if (!products || products.length === 0) return null;
+  if (!visibleProducts.length) return null;
 
   return (
     <section
@@ -63,7 +67,7 @@ export default async function Trending() {
       </div>
 
       {/* Products */}
-      <TrendingClient products={products.slice(0, 4)} />
+      <TrendingClient products={visibleProducts.slice(0, 4)} />
     </section>
   );
 }

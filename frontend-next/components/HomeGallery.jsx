@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getProducts } from "@/lib/api";
 import HomeGalleryClient from "./HomeGalleryClient";
+import { isProductOutOfStock } from "@/lib/utils";
 
 export default async function HomeGallery() {
   const products = await getProducts();
@@ -11,6 +12,9 @@ export default async function HomeGallery() {
     const dateB = new Date(b.created_at || 0);
     return dateB - dateA;
   });
+  const visibleProducts = sortedProducts.filter(
+    (product) => !isProductOutOfStock(product),
+  );
 
   return (
     <section
@@ -66,7 +70,7 @@ export default async function HomeGallery() {
       </div>
 
       {/* Products */}
-      <HomeGalleryClient products={sortedProducts} />
+      <HomeGalleryClient products={visibleProducts} />
     </section>
   );
 }

@@ -1,8 +1,7 @@
-// app/catalog/[categorySlug]/page.jsx
-
 import ProductCard from "@/components/ProductCard";
 import { BACKEND } from "@/lib/api";
 import BrowseByCategoryClient from "@/components/BrowseByCategoryClient";
+import { sortProductsInStockFirst } from "@/lib/utils";
 
 async function getCategoryData(slug) {
   const res = await fetch(`${BACKEND}/api/categories/${slug}/`, {
@@ -17,17 +16,16 @@ async function getCategoryData(slug) {
 }
 
 export default async function CategoryPage({ params }) {
-  const { categorySlug } = await params; // ✅ unwrap promise
+  const { categorySlug } = await params;
   const data = await getCategoryData(categorySlug);
+  const sortedProducts = sortProductsInStockFirst(data.products || []);
 
   return (
-    <section className="max-w-screen-xl mx-auto px-6 py-10">
-      {/* CATEGORY HEADING */}
-      <h1 className="text-3xl sm:text-4xl font-serif font-bold mb-8">
+    <section className="mx-auto max-w-screen-xl px-6 py-10">
+      <h1 className="mb-8 font-serif text-3xl font-bold sm:text-4xl">
         {data.category}
       </h1>
 
-      {/* ================= SUBCATEGORY TILES ================= */}
       {data.has_subcategories ? (
         <BrowseByCategoryClient
           categories={data.subcategories
@@ -35,23 +33,15 @@ export default async function CategoryPage({ params }) {
             .map((sub) => ({
               id: sub.id,
               name: sub.name,
-              slug: `${categorySlug}/${sub.slug}`, // 👈 important
+              slug: `${categorySlug}/${sub.slug}`,
               image: sub.image,
               productCount: sub.productCount,
-              subcategoryCount: 0, // subcategories don’t have nested subs
+              subcategoryCount: 0,
             }))}
         />
       ) : (
-        /* ================= PRODUCTS GRID ================= */
-
-        <div
-          className="
-    grid
-    grid-cols-2 sm:grid-cols-3 lg:grid-cols-4
-    gap-8
-  "
-        >
-          {data.products.map((product) => (
+        <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-4">
+          {sortedProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
