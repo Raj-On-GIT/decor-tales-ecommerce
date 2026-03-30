@@ -299,6 +299,7 @@ export default function OrderDetailPage() {
                       </details>
                     ) : null
                   }
+                  customizationLayout={customizationTag === "customized" ? "below" : "inline"}
                   actions={(
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">

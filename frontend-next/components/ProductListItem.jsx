@@ -27,8 +27,10 @@ export default function ProductListItem({
   contentClassName = "",
   asideClassName = "",
   truncateText = false,
+  customizationLayout = "inline",
 }) {
   const variantText = getVariantText(variant);
+  const renderCustomizationBelow = customizationContent && customizationLayout === "below";
 
   return (
     <div
@@ -77,12 +79,18 @@ export default function ProductListItem({
 
           {secondaryContent ? <div>{secondaryContent}</div> : null}
           {noteContent ? <div>{noteContent}</div> : null}
-          {customizationContent ? <div>{customizationContent}</div> : null}
+          {customizationContent && !renderCustomizationBelow ? <div>{customizationContent}</div> : null}
         </div>
       </div>
 
       {actions ? (
         <div className={`shrink-0 ${asideClassName}`.trim()}>{actions}</div>
+      ) : null}
+
+      {renderCustomizationBelow ? (
+        <div className="w-full border-t border-gray-100 pt-3">
+          {customizationContent}
+        </div>
       ) : null}
     </div>
   );
