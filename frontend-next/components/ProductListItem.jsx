@@ -61,7 +61,7 @@ export default function ProductListItem({
           />
 
           {variantText ? (
-            <p className="mt-1 text-xs text-gray-500 sm:text-sm">{variantText}</p>
+            <p className="mt-1 text-[11px] text-gray-600 sm:text-sm">{variantText}</p>
           ) : null}
 
           {primaryContent ? <div className="mt-1.5">{primaryContent}</div> : null}
