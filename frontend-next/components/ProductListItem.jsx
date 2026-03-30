@@ -38,7 +38,7 @@ export default function ProductListItem({
       className={`rounded-[1.5rem] border border-gray-100 bg-white/90 p-1 ${className}`.trim()}
     >
       <div
-        className={`flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between ${rowClassName}`.trim()}
+        className={`flex flex-col gap-4 mb-1 sm:flex-row sm:items-start sm:justify-between ${rowClassName}`.trim()}
       >
         <div className={`flex min-w-0 items-start gap-4 ${contentClassName}`.trim()}>
           {image ? (
@@ -93,7 +93,7 @@ export default function ProductListItem({
       </div>
 
       {renderCustomizationBelow ? (
-        <div className="border-t border-gray-100 pt-3">
+        <div className="border-t border-gray-100 pt-1">
           {customizationContent}
         </div>
       ) : null}
