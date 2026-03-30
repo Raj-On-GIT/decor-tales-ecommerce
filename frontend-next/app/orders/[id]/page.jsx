@@ -222,6 +222,7 @@ export default function OrderDetailPage() {
                   key={index}
                   href={`/products/${item.product.id}`}
                   image={item.product.image}
+                  imageClassName="self-center"
                   title={item.product.title}
                   category={item.product.category}
                   subCategory={item.product.sub_category}
@@ -231,14 +232,6 @@ export default function OrderDetailPage() {
                       "text-gray-600 transition hover:text-gray-800 hover:underline underline-offset-2",
                   }}
                   variant={item.variant}
-                  primaryContent={(
-                    <p className="text-sm font-semibold text-gray-900 sm:text-base">
-                      Rs {Number(item.price || 0).toFixed(2)}
-                    </p>
-                  )}
-                  secondaryContent={(
-                    <p className="text-xs text-gray-500">Final unit price</p>
-                  )}
                   customizationContent={
                     (item.custom_text || item.custom_image || item.custom_images?.length > 0) ? (
                       <details className="text-sm">
@@ -280,7 +273,7 @@ export default function OrderDetailPage() {
                   actions={(
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">
-                        Rs {Number(item.total || 0).toFixed(2)}
+                        Total: Rs {Number(item.total || 0).toFixed(2)}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">Qty: {item.quantity}</p>
                     </div>

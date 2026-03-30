@@ -155,7 +155,7 @@ export default function OrdersPage() {
                             variant={item.variant}
                             quantity={item.quantity}
                             className="rounded-[1.25rem] bg-[#fafcf7] p-3"
-                            imageClassName="h-14 w-14 rounded-lg sm:h-14 sm:w-14"
+                            imageClassName="self-center h-14 w-14 rounded-lg sm:h-14 sm:w-14"
                           />
                         ))}
                         {order.items.length > 1 ? (

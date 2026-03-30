@@ -439,6 +439,7 @@ export default function CheckoutPage() {
                   }
                   href={`/products/${item.id}`}
                   image={item.image}
+                  imageClassName="self-center"
                   title={item.title}
                   category={item.category}
                   subCategory={item.sub_category}
@@ -448,11 +449,6 @@ export default function CheckoutPage() {
                       "text-gray-600 transition hover:text-gray-800 hover:underline underline-offset-2",
                   }}
                   variant={item.variant}
-                  primaryContent={(
-                    <p className="text-sm font-semibold text-gray-900 sm:text-base">
-                      Rs {formatPrice(item.price)}
-                    </p>
-                  )}
                   customizationContent={
                     (item.custom_text || item.custom_image || item.custom_images?.length > 0) ? (
                       <details className="text-sm">
@@ -494,7 +490,7 @@ export default function CheckoutPage() {
                   actions={(
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">
-                        Rs {(item.qty * Number(item.price)).toFixed(2)}
+                        Total: Rs {(item.qty * Number(item.price)).toFixed(2)}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">Qty: {item.qty}</p>
                     </div>
