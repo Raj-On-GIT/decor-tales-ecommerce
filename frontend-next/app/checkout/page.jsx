@@ -447,6 +447,7 @@ export default function CheckoutPage() {
                   category={item.category}
                   subCategory={item.sub_category}
                   categoryTrailProps={{
+                    singleLine: true,
                     chipClassName: "text-gray-600",
                     linkClassName:
                       "text-gray-600 transition hover:text-gray-800 hover:underline underline-offset-2",
@@ -505,8 +506,10 @@ export default function CheckoutPage() {
                       <p className="mt-1 text-xs text-gray-500">Qty: {item.qty}</p>
                     </div>
                   )}
+                  className="flex-row items-start justify-between"
                   contentClassName="min-w-0 flex-1 items-center"
-                  asideClassName="sm:self-center"
+                  asideClassName="self-start sm:self-center"
+                  truncateText
                 />
                 );
               })}

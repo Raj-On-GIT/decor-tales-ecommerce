@@ -26,6 +26,7 @@ export default function ProductListItem({
   imageClassName = "",
   contentClassName = "",
   asideClassName = "",
+  truncateText = false,
 }) {
   const variantText = getVariantText(variant);
 
@@ -48,7 +49,9 @@ export default function ProductListItem({
           <Link
             href={href}
             onClick={onNavigate}
-            className="block text-sm font-semibold leading-5 text-gray-900 transition hover:text-[#002424] sm:text-base"
+            className={`block text-sm font-semibold leading-5 text-gray-900 transition hover:text-[#002424] sm:text-base ${
+              truncateText ? "truncate" : ""
+            }`.trim()}
           >
             {title}
           </Link>          
@@ -61,7 +64,9 @@ export default function ProductListItem({
           />
 
           {variantText ? (
-            <p className="text-[11px] text-gray-600 sm:text-sm">{variantText}</p>
+            <p className={`text-[11px] text-gray-600 sm:text-sm ${truncateText ? "truncate" : ""}`.trim()}>
+              {variantText}
+            </p>
           ) : null}
 
           {primaryContent ? <div>{primaryContent}</div> : null}
