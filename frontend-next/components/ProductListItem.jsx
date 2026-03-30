@@ -64,15 +64,15 @@ export default function ProductListItem({
             <p className="text-[11px] text-gray-600 sm:text-sm">{variantText}</p>
           ) : null}
 
-          {primaryContent ? <div className="mt-1">{primaryContent}</div> : null}
+          {primaryContent ? <div>{primaryContent}</div> : null}
 
           {typeof quantity === "number" ? (
             <p className="mt-1 text-xs text-gray-500 sm:text-sm">Qty: {quantity}</p>
           ) : null}
 
-          {secondaryContent ? <div className="mt-1">{secondaryContent}</div> : null}
-          {noteContent ? <div className="mt-1">{noteContent}</div> : null}
-          {customizationContent ? <div className="mt-1">{customizationContent}</div> : null}
+          {secondaryContent ? <div>{secondaryContent}</div> : null}
+          {noteContent ? <div>{noteContent}</div> : null}
+          {customizationContent ? <div>{customizationContent}</div> : null}
         </div>
       </div>
 
