@@ -273,7 +273,8 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                               </div>
                             </div>
                           )}
-                          className="flex-row items-center justify-between border-0 bg-transparent p-0"
+                          className="border-0 bg-transparent p-0"
+                          rowClassName="flex-row items-center justify-between"
                           contentClassName="min-w-0 flex-1 items-center"
                           asideClassName="self-center pt-0"
                         />

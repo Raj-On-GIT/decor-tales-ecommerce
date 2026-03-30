@@ -183,6 +183,7 @@ export default function OrdersPage() {
                               ) : null
                             }
                             className="rounded-[1.25rem] bg-[#fafcf7] p-3"
+                            rowClassName="items-center"
                             imageClassName="self-center h-14 w-14 rounded-lg sm:h-14 sm:w-14"
                             contentClassName="items-center"
                           />

@@ -23,6 +23,7 @@ export default function ProductListItem({
   actions = null,
   onNavigate,
   className = "",
+  rowClassName = "",
   imageClassName = "",
   contentClassName = "",
   asideClassName = "",
@@ -34,61 +35,65 @@ export default function ProductListItem({
 
   return (
     <div
-      className={`flex flex-col gap-4 rounded-[1.5rem] border border-gray-100 bg-white/90 p-1 sm:flex-row sm:items-start sm:justify-between ${className}`.trim()}
+      className={`rounded-[1.5rem] border border-gray-100 bg-white/90 p-1 ${className}`.trim()}
     >
-      <div className={`flex min-w-0 items-start gap-4 ${contentClassName}`.trim()}>
-        {image ? (
-          <Link
-            href={href}
-            onClick={onNavigate}
-            className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:h-20 sm:w-20 ${imageClassName}`.trim()}
-          >
-            <img src={image} alt={title} className="h-full w-full object-cover" />
-          </Link>
-        ) : null}
-
-        <div className="min-w-0 flex-1">
-          <Link
-            href={href}
-            onClick={onNavigate}
-            className={`block text-sm font-semibold leading-5 text-gray-900 transition hover:text-[#002424] sm:text-base ${
-              truncateText ? "truncate" : ""
-            }`.trim()}
-          >
-            {title}
-          </Link>          
-
-          <CategoryTrail
-            category={category}
-            subCategory={subCategory}
-            className="text-xs sm:text-sm"
-            {...categoryTrailProps}
-          />
-
-          {variantText ? (
-            <p className={`text-[11px] text-gray-600 sm:text-sm ${truncateText ? "truncate" : ""}`.trim()}>
-              {variantText}
-            </p>
+      <div
+        className={`flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between ${rowClassName}`.trim()}
+      >
+        <div className={`flex min-w-0 items-start gap-4 ${contentClassName}`.trim()}>
+          {image ? (
+            <Link
+              href={href}
+              onClick={onNavigate}
+              className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:h-20 sm:w-20 ${imageClassName}`.trim()}
+            >
+              <img src={image} alt={title} className="h-full w-full object-cover" />
+            </Link>
           ) : null}
 
-          {primaryContent ? <div>{primaryContent}</div> : null}
+          <div className="min-w-0 flex-1">
+            <Link
+              href={href}
+              onClick={onNavigate}
+              className={`block text-sm font-semibold leading-5 text-gray-900 transition hover:text-[#002424] sm:text-base ${
+                truncateText ? "truncate" : ""
+              }`.trim()}
+            >
+              {title}
+            </Link>          
 
-          {typeof quantity === "number" ? (
-            <p className="mt-1 text-xs text-gray-500 sm:text-sm">Qty: {quantity}</p>
-          ) : null}
+            <CategoryTrail
+              category={category}
+              subCategory={subCategory}
+              className="text-xs sm:text-sm"
+              {...categoryTrailProps}
+            />
 
-          {secondaryContent ? <div>{secondaryContent}</div> : null}
-          {noteContent ? <div>{noteContent}</div> : null}
-          {customizationContent && !renderCustomizationBelow ? <div>{customizationContent}</div> : null}
+            {variantText ? (
+              <p className={`text-[11px] text-gray-600 sm:text-sm ${truncateText ? "truncate" : ""}`.trim()}>
+                {variantText}
+              </p>
+            ) : null}
+
+            {primaryContent ? <div>{primaryContent}</div> : null}
+
+            {typeof quantity === "number" ? (
+              <p className="mt-1 text-xs text-gray-500 sm:text-sm">Qty: {quantity}</p>
+            ) : null}
+
+            {secondaryContent ? <div>{secondaryContent}</div> : null}
+            {noteContent ? <div>{noteContent}</div> : null}
+            {customizationContent && !renderCustomizationBelow ? <div>{customizationContent}</div> : null}
+          </div>
         </div>
+
+        {actions ? (
+          <div className={`shrink-0 ${asideClassName}`.trim()}>{actions}</div>
+        ) : null}
       </div>
 
-      {actions ? (
-        <div className={`shrink-0 ${asideClassName}`.trim()}>{actions}</div>
-      ) : null}
-
       {renderCustomizationBelow ? (
-        <div className="order-last basis-full border-t border-gray-100 pt-3">
+        <div className="border-t border-gray-100 pt-3">
           {customizationContent}
         </div>
       ) : null}

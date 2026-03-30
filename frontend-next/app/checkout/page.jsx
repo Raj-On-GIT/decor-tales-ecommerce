@@ -507,7 +507,7 @@ export default function CheckoutPage() {
                       <p className="mt-1 text-xs text-gray-500">Qty: {item.qty}</p>
                     </div>
                   )}
-                  className="flex-row items-start justify-between"
+                  rowClassName="flex-row items-start justify-between"
                   contentClassName="min-w-0 flex-1 items-center"
                   asideClassName="self-start sm:self-center"
                   truncateText
