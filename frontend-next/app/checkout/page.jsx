@@ -462,7 +462,7 @@ export default function CheckoutPage() {
                   }
                   customizationContent={
                     (item.custom_text || item.custom_image || item.custom_images?.length > 0) ? (
-                      <details className="text-sm">
+                      <details className="text-sm p-1">
                         <summary className="cursor-pointer text-gray-600 hover:text-black">
                           View Customization
                         </summary>
