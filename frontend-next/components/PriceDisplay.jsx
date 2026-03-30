@@ -10,7 +10,7 @@ export default function PriceDisplay({
   currentPriceClassName = "",
   originalPriceClassName = "",
   badgeClassName = "",
-  currencyPrefix = "Rs ",
+  currencyPrefix = "₹",
 }) {
   const numericPrice = Number(price || 0);
   const numericOriginalPrice = Number(originalPrice || 0);

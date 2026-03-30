@@ -303,7 +303,7 @@ export default function OrderDetailPage() {
                   actions={(
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">
-                        Total: Rs {Number(item.total || 0).toFixed(2)}
+                        Total: ₹{Number(item.total || 0).toFixed(2)}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">Qty: {item.quantity}</p>
                     </div>
@@ -343,13 +343,13 @@ export default function OrderDetailPage() {
                   <div className="mt-4 space-y-3">
                     <div className="flex items-center justify-between text-sm text-gray-600">
                       <span>Subtotal</span>
-                      <span>Rs {Number(order.subtotal || 0).toFixed(2)}</span>
+                      <span>₹{Number(order.subtotal || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm text-gray-600">
                       <span>Coupon</span>
                       <span>
                         {order.coupon_code
-                          ? `- Rs ${Number(order.discount || 0).toFixed(2)}`
+                          ? `- ₹${Number(order.discount || 0).toFixed(2)}`
                           : "Not applied"}
                       </span>
                     </div>
@@ -361,7 +361,7 @@ export default function OrderDetailPage() {
                     ) : null}
                     <div className="flex items-center justify-between border-t border-[#d7e5cf] pt-3 text-lg font-semibold text-gray-900">
                       <span>Total</span>
-                      <span>Rs {Number(order.total || 0).toFixed(2)}</span>
+                      <span>₹{Number(order.total || 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>

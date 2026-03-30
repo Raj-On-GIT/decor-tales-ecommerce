@@ -213,7 +213,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                                 </p>
                               ) : null}
                               <p className="text-sm font-semibold text-gray-900">
-                                Rs {formatPrice(item.price)}
+                                ₹{formatPrice(item.price)}
                               </p>
                             </>
                           }
@@ -289,7 +289,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
               <div className="border-t bg-gray-50 p-6">
                 <div className="mb-4 flex justify-between text-lg font-bold">
                   <span>Subtotal</span>
-                  <span>Rs {formatPrice(total)}</span>
+                  <span>₹{formatPrice(total)}</span>
                 </div>
 
                 <p className="mb-6 text-center text-xs text-gray-500">

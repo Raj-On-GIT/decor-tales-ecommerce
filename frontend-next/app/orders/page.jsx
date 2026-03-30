@@ -204,7 +204,7 @@ export default function OrdersPage() {
                         Total
                       </p>
                       <p className="mt-1 text-2xl font-semibold text-gray-900">
-                        Rs {Number(order.total || 0).toFixed(2)}
+                        ₹{Number(order.total || 0).toFixed(2)}
                       </p>
                     </div>
                     <Link

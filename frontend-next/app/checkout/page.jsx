@@ -322,7 +322,7 @@ export default function CheckoutPage() {
                 {itemCount} item{itemCount === 1 ? "" : "s"}
               </div>
               <div className="rounded-full border border-gray-200 bg-white px-4 py-2 font-medium">
-                Total: Rs {formatPrice(payableTotal)}
+                Total: ₹{formatPrice(payableTotal)}
               </div>
             </div>
           </div>
@@ -502,7 +502,7 @@ export default function CheckoutPage() {
                   actions={(
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">
-                        Total: Rs {(item.qty * Number(item.price)).toFixed(2)}
+                        Total: ₹{(item.qty * Number(item.price)).toFixed(2)}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">Qty: {item.qty}</p>
                     </div>
@@ -594,10 +594,10 @@ export default function CheckoutPage() {
 
                             <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
                               <span className="rounded-full bg-[#f5f7f3] px-3 py-1">
-                                Min eligible spend: Rs {formatPrice(coupon.min_order_amount)}
+                                Min eligible spend: ₹{formatPrice(coupon.min_order_amount)}
                               </span>
                               <span className="rounded-full bg-[#f5f7f3] px-3 py-1">
-                                Savings: Rs {formatPrice(coupon.discount_amount)}
+                                Savings: ₹{formatPrice(coupon.discount_amount)}
                               </span>
                             </div>
 
@@ -648,13 +648,13 @@ export default function CheckoutPage() {
               </div>
               <div className="mt-3 flex justify-between text-sm text-white/70">
                 <span>Subtotal</span>
-                <span>Rs {formatPrice(total)}</span>
+                <span>₹{formatPrice(total)}</span>
               </div>
               <div className="mt-3 flex justify-between text-sm text-white/70">
                 <span>Coupon</span>
                 <span>
                   {selectedCoupon
-                    ? `- Rs ${formatPrice(selectedCouponDiscount)}`
+                    ? `- ₹${formatPrice(selectedCouponDiscount)}`
                     : "Not applied"}
                 </span>
               </div>
@@ -666,7 +666,7 @@ export default function CheckoutPage() {
               ) : null}
               <div className="mt-3 flex justify-between text-lg font-semibold">
                 <span>Total</span>
-                <span>Rs {formatPrice(payableTotal)}</span>
+                <span>₹{formatPrice(payableTotal)}</span>
               </div>
             </div>
 

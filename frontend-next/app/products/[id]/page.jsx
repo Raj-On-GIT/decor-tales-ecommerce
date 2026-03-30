@@ -654,7 +654,7 @@ export default function ProductDetailPage() {
                     currentPriceClassName="text-2xl sm:text-3xl"
                     originalPriceClassName="text-base sm:text-lg"
                     badgeClassName="px-3 py-1 text-xs sm:text-sm"
-                    currencyPrefix="Rs "
+                    currencyPrefix="₹"
                   />
                 ) : (
                   <div className="mt-3">
@@ -665,7 +665,7 @@ export default function ProductDetailPage() {
                       currentPriceClassName="text-2xl sm:text-3xl"
                       originalPriceClassName="text-base sm:text-lg"
                       badgeClassName="px-3 py-1 text-xs sm:text-sm"
-                      currencyPrefix="Rs "
+                      currencyPrefix="₹"
                     />
                   </div>
                 )}
