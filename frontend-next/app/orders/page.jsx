@@ -44,6 +44,24 @@ function getStatusClasses(status = "") {
   return "bg-amber-100 text-amber-800";
 }
 
+function getCustomizationTag(item) {
+  const isCustomized = Boolean(
+    item?.custom_text ||
+      item?.customText ||
+      item?.custom_images?.length ||
+      item?.customImages?.length ||
+      item?.custom_image ||
+      item?.customImage,
+  );
+
+  if (isCustomized) {
+    return "customized";
+  }
+
+  const canBeCustomized = Boolean(item?.allow_custom_text || item?.allow_custom_image);
+  return canBeCustomized ? "standard" : null;
+}
+
 export default function OrdersPage() {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
@@ -144,7 +162,10 @@ export default function OrdersPage() {
 
                     {Array.isArray(order.items) && order.items.length > 0 ? (
                       <div className="mt-5 grid gap-3">
-                        {order.items.slice(0, 1).map((item, index) => (
+                        {order.items.slice(0, 1).map((item, index) => {
+                          const customizationTag = getCustomizationTag(item);
+
+                          return (
                           <ProductListItem
                             key={`${order.id}-${item.product.id}-${index}`}
                             href={`/products/${item.product.id}`}
@@ -154,10 +175,19 @@ export default function OrdersPage() {
                             subCategory={item.product.sub_category}
                             variant={item.variant}
                             quantity={item.quantity}
+                            secondaryContent={
+                              customizationTag ? (
+                                <p className="text-[11px] uppercase tracking-[0.16em] text-gray-400">
+                                  {customizationTag === "customized" ? "Customized" : "Standard"}
+                                </p>
+                              ) : null
+                            }
                             className="rounded-[1.25rem] bg-[#fafcf7] p-3"
                             imageClassName="self-center h-14 w-14 rounded-lg sm:h-14 sm:w-14"
+                            contentClassName="items-center"
                           />
-                        ))}
+                          );
+                        })}
                         {order.items.length > 1 ? (
                           <p className="text-xs text-gray-500">
                             +{order.items.length - 1} more item{order.items.length - 1 === 1 ? "" : "s"}

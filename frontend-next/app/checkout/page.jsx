@@ -431,7 +431,10 @@ export default function CheckoutPage() {
             </div>
 
             <div className="space-y-4">
-              {cart.map((item) => (
+              {cart.map((item) => {
+                const customizationTag = getCustomizationTag(item);
+
+                return (
                 <ProductListItem
                   key={
                     item.cart_item_id ||
@@ -449,6 +452,13 @@ export default function CheckoutPage() {
                       "text-gray-600 transition hover:text-gray-800 hover:underline underline-offset-2",
                   }}
                   variant={item.variant}
+                  secondaryContent={
+                    customizationTag ? (
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-gray-400">
+                        {customizationTag === "customized" ? "Customized" : "Standard"}
+                      </p>
+                    ) : null
+                  }
                   customizationContent={
                     (item.custom_text || item.custom_image || item.custom_images?.length > 0) ? (
                       <details className="text-sm">
@@ -495,9 +505,11 @@ export default function CheckoutPage() {
                       <p className="mt-1 text-xs text-gray-500">Qty: {item.qty}</p>
                     </div>
                   )}
+                  contentClassName="min-w-0 flex-1 items-center"
                   asideClassName="sm:self-center"
                 />
-              ))}
+                );
+              })}
             </div>
 
             <div className="mt-8">
@@ -676,4 +688,22 @@ export default function CheckoutPage() {
       </div>
     </section>
   );
+}
+
+function getCustomizationTag(item) {
+  const isCustomized = Boolean(
+    item?.custom_text ||
+      item?.customText ||
+      item?.custom_images?.length ||
+      item?.customImages?.length ||
+      item?.custom_image ||
+      item?.customImage,
+  );
+
+  if (isCustomized) {
+    return "customized";
+  }
+
+  const canBeCustomized = Boolean(item?.allow_custom_text || item?.allow_custom_image);
+  return canBeCustomized ? "standard" : null;
 }
