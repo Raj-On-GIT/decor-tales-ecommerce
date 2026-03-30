@@ -88,7 +88,7 @@ export default function ProductListItem({
       ) : null}
 
       {renderCustomizationBelow ? (
-        <div className="w-full border-t border-gray-100 pt-3">
+        <div className="order-last basis-full border-t border-gray-100 pt-3">
           {customizationContent}
         </div>
       ) : null}
