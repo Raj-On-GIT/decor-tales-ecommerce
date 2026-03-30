@@ -184,6 +184,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                           href={`/products/${item.id}`}
                           image={item.image || "https://via.placeholder.com/100"}
                           title={item.title}
+                          imageClassName="self-center"
                           category={item.category}
                           subCategory={item.sub_category}
                           categoryTrailProps={{
@@ -272,9 +273,9 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                               </div>
                             </div>
                           )}
-                          className="flex-row items-start justify-between border-0 bg-transparent p-0"
+                          className="flex-row items-center justify-between border-0 bg-transparent p-0"
                           contentClassName="min-w-0 flex-1 items-center"
-                          asideClassName="pt-0"
+                          asideClassName="self-center pt-0"
                         />
                       </motion.div>
                     );
