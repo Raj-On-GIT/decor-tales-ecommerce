@@ -29,7 +29,7 @@ export default function Header() {
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
-    () => false
+    () => false,
   );
   const isCheckoutPage =
     pathname === "/checkout" || pathname?.startsWith("/checkout/");
@@ -143,7 +143,9 @@ export default function Header() {
                         px-4 sm:px-6
                         h-14 md:h-16 
                         flex items-center ${
-                          isSearchOpen ? "justify-end md:justify-between" : "justify-between"
+                          isSearchOpen
+                            ? "justify-end md:justify-between"
+                            : "justify-between"
                         }`}
         >
           {/* LEFT - Logo & Nav */}
@@ -152,19 +154,16 @@ export default function Header() {
               isSearchOpen ? "hidden md:flex" : "flex"
             }`}
           >
-            <Link
-  href="/"
-  className="flex items-center shrink-0 mr-4"
->
-  <Image
-  src="/DECOR_TALES_cropped.svg"
-  alt="Decor Tales"
-  width={260}
-  height={80}
-  className="h-13 w-auto object-contain"
-  priority
-/>
-</Link>
+            <Link href="/" className="flex items-center shrink-0 mr-4">
+              <Image
+                src="/DECOR_TALES_cropped.svg"
+                alt="Decor Tales"
+                width={260}
+                height={80}
+                className="h-12 w-auto object-contain"
+                priority
+              />
+            </Link>
 
             <nav className="hidden md:flex space-x-6 text-sm font-medium text-gray-600">
               <Link
@@ -189,7 +188,9 @@ export default function Header() {
           {/* RIGHT - Search, Cart, Profile */}
           <div
             className={`flex items-center ${
-              isSearchOpen ? "w-full justify-end md:w-auto md:space-x-4" : "space-x-2 md:space-x-4"
+              isSearchOpen
+                ? "w-full justify-end md:w-auto md:space-x-4"
+                : "space-x-2 md:space-x-4"
             }`}
           >
             {/* Search Button */}
@@ -238,10 +239,7 @@ export default function Header() {
             {/* PROFILE BUTTON - AUTH-AWARE */}
             {/* ═══════════════════════════════════════════════════════════ */}
 
-            <div
-              ref={profileRef}
-              className="relative hidden md:block"
-            >
+            <div ref={profileRef} className="relative hidden md:block">
               {/* Profile Icon */}
               <button
                 disabled={isIdentityLoading}
