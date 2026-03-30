@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { ShoppingBag, Search, Menu, User, LogOut, Loader2 } from "lucide-react";
@@ -152,19 +153,18 @@ export default function Header() {
             }`}
           >
             <Link
-              href="/"
-              className="flex items-center gap-2 md:gap-3
-                         text-lg md:text-2xl
-                         font-serif font-bold tracking-tight text-gray-900
-                         whitespace-nowrap"
-            >
-              <img
-                src="/DECOR_TALES_cropped.svg"
-                alt="Decor Tales Logo"
-                className="h-8 md:h-10 w-auto bg-[#FFECC0] rounded-full"
-              />
-              Decor Tales
-            </Link>
+  href="/"
+  className="flex items-center shrink-0 mr-4"
+>
+  <Image
+  src="/DECOR_TALES_cropped.svg"
+  alt="Decor Tales"
+  width={260}
+  height={80}
+  className="h-13 w-auto object-contain"
+  priority
+/>
+</Link>
 
             <nav className="hidden md:flex space-x-6 text-sm font-medium text-gray-600">
               <Link
