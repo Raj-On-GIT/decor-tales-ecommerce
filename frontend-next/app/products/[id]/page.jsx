@@ -11,9 +11,9 @@ import { getProducts } from "@/lib/api";
 import { API_BASE } from "@/lib/config";
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalToast } from "@/context/ToastContext";
-import PageLoader from "@/components/ui/PageLoader";
 import CategoryTrail from "@/components/CategoryTrail";
 import PriceDisplay from "@/components/PriceDisplay";
+import ProductDetailSkeleton from "@/components/ProductDetailSkeleton";
 
 const MAX_CUSTOM_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_CUSTOM_TEXT_LENGTH = 120;
@@ -251,11 +251,7 @@ export default function ProductDetailPage() {
     product?.variants.some((v) => v.color_name === color);
 
   if (!product) {
-    return (
-      <div className="min-h-screen bg-white">
-        <PageLoader />
-      </div>
-    );
+    return <ProductDetailSkeleton />;
   }
 
   // ✅ Combine Main + Gallery Images (deduplicated)

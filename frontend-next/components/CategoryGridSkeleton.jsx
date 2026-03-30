@@ -1,6 +1,6 @@
 export default function CategoryGridSkeleton({ count = 4 }) {
   return (
-    <section className="max-w-screen-xl mx-auto px-6 py-8 sm:py-10">
+    <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-16 md:py-20">
       {/* Heading Skeleton */}
       <div className="flex flex-col gap-4 mb-6 sm:mb-12 sm:flex-row sm:items-end sm:justify-between">
         <div>
@@ -12,7 +12,7 @@ export default function CategoryGridSkeleton({ count = 4 }) {
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: count }).map((_, i) => (
           <div key={i} className="group">
             <div
