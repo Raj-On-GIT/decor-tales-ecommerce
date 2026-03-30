@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import ViewportReveal from "./ViewportReveal";
 
 function BannerContent({ banner }) {
   const hasCta = Boolean(banner.cta_text && banner.cta_link);
@@ -266,7 +267,7 @@ export default function BannerSliderClient({ banners, interval = 4000 }) {
       onTouchEnd={handleTouchEnd}
       aria-label="Promotional banners"
     >
-      <div className="relative overflow-hidden">
+      <ViewportReveal className="relative overflow-hidden">
         <div
           className="flex transition-transform duration-700 ease-out"
           style={{ transform: `translateX(-${activeIndex * 100}%)` }}
@@ -315,7 +316,7 @@ export default function BannerSliderClient({ banners, interval = 4000 }) {
             </div>
           </>
         ) : null}
-      </div>
+      </ViewportReveal>
     </section>
   );
 }

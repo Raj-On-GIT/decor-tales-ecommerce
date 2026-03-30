@@ -1,6 +1,7 @@
 import ProductCard from "@/components/ProductCard";
 import { BACKEND } from "@/lib/api";
 import BrowseByCategoryClient from "@/components/BrowseByCategoryClient";
+import ViewportReveal from "@/components/ViewportReveal";
 import { sortProductsInStockFirst } from "@/lib/utils";
 
 async function getCategoryData(slug) {
@@ -38,13 +39,17 @@ export default async function CategoryPage({ params }) {
               productCount: sub.productCount,
               subcategoryCount: 0,
             }))}
+          reveal
         />
       ) : (
-        <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-8 md:gap-10 lg:grid-cols-4">
+        <ViewportReveal
+          stagger
+          className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-8 md:gap-10 lg:grid-cols-4"
+        >
           {sortedProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
-        </div>
+        </ViewportReveal>
       )}
     </section>
   );

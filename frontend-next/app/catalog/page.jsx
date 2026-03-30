@@ -1,6 +1,7 @@
 import { getProducts, getCategories } from "@/lib/api";
 import ProductCard from "@/components/ProductCard";
 import BrowseByCategoryClient from "@/components/BrowseByCategoryClient";
+import ViewportReveal from "@/components/ViewportReveal";
 
 export default async function CatalogPage({ searchParams }) {
   const params = await searchParams;
@@ -25,7 +26,7 @@ export default async function CatalogPage({ searchParams }) {
           </p>
         </div>
 
-        <BrowseByCategoryClient categories={categoriesWithContent} />
+        <BrowseByCategoryClient categories={categoriesWithContent} reveal />
       </section>
     );
   }
@@ -41,7 +42,10 @@ export default async function CatalogPage({ searchParams }) {
         {title}
       </h2>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+      <ViewportReveal
+        stagger
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10"
+      >
         {products.length > 0 ? (
           products.map((p) => (
             <ProductCard key={p.id} product={p} />
@@ -51,7 +55,7 @@ export default async function CatalogPage({ searchParams }) {
             No products found in this category.
           </p>
         )}
-      </div>
+      </ViewportReveal>
     </section>
   );
 }

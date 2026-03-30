@@ -1,5 +1,6 @@
 import { BACKEND } from "@/lib/api";
 import ProductCard from "@/components/ProductCard";
+import ViewportReveal from "@/components/ViewportReveal";
 import { sortProductsInStockFirst } from "@/lib/utils";
 
 async function getSubcategoryData(category, sub) {
@@ -28,7 +29,10 @@ export default async function SubcategoryPage({ params }) {
 
       <p className="mb-6 text-sm text-gray-600 sm:mb-8 sm:text-base">{data.subcategory}</p>
 
-      <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-8 md:gap-10 lg:grid-cols-4">
+      <ViewportReveal
+        stagger
+        className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-8 md:gap-10 lg:grid-cols-4"
+      >
         {sortedProducts.length > 0 ? (
           sortedProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
@@ -38,7 +42,7 @@ export default async function SubcategoryPage({ params }) {
             No products found in this subcategory.
           </p>
         )}
-      </div>
+      </ViewportReveal>
     </section>
   );
 }

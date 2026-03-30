@@ -25,6 +25,72 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+[data-reveal="true"][data-reveal-enabled="true"] {
+  transition:
+    opacity 0.72s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-state="hidden"] {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0);
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-state="visible"] {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-stagger="true"] > * {
+  transition:
+    opacity 0.72s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-stagger="true"][data-reveal-state="hidden"] > * {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-stagger="true"][data-reveal-state="visible"] > * {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-stagger="true"] > :nth-child(1) {
+  transition-delay: 0ms;
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-stagger="true"] > :nth-child(2) {
+  transition-delay: 70ms;
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-stagger="true"] > :nth-child(3) {
+  transition-delay: 110ms;
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-stagger="true"] > :nth-child(4) {
+  transition-delay: 150ms;
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-stagger="true"] > :nth-child(5) {
+  transition-delay: 190ms;
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-stagger="true"] > :nth-child(6) {
+  transition-delay: 230ms;
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-stagger="true"] > :nth-child(7) {
+  transition-delay: 270ms;
+}
+
+[data-reveal="true"][data-reveal-enabled="true"][data-reveal-stagger="true"] > :nth-child(8) {
+  transition-delay: 310ms;
+}
+
 @keyframes blink {
   0%,
   50%,
