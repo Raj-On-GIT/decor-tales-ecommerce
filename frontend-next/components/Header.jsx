@@ -154,7 +154,7 @@ export default function Header() {
               isSearchOpen ? "hidden md:flex" : "flex"
             }`}
           >
-            <Link href="/" className="flex items-center shrink-0 mr-4">
+            <Link href="/" className="flex items-center shrink-0">
               <Image
                 src="/DECOR_TALES_cropped.svg"
                 alt="Decor Tales"
