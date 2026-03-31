@@ -328,7 +328,7 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -354,7 +354,7 @@ export default function CheckoutPage() {
               )}
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-2">
               {addresses.length === 0 && (
                 <div className="rounded-[1.5rem] border border-dashed border-gray-300 bg-[#f8faef] py-12 text-center">
                   <p className="mb-4 text-gray-600">
@@ -373,7 +373,7 @@ export default function CheckoutPage() {
               {addresses.map((addr) => (
                 <label
                   key={addr.id}
-                  className={`block cursor-pointer rounded-[1.5rem] border p-6 transition-all duration-200 ${
+                  className={`block cursor-pointer rounded-[1.5rem] border p-4 transition-all duration-200 ${
                     selectedAddress === addr.id
                       ? "border-[#002424] bg-[#f7fbf4] shadow-sm"
                       : "border-transparent bg-gray-50 hover:border-gray-200 hover:bg-white"
@@ -430,7 +430,7 @@ export default function CheckoutPage() {
               <p className="text-sm text-gray-500">Ready for final review</p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 px-4">
               {cart.map((item) => {
                 const customizationTag = getCustomizationTag(item);
 

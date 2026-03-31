@@ -218,6 +218,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                             </>
                           }
                           onNavigate={() => setIsCartOpen(false)}
+                          truncateText
                           actions={(
                             <div className="flex flex-col items-end gap-3">
                               <button

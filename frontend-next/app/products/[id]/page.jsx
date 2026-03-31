@@ -14,6 +14,7 @@ import { useGlobalToast } from "@/context/ToastContext";
 import CategoryTrail from "@/components/CategoryTrail";
 import PriceDisplay from "@/components/PriceDisplay";
 import ProductDetailSkeleton from "@/components/ProductDetailSkeleton";
+import { isProductOutOfStock } from "@/lib/utils";
 
 const MAX_CUSTOM_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_CUSTOM_TEXT_LENGTH = 120;
@@ -76,6 +77,7 @@ export default function ProductDetailPage() {
         if (Array.isArray(allData)) {
           const relatedPool = allData.filter((p) => {
             if (p.id === data.id) return false;
+            if (isProductOutOfStock(p)) return false;
 
             if (data.sub_category?.slug) {
               return p.sub_category?.slug === data.sub_category.slug;
@@ -308,9 +310,9 @@ export default function ProductDetailPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-screen-xl px-4 pt-5 sm:px-6">
+      <div className="mx-auto max-w-screen-xl px-10 pt-10">
         {/* ✅ Center Two-Column Layout */}
-        <div className="mb-10 grid grid-cols-1 items-start gap-8 sm:gap-10 md:grid-cols-2 md:gap-12 md:px-6 lg:px-12">
+        <div className="mb-10 grid grid-cols-1 items-start gap-8 sm:gap-10 md:grid-cols-2 md:gap-12 md:px-4 lg:px-10">
           {/* ================= LEFT: IMAGE VIEWER ================= */}
           <div className="flex flex-col items-center">
             {/* ✅ Main Carousel */}
