@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import F, Q
 from django.shortcuts import get_object_or_404
@@ -571,6 +572,17 @@ def get_available_coupons(request):
 @transaction.atomic
 def create_order(request):
     try:
+        from .payment_services import release_expired_reservations
+
+        if not getattr(settings, "ALLOW_LEGACY_DIRECT_ORDER", False):
+            return Response(
+                {
+                    "error": "Direct order creation is disabled for safety. Use the payment order flow instead."
+                },
+                status=400,
+            )
+
+        release_expired_reservations()
         cart = Cart.objects.filter(user=request.user).first()
 
         if not cart or not CartItem.objects.filter(cart=cart).exists():

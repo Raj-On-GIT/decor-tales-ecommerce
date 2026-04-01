@@ -163,7 +163,8 @@ export default function Header() {
                 alt="Decor Tales Logo"
                 width={720}
                 height={220}
-                className="h-10 w-auto max-w-[146px] object-contain md:h-12 md:max-w-[210px]"
+                className="h-10 w-auto max-w-[146px] object-contain opacity-80 mix-blend-multiply md:h-12 md:max-w-[210px]"
+
                 priority
               />
               Decor Tales

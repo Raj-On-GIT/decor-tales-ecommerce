@@ -1,11 +1,12 @@
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from orders.models import Cart, CartItem, Coupon, CouponUsage, Order
+from orders.models import Cart, CartItem, Coupon, CouponUsage, Order, StockReservation
 from products.models import Category, Product, SubCategory
 
 
@@ -155,3 +156,190 @@ class AvailableCouponsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["coupons"], [])
+
+
+class PaymentFlowSafetyTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="pay-user",
+            email="pay@example.com",
+            password="testpass123",
+        )
+        self.client.force_authenticate(user=self.user)
+
+        self.category = Category.objects.create(name="Frames Safe")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Wall Frames Safe",
+        )
+        self.product = Product.objects.create(
+            title="Limited Frame",
+            mrp=Decimal("500.00"),
+            slashed_price=Decimal("400.00"),
+            stock=1,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.cart = Cart.objects.create(user=self.user)
+        CartItem.objects.create(cart=self.cart, product=self.product, quantity=1)
+
+        from accounts.models import Address
+
+        self.address = Address.objects.create(
+            user=self.user,
+            full_name="Test User",
+            phone="9999999999",
+            address_line_1="Street 1",
+            address_line_2="",
+            city="Delhi",
+            state="Delhi",
+            postal_code="110001",
+            is_default=True,
+        )
+
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_second_checkout_for_last_item_is_blocked_by_reservation(self, mock_client):
+        mock_client.return_value.order.create.return_value = {
+            "id": "order_rzp_1",
+            "amount": 40000,
+            "currency": "INR",
+        }
+
+        response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(StockReservation.objects.count(), 1)
+
+        second_user = User.objects.create_user(
+            username="pay-user-2",
+            email="pay2@example.com",
+            password="testpass123",
+        )
+        second_cart = Cart.objects.create(user=second_user)
+        CartItem.objects.create(cart=second_cart, product=self.product, quantity=1)
+        from accounts.models import Address
+
+        second_address = Address.objects.create(
+            user=second_user,
+            full_name="Test User 2",
+            phone="8888888888",
+            address_line_1="Street 2",
+            address_line_2="",
+            city="Delhi",
+            state="Delhi",
+            postal_code="110002",
+            is_default=True,
+        )
+        second_client = APIClient()
+        second_client.force_authenticate(user=second_user)
+
+        second_response = second_client.post(
+            reverse("create_payment_order"),
+            {"address_id": second_address.id},
+            format="json",
+        )
+        self.assertEqual(second_response.status_code, 400)
+        self.assertIn("enough stock", second_response.data["error"])
+
+    @patch("orders.payment_services.verify_razorpay_webhook_signature", return_value=True)
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_successful_payment_without_frontend_callback_is_completed_by_webhook(
+        self,
+        mock_client,
+        mock_verify_signature,
+    ):
+        mock_client.return_value.order.create.return_value = {
+            "id": "order_rzp_2",
+            "amount": 40000,
+            "currency": "INR",
+        }
+
+        create_response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+        order_id = create_response.data["order"]["id"]
+
+        webhook_payload = {
+            "event": "payment.captured",
+            "payload": {
+                "payment": {
+                    "entity": {
+                        "id": "pay_123",
+                        "order_id": "order_rzp_2",
+                        "notes": {"order_id": str(order_id)},
+                    }
+                }
+            },
+        }
+
+        webhook_response = self.client.post(
+            reverse("razorpay_webhook"),
+            webhook_payload,
+            format="json",
+            HTTP_X_RAZORPAY_SIGNATURE="sig",
+        )
+        self.assertEqual(webhook_response.status_code, 200)
+
+        order = Order.objects.get(id=order_id)
+        self.product.refresh_from_db()
+        self.assertEqual(order.status, "paid")
+        self.assertTrue(order.payment_processed)
+        self.assertEqual(self.product.stock, 0)
+
+    @patch("orders.payment_services.verify_razorpay_webhook_signature", return_value=True)
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_duplicate_webhook_handling_is_idempotent(self, mock_client, mock_verify_signature):
+        mock_client.return_value.order.create.return_value = {
+            "id": "order_rzp_3",
+            "amount": 40000,
+            "currency": "INR",
+        }
+
+        create_response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+        order_id = create_response.data["order"]["id"]
+
+        webhook_payload = {
+            "event": "payment.captured",
+            "payload": {
+                "payment": {
+                    "entity": {
+                        "id": "pay_456",
+                        "order_id": "order_rzp_3",
+                        "notes": {"order_id": str(order_id)},
+                    }
+                }
+            },
+        }
+
+        first_response = self.client.post(
+            reverse("razorpay_webhook"),
+            webhook_payload,
+            format="json",
+            HTTP_X_RAZORPAY_SIGNATURE="sig",
+        )
+        second_response = self.client.post(
+            reverse("razorpay_webhook"),
+            webhook_payload,
+            format="json",
+            HTTP_X_RAZORPAY_SIGNATURE="sig",
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+
+        self.product.refresh_from_db()
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(self.product.stock, 0)
+        self.assertTrue(order.payment_processed)

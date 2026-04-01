@@ -320,3 +320,7 @@ PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://decor-tales-ecommerce.vercel.app")
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "").strip()
+PAYMENT_RESERVATION_MINUTES = int(os.getenv("PAYMENT_RESERVATION_MINUTES", "15"))
+ALLOW_LEGACY_DIRECT_ORDER = get_env_bool("ALLOW_LEGACY_DIRECT_ORDER", default=False)

@@ -1,17 +1,30 @@
 import hashlib
 import hmac
+import json
 import os
+from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 import razorpay
+from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from accounts.models import Address
 from products.models import Product, ProductVariant
 
-from .models import Cart, CartItem, Coupon, CouponUsage, Order, OrderItem, OrderItemImage
+from .models import (
+    Cart,
+    CartItem,
+    Coupon,
+    CouponUsage,
+    Order,
+    OrderItem,
+    OrderItemImage,
+    StockReservation,
+)
 from .views import evaluate_coupon_for_cart, get_cart_line_items, get_coupon_queryset, get_product_price
 
 PAISE_MULTIPLIER = Decimal("100")
@@ -60,6 +73,60 @@ def get_checkout_cart_queryset(user, lock=False):
         queryset = queryset.select_for_update()
 
     return cart, queryset
+
+
+def get_reservation_expiry():
+    return timezone.now() + timedelta(
+        minutes=max(1, getattr(settings, "PAYMENT_RESERVATION_MINUTES", 15))
+    )
+
+
+def release_expired_reservations(*, now=None):
+    now = now or timezone.now()
+    return StockReservation.objects.filter(
+        consumed_at__isnull=True,
+        released_at__isnull=True,
+        reserved_until__lt=now,
+    ).update(released_at=now)
+
+
+def get_active_reserved_quantity(*, product_id=None, variant_id=None):
+    filters = {
+        "consumed_at__isnull": True,
+        "released_at__isnull": True,
+        "reserved_until__gte": timezone.now(),
+    }
+    if variant_id is not None:
+        filters["variant_id"] = variant_id
+    else:
+        filters["product_id"] = product_id
+        filters["variant_id__isnull"] = True
+
+    return (
+        StockReservation.objects.filter(**filters).aggregate(total=Sum("quantity"))["total"]
+        or 0
+    )
+
+
+def lock_stock_targets_for_items(items):
+    product_ids = sorted(
+        {
+            item.product_id
+            for item in items
+            if item.product and item.product.stock_type != "variants"
+        }
+    )
+    variant_ids = sorted({item.variant_id for item in items if item.variant_id})
+
+    products_by_id = {
+        product.id: product
+        for product in Product.objects.select_for_update().filter(id__in=product_ids)
+    }
+    variants_by_id = {
+        variant.id: variant
+        for variant in ProductVariant.objects.select_for_update().filter(id__in=variant_ids)
+    }
+    return products_by_id, variants_by_id
 
 
 def validate_cart_item_stock(cart_items):
@@ -136,6 +203,25 @@ def create_pending_order_from_cart(*, user, address_id, coupon_code=""):
     key_id, _ = get_razorpay_credentials()
 
     with transaction.atomic():
+        release_expired_reservations()
+        products_by_id, variants_by_id = lock_stock_targets_for_items(snapshot["cart_items"])
+
+        for item in snapshot["cart_items"]:
+            product = item.product
+            if product.stock_type == "variants":
+                variant = variants_by_id.get(item.variant_id)
+                available_stock = variant.stock if variant else 0
+                reserved_stock = get_active_reserved_quantity(variant_id=item.variant_id)
+            else:
+                locked_product = products_by_id.get(item.product_id)
+                available_stock = locked_product.stock if locked_product else 0
+                reserved_stock = get_active_reserved_quantity(product_id=item.product_id)
+
+            if item.quantity > max(0, available_stock - reserved_stock):
+                raise PaymentError(
+                    f"{product.title} no longer has enough stock to start payment."
+                )
+
         order = Order.objects.create(
             user=user,
             subtotal_amount=snapshot["subtotal_amount"],
@@ -178,6 +264,14 @@ def create_pending_order_from_cart(*, user, address_id, coupon_code=""):
             for image in item.custom_images.all():
                 OrderItemImage.objects.create(order_item=order_item, image=image.image)
 
+            StockReservation.objects.create(
+                order=order,
+                product=product if product.stock_type != "variants" else None,
+                variant=variant if product.stock_type == "variants" else None,
+                quantity=item.quantity,
+                reserved_until=get_reservation_expiry(),
+            )
+
         razorpay_order = client.order.create(
             {
                 "amount": amount_to_paise(order.total_amount),
@@ -218,39 +312,39 @@ def lock_inventory_for_order(order):
         order.items.select_related("product", "variant").order_by("product_id", "variant_id", "id")
     )
 
-    product_ids = sorted(
-        {item.product_id for item in order_items if item.product and item.product.stock_type != "variants"}
-    )
-    variant_ids = sorted({item.variant_id for item in order_items if item.variant_id})
-
-    products_by_id = {
-        product.id: product
-        for product in Product.objects.select_for_update().filter(id__in=product_ids)
-    }
-    variants_by_id = {
-        variant.id: variant
-        for variant in ProductVariant.objects.select_for_update().filter(id__in=variant_ids)
-    }
+    products_by_id, variants_by_id = lock_stock_targets_for_items(order_items)
 
     return order_items, products_by_id, variants_by_id
 
 
 def deduct_stock_for_order(order):
     order_items, products_by_id, variants_by_id = lock_inventory_for_order(order)
+    reservations = list(
+        order.stock_reservations.select_for_update().filter(
+            consumed_at__isnull=True,
+            released_at__isnull=True,
+        )
+    )
+    reservations_by_target = {}
+    for reservation in reservations:
+        key = ("variant", reservation.variant_id) if reservation.variant_id else ("product", reservation.product_id)
+        reservations_by_target[key] = reservations_by_target.get(key, 0) + reservation.quantity
 
     for item in order_items:
         product = item.product
         if product.stock_type == "variants":
             variant = variants_by_id.get(item.variant_id)
             available_stock = variant.stock if variant else 0
-            if item.quantity > available_stock:
+            reserved_stock = reservations_by_target.get(("variant", item.variant_id), 0)
+            if item.quantity > available_stock or reserved_stock < item.quantity:
                 raise PaymentError(
                     f"{product.title} no longer has enough stock to complete payment."
                 )
         else:
             locked_product = products_by_id.get(item.product_id)
             available_stock = locked_product.stock if locked_product else 0
-            if item.quantity > available_stock:
+            reserved_stock = reservations_by_target.get(("product", item.product_id), 0)
+            if item.quantity > available_stock or reserved_stock < item.quantity:
                 raise PaymentError(
                     f"{product.title} no longer has enough stock to complete payment."
                 )
@@ -265,6 +359,18 @@ def deduct_stock_for_order(order):
             locked_product = products_by_id[item.product_id]
             locked_product.stock -= item.quantity
             locked_product.save(update_fields=["stock"])
+
+    now = timezone.now()
+    for reservation in reservations:
+        reservation.consumed_at = now
+        reservation.save(update_fields=["consumed_at"])
+
+
+def release_order_reservations(order):
+    order.stock_reservations.filter(
+        consumed_at__isnull=True,
+        released_at__isnull=True,
+    ).update(released_at=timezone.now())
 
 
 def clear_user_cart(user):
@@ -289,6 +395,161 @@ def ensure_coupon_usage(order):
     )
 
 
+def get_payment_entity_data(payload):
+    payload_object = payload.get("payload", {}) if isinstance(payload, dict) else {}
+    payment_entity = payload_object.get("payment", {}).get("entity", {}) or payload.get("payment", {}).get("entity", {})
+    order_entity = payload_object.get("order", {}).get("entity", {}) or payload.get("order", {}).get("entity", {})
+    return payment_entity, order_entity
+
+
+def get_order_from_payment_event(payload):
+    payment_entity, order_entity = get_payment_entity_data(payload)
+    notes = payment_entity.get("notes") or order_entity.get("notes") or {}
+    order_id = notes.get("order_id")
+    razorpay_order_id = (
+        payment_entity.get("order_id")
+        or order_entity.get("id")
+        or payload.get("razorpay_order_id")
+    )
+
+    queryset = Order.objects.select_for_update().select_related("user")
+
+    if order_id:
+        try:
+            return queryset.get(id=order_id)
+        except Order.DoesNotExist:
+            pass
+
+    if razorpay_order_id:
+        try:
+            return queryset.get(razorpay_order_id=razorpay_order_id)
+        except Order.DoesNotExist:
+            pass
+
+    raise PaymentError("Order not found.")
+
+
+def process_successful_payment(*, order, razorpay_order_id, razorpay_payment_id, razorpay_signature=""):
+    if order.payment_processed or order.status == "paid":
+        if razorpay_payment_id and not order.razorpay_payment_id:
+            order.razorpay_payment_id = razorpay_payment_id
+            order.save(update_fields=["razorpay_payment_id", "updated_at"])
+        return order
+
+    if order.razorpay_order_id != razorpay_order_id:
+        raise PaymentError("Payment order mismatch.")
+
+    if not order.items.exists():
+        raise PaymentError("Order has no items to verify.")
+
+    deduct_stock_for_order(order)
+
+    order.status = "paid"
+    order.payment_processed = True
+    order.razorpay_payment_id = razorpay_payment_id
+    if razorpay_signature:
+        order.razorpay_signature = razorpay_signature
+    order.payment_verified_at = timezone.now()
+    order.save(
+        update_fields=[
+            "status",
+            "payment_processed",
+            "razorpay_payment_id",
+            "razorpay_signature",
+            "payment_verified_at",
+            "updated_at",
+        ]
+    )
+
+    ensure_coupon_usage(order)
+    clear_user_cart(order.user)
+    return order
+
+
+def verify_razorpay_webhook_signature(*, body, signature):
+    webhook_secret = getattr(settings, "RAZORPAY_WEBHOOK_SECRET", "").strip()
+    if not webhook_secret:
+        raise ImproperlyConfigured("RAZORPAY_WEBHOOK_SECRET must be configured.")
+
+    expected_signature = hmac.new(
+        webhook_secret.encode("utf-8"),
+        body,
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected_signature, signature or "")
+
+
+def process_razorpay_webhook(*, body, signature):
+    if not verify_razorpay_webhook_signature(body=body, signature=signature):
+        raise PaymentError("Webhook signature verification failed.")
+
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PaymentError("Invalid webhook payload.") from exc
+
+    event = payload.get("event") or ""
+    if event not in {"payment.captured", "order.paid"}:
+        return {"ignored": True, "event": event}
+
+    payment_entity, order_entity = get_payment_entity_data(payload)
+    razorpay_order_id = payment_entity.get("order_id") or order_entity.get("id")
+    razorpay_payment_id = payment_entity.get("id") or ""
+
+    with transaction.atomic():
+        order = get_order_from_payment_event(payload)
+        process_successful_payment(
+            order=order,
+            razorpay_order_id=razorpay_order_id,
+            razorpay_payment_id=razorpay_payment_id,
+        )
+
+    return {"ignored": False, "event": event, "order_id": order.id}
+
+
+def reconcile_order_payment(order):
+    if order.payment_processed or not order.razorpay_order_id:
+        return order
+
+    client = get_razorpay_client()
+    payments_response = client.order.payments(order.razorpay_order_id)
+    payment_items = payments_response.get("items", []) if isinstance(payments_response, dict) else []
+    successful_payment = next(
+        (
+            item
+            for item in payment_items
+            if item.get("status") in {"captured", "authorized"}
+        ),
+        None,
+    )
+
+    if not successful_payment:
+        return order
+
+    with transaction.atomic():
+        locked_order = Order.objects.select_for_update().select_related("user").get(id=order.id)
+        return process_successful_payment(
+            order=locked_order,
+            razorpay_order_id=locked_order.razorpay_order_id,
+            razorpay_payment_id=successful_payment.get("id", ""),
+        )
+
+
+def reconcile_stale_orders(*, limit=50):
+    queryset = Order.objects.filter(
+        payment_processed=False,
+        razorpay_order_id__isnull=False,
+    ).exclude(razorpay_order_id="").filter(status__in=["pending", "failed"]).order_by("created_at")[:limit]
+
+    reconciled = 0
+    for order in queryset:
+        updated_order = reconcile_order_payment(order)
+        if updated_order.payment_processed:
+            reconciled += 1
+
+    return reconciled
+
+
 def verify_and_capture_payment(
     *,
     user,
@@ -307,12 +568,10 @@ def verify_and_capture_payment(
         except Order.DoesNotExist as exc:
             raise PaymentError("Order not found.") from exc
 
-        if order.status == "paid":
+        if order.payment_processed or order.status == "paid":
             return order
 
         if order.razorpay_order_id != razorpay_order_id:
-            order.status = "failed"
-            order.save(update_fields=["status", "updated_at"])
             raise PaymentError("Payment order mismatch.")
 
         if not verify_razorpay_signature(
@@ -320,33 +579,14 @@ def verify_and_capture_payment(
             razorpay_payment_id=razorpay_payment_id,
             razorpay_signature=razorpay_signature,
         ):
-            order.status = "failed"
-            order.save(update_fields=["status", "updated_at"])
             raise PaymentError("Payment signature verification failed.")
 
-        if not order.items.exists():
-            order.status = "failed"
-            order.save(update_fields=["status", "updated_at"])
-            raise PaymentError("Order has no items to verify.")
-
-        deduct_stock_for_order(order)
-
-        order.status = "paid"
-        order.razorpay_payment_id = razorpay_payment_id
-        order.razorpay_signature = razorpay_signature
-        order.payment_verified_at = timezone.now()
-        order.save(
-            update_fields=[
-                "status",
-                "razorpay_payment_id",
-                "razorpay_signature",
-                "payment_verified_at",
-                "updated_at",
-            ]
+        order = process_successful_payment(
+            order=order,
+            razorpay_order_id=razorpay_order_id,
+            razorpay_payment_id=razorpay_payment_id,
+            razorpay_signature=razorpay_signature,
         )
-
-        ensure_coupon_usage(order)
-        clear_user_cart(order.user)
 
     return order
 
@@ -358,8 +598,21 @@ def mark_order_payment_failed(*, user, order_id, message=None):
         except Order.DoesNotExist:
             raise PaymentError("Order not found.")
 
-        if order.status != "paid":
+        if order.payment_processed or order.status == "paid":
+            return message or "Payment already verified."
+
+        release_expired_reservations()
+
+        active_reservations_exist = order.stock_reservations.filter(
+            consumed_at__isnull=True,
+            released_at__isnull=True,
+            reserved_until__gte=timezone.now(),
+        ).exists()
+
+        if not active_reservations_exist:
+            release_order_reservations(order)
             order.status = "failed"
             order.save(update_fields=["status", "updated_at"])
+            return message or "Payment failed."
 
-    return message or "Payment failed."
+    return message or "Payment status remains pending until server verification completes."

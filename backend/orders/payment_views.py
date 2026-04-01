@@ -1,12 +1,14 @@
 from django.core.exceptions import ImproperlyConfigured
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .payment_services import (
     PaymentError,
     create_pending_order_from_cart,
     mark_order_payment_failed,
+    process_razorpay_webhook,
+    reconcile_stale_orders,
     verify_and_capture_payment,
 )
 
@@ -126,3 +128,34 @@ def mark_payment_failed(request):
         return Response({"error": str(exc)}, status=400)
 
     return Response({"message": message})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def razorpay_webhook(request):
+    try:
+        result = process_razorpay_webhook(
+            body=request.body,
+            signature=request.headers.get("X-Razorpay-Signature", ""),
+        )
+    except PaymentError as exc:
+        return Response({"error": str(exc)}, status=400)
+    except ImproperlyConfigured as exc:
+        return Response({"error": str(exc)}, status=500)
+    except Exception:
+        return Response({"error": "Unable to process webhook."}, status=500)
+
+    return Response({"message": "Webhook processed.", **result})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def reconcile_payments(request):
+    try:
+        reconciled = reconcile_stale_orders(limit=int(request.data.get("limit", 50)))
+    except ImproperlyConfigured as exc:
+        return Response({"error": str(exc)}, status=500)
+    except Exception:
+        return Response({"error": "Unable to reconcile payments."}, status=500)
+
+    return Response({"message": "Reconciliation completed.", "reconciled": reconciled})

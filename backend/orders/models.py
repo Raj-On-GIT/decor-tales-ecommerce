@@ -153,6 +153,7 @@ class Order(models.Model):
     razorpay_signature = models.CharField(max_length=255, blank=True)
     payment_provider = models.CharField(max_length=30, default="razorpay")
     payment_verified_at = models.DateTimeField(blank=True, null=True)
+    payment_processed = models.BooleanField(default=False)
     
     # Shipping details
     shipping_address = models.TextField()
@@ -199,3 +200,35 @@ class OrderItemImage(models.Model):
 
     class Meta:
         ordering = ["id"]
+
+
+class StockReservation(models.Model):
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="stock_reservations",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+    variant = models.ForeignKey(
+        ProductVariant,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+    quantity = models.PositiveIntegerField()
+    reserved_until = models.DateTimeField()
+    consumed_at = models.DateTimeField(blank=True, null=True)
+    released_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        target = self.variant or self.product
+        return f"Reservation for {target} x {self.quantity}"
