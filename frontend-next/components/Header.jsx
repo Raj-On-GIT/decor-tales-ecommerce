@@ -154,15 +154,19 @@ export default function Header() {
               isSearchOpen ? "hidden md:flex" : "flex"
             }`}
           >
-            <Link href="/" className="flex items-center shrink-0">
+            <Link
+              href="/"
+              className="flex items-center gap-2 md:gap-3 text-lg md:text-2xl font-serif font-bold tracking-tight text-gray-900 whitespace-nowrap shrink-0"
+            >
               <Image
                 src="/DECOR_TALES_cropped.svg"
-                alt="Decor Tales"
-                width={260}
-                height={80}
-                className="h-12 w-auto object-contain"
+                alt="Decor Tales Logo"
+                width={720}
+                height={220}
+                className="h-10 w-auto max-w-[146px] object-contain md:h-12 md:max-w-[210px]"
                 priority
               />
+              Decor Tales
             </Link>
 
             <nav className="hidden md:flex space-x-6 text-sm font-medium text-gray-600">
