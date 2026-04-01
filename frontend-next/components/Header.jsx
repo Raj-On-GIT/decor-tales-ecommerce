@@ -133,11 +133,11 @@ export default function Header() {
     }, 200);
   };
   const trackOrderHref = isAuthenticated ? "/orders" : "/login";
-
+// F0FFDF
   return (
     <>
       {/* HEADER */}
-      <header className="sticky top-0 z-40 bg-[#F0FFDF]/80 backdrop-blur-md border-b border-gray-100">
+      <header className="sticky top-0 z-40 bg-[#F0FFF0]/80 backdrop-blur-md border-b border-gray-100">
         <div
           className={`max-w-screen-xl mx-auto 
                         px-4 sm:px-6

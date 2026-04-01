@@ -57,9 +57,9 @@ export default function ProductCard({ product }) {
       setTimeout(() => setIsAdding(false), 250);
     }
   };
-
+// F0FFDF
   return (
-    <div className="group relative rounded-2xl border border-gray-200 bg-[#F0FFDF] p-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)]">
+    <div className="group relative rounded-2xl border border-gray-300 bg-[#F0FFF0] p-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)]">
       <Link href={`/products/${product.id}`}>
         <div className="relative aspect-[3/4] cursor-pointer overflow-hidden rounded-xl bg-gray-50">
           <img

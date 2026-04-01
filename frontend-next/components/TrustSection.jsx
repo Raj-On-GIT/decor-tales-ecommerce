@@ -31,7 +31,7 @@ export default function TrustSection() {
             key={index}
             className="flex items-start gap-4 rounded-2xl border bg-white p-5 text-left shadow-sm sm:flex-col sm:items-center sm:p-6 sm:text-center lg:p-8"
           >
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#F0FFDF] text-gray-900 sm:mb-1">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#F0FFF0] text-gray-900 sm:mb-1">
               {item.icon}
             </div>
             <div>
