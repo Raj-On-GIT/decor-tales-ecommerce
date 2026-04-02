@@ -7,6 +7,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from orders.models import Cart, CartItem, Coupon, CouponUsage, Order, StockReservation
+from orders.payment_services import reconcile_order_payment
 from products.models import Category, Product, SubCategory
 
 
@@ -343,3 +344,39 @@ class PaymentFlowSafetyTests(TestCase):
         order = Order.objects.get(id=order_id)
         self.assertEqual(self.product.stock, 0)
         self.assertTrue(order.payment_processed)
+
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_reconciliation_uses_razorpay_order_id_when_payment_id_is_missing(self, mock_client):
+        mock_client.return_value.order.create.return_value = {
+            "id": "order_rzp_4",
+            "amount": 40000,
+            "currency": "INR",
+        }
+        mock_client.return_value.order.payments.return_value = {
+            "items": [
+                {
+                    "id": "pay_captured_1",
+                    "order_id": "order_rzp_4",
+                    "status": "captured",
+                }
+            ]
+        }
+
+        create_response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+
+        order = Order.objects.get(id=create_response.data["order"]["id"])
+        self.assertEqual(order.razorpay_payment_id, "")
+
+        reconciled_order = reconcile_order_payment(order)
+
+        self.product.refresh_from_db()
+        reconciled_order.refresh_from_db()
+        self.assertEqual(reconciled_order.status, "paid")
+        self.assertTrue(reconciled_order.payment_processed)
+        self.assertEqual(reconciled_order.razorpay_payment_id, "pay_captured_1")
+        self.assertEqual(self.product.stock, 0)

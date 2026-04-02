@@ -514,14 +514,29 @@ def reconcile_order_payment(order):
     client = get_razorpay_client()
     payments_response = client.order.payments(order.razorpay_order_id)
     payment_items = payments_response.get("items", []) if isinstance(payments_response, dict) else []
-    successful_payment = next(
-        (
-            item
-            for item in payment_items
-            if item.get("status") in {"captured", "authorized"}
-        ),
-        None,
-    )
+
+    successful_payment = None
+
+    if order.razorpay_payment_id:
+        successful_payment = next(
+            (
+                item
+                for item in payment_items
+                if item.get("id") == order.razorpay_payment_id
+                and item.get("status") in {"captured", "authorized"}
+            ),
+            None,
+        )
+
+    if successful_payment is None:
+        successful_payment = next(
+            (
+                item
+                for item in payment_items
+                if item.get("status") == "captured"
+            ),
+            None,
+        )
 
     if not successful_payment:
         return order
