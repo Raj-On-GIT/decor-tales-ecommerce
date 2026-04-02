@@ -17,29 +17,22 @@ export default function CategoryGridSkeleton({ count = 4 }) {
           <div key={i} className="group">
             <div
               className="
-                bg-[#F0FFDF]
-                rounded-2xl
-                overflow-hidden
-                h-64
-                flex flex-col
-                justify-between
-                p-4
-                border border-gray-200
-                shadow-[0_2px_8px_rgba(0,0,0,0.06)]
+                relative flex flex-col overflow-hidden rounded-2xl border border-gray-300
+                bg-[#F0FFF0] p-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.4)] sm:h-64
               "
             >
               {/* Image Skeleton */}
-              <div className="w-full h-40 bg-gray-200 rounded-lg animate-pulse mb-4"></div>
+              <div className="h-25 w-full rounded-xl bg-gray-100 animate-pulse sm:h-45"></div>
 
               {/* Content Skeleton */}
-              <div className="text-center space-y-2">
-                <div className="h-5 w-3/4 mx-auto bg-gray-200 rounded animate-pulse"></div>
-                <div className="h-4 w-1/2 mx-auto bg-gray-200 rounded animate-pulse"></div>
+              <div className="mb-2 mt-2 text-center sm:mt-3">
+                <div className="mx-auto h-5 w-3/4 rounded bg-gray-200 animate-pulse sm:h-6"></div>
+                <div className="mx-auto mt-2 h-3 w-1/2 rounded bg-gray-200 animate-pulse sm:h-4"></div>
               </div>
 
               {/* Arrow Placeholder */}
               <div className="absolute bottom-4 right-4">
-                <div className="h-5 w-5 bg-gray-200 rounded-full animate-pulse"></div>
+                <div className="h-5 w-5 rounded-full bg-gray-200 animate-pulse"></div>
               </div>
             </div>
           </div>
