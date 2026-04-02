@@ -310,7 +310,7 @@ export default function ProductDetailPage() {
 
   return (
     <>
-      <div className="mx-auto max-w-screen-xl px-10 pt-10">
+      <div className="mx-auto max-w-screen-xl px-4 pt-8 sm:px-6 sm:pt-10 lg:px-10">
         {/* ✅ Center Two-Column Layout */}
         <div className="mb-10 grid grid-cols-1 items-start gap-8 sm:gap-10 md:grid-cols-2 md:gap-12">
           {/* ================= LEFT: IMAGE VIEWER ================= */}
@@ -465,7 +465,7 @@ export default function ProductDetailPage() {
                 {product.allow_custom_image && (
                   <>
                     <h3 className="mt-5 font-semibold">Upload Custom Images</h3>
-                    <div className="mt-2 grid w-full grid-cols-4 gap-2">
+                    <div className="mt-2 grid w-full grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-4">
                       {Array.from({ length: product.custom_image_limit }).map(
                         (_, index) => {
                           const selectedFile = customImages[index];
@@ -473,12 +473,12 @@ export default function ProductDetailPage() {
                           return (
                             <div
                               key={index}
-                              className="flex flex-col items-center"
+                              className="flex w-full flex-col"
                             >
                               <label
-                                className={`flex items-center justify-center gap-2
-                            border rounded-lg cursor-pointer
-                            px-4 py-2
+                                className={`flex w-full items-center justify-center gap-2
+                            rounded-lg border cursor-pointer
+                            px-2 py-2 sm:px-3
                             text-xs font-medium sm:text-sm
                             hover:bg-gray-200 transition
                             ${
@@ -501,7 +501,7 @@ export default function ProductDetailPage() {
                                     d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0l-4 4m4-4l4 4"
                                   />
                                 </svg>
-                                Upload: {index + 1}
+                                <span className="truncate">Upload: {index + 1}</span>
                                 <input
                                   key={uploadResetKey}
                                   type="file"
