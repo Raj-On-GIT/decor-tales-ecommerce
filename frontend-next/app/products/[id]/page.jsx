@@ -312,7 +312,7 @@ export default function ProductDetailPage() {
     <>
       <div className="mx-auto max-w-screen-xl px-10 pt-10">
         {/* ✅ Center Two-Column Layout */}
-        <div className="mb-10 grid grid-cols-1 items-start gap-8 sm:gap-10 md:grid-cols-2 md:gap-12 md:px-4 lg:px-10">
+        <div className="mb-10 grid grid-cols-1 items-start gap-8 sm:gap-10 md:grid-cols-2 md:gap-12">
           {/* ================= LEFT: IMAGE VIEWER ================= */}
           <div className="flex flex-col items-center">
             {/* ✅ Main Carousel */}
@@ -402,7 +402,7 @@ export default function ProductDetailPage() {
                       key={index}
                       src={img}
                       onClick={() => setCurrentIndex(index)}
-                      className={`h-14 w-14 flex-shrink-0 rounded-lg border cursor-pointer bg-white p-1 object-contain sm:h-15 sm:w-15 ${
+                      className={`h-14 w-14 flex-shrink-0 rounded-lg border cursor-pointer bg-white object-contain sm:h-15 sm:w-15 ${
                         index === currentIndex
                           ? "border-black"
                           : "border-gray-300"
@@ -457,7 +457,7 @@ export default function ProductDetailPage() {
                     linkClassName="text-gray-600 transition hover:text-gray-800 hover:underline underline-offset-2"
                   />
                 </div>
-                <p className="mt-4 text-sm leading-7 whitespace-normal text-justify text-gray-600 sm:text-base">
+                <p className="mt-4 text-sm leading-normal whitespace-normal text-justify text-gray-600 sm:text-base">
                   {product.description}
                 </p>
 
@@ -465,7 +465,7 @@ export default function ProductDetailPage() {
                 {product.allow_custom_image && (
                   <>
                     <h3 className="mt-5 font-semibold">Upload Custom Images</h3>
-                    <div className="mt-2 grid w-full grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="mt-2 grid w-full grid-cols-4 gap-2">
                       {Array.from({ length: product.custom_image_limit }).map(
                         (_, index) => {
                           const selectedFile = customImages[index];
@@ -555,7 +555,7 @@ export default function ProductDetailPage() {
                     <div className="flex flex-wrap gap-3">
                       {product.stock_type === "variants" &&
                         product.variants?.length > 0 && (
-                          <div className="mt-5 space-y-3">
+                          <div className="space-y-3">
                             {sizes.length > 0 && (
                               <div>
                                 <h3 className="mb-1 text-base font-semibold sm:text-lg">
@@ -645,7 +645,7 @@ export default function ProductDetailPage() {
                 {/* ✅ Price Block */}
                 {product.stock_type === "variants" && selectedVariant ? (
                   <PriceDisplay
-                    className="mt-3 gap-3"
+                    className="sm:mt-6 mt-3 gap-3"
                     price={selectedVariant.slashed_price || selectedVariant.mrp}
                     originalPrice={selectedVariant.mrp}
                     discountPercent={selectedVariant.discount_percent}
@@ -669,7 +669,7 @@ export default function ProductDetailPage() {
                 )}
 
                 {/* ✅ Qty Selector + Add to Cart Inline */}
-                <div className="mt-4 flex items-stretch gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <div className="sm:mt-6 mt-4 flex items-stretch gap-3 sm:flex-row sm:items-center sm:gap-4">
                   {/* Qty Controls */}
                   <div className="flex min-w-0 basis-3/10 items-center justify-center overflow-hidden rounded-xl border">
                     <button
