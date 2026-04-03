@@ -66,21 +66,26 @@ def parse_database_url(database_url):
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 cloudinary_url = os.getenv("CLOUDINARY_URL")
-if cloudinary_url:
-    cloudinary.config(cloudinary_url=cloudinary_url)
-    CLOUDINARY_STORAGE = {"CLOUDINARY_URL": cloudinary_url}
-else:
-    cloudinary.config(
-        cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-        api_key=os.getenv("CLOUDINARY_API_KEY"),
-        api_secret=os.getenv("CLOUDINARY_API_SECRET"),
-    )
+USE_CLOUDINARY = get_env_bool("USE_CLOUDINARY", default=bool(cloudinary_url))
 
-    CLOUDINARY_STORAGE = {
-        "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME"),
-        "API_KEY": os.getenv("CLOUDINARY_API_KEY"),
-        "API_SECRET": os.getenv("CLOUDINARY_API_SECRET"),
-    }
+if USE_CLOUDINARY:
+    if cloudinary_url:
+        cloudinary.config(cloudinary_url=cloudinary_url)
+        CLOUDINARY_STORAGE = {"CLOUDINARY_URL": cloudinary_url}
+    else:
+        cloudinary.config(
+            cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+            api_key=os.getenv("CLOUDINARY_API_KEY"),
+            api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+        )
+
+        CLOUDINARY_STORAGE = {
+            "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME"),
+            "API_KEY": os.getenv("CLOUDINARY_API_KEY"),
+            "API_SECRET": os.getenv("CLOUDINARY_API_SECRET"),
+        }
+else:
+    CLOUDINARY_STORAGE = {}
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -112,10 +117,13 @@ INSTALLED_APPS = [
     'products',
     'orders',
     'accounts',
-
-    'cloudinary',
-    'cloudinary_storage',
 ]
+
+if USE_CLOUDINARY:
+    INSTALLED_APPS += [
+        'cloudinary',
+        'cloudinary_storage',
+    ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -213,10 +221,16 @@ STATICFILES_DIRS = [
 ]
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 STORAGES = {
     "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        "BACKEND": (
+            "cloudinary_storage.storage.MediaCloudinaryStorage"
+            if USE_CLOUDINARY
+            else "django.core.files.storage.FileSystemStorage"
+        ),
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",

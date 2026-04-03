@@ -380,3 +380,141 @@ class PaymentFlowSafetyTests(TestCase):
         self.assertTrue(reconciled_order.payment_processed)
         self.assertEqual(reconciled_order.razorpay_payment_id, "pay_captured_1")
         self.assertEqual(self.product.stock, 0)
+
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_reconciliation_prefers_payment_fetch_when_payment_id_exists(self, mock_client):
+        mock_client.return_value.order.create.return_value = {
+            "id": "order_rzp_5",
+            "amount": 40000,
+            "currency": "INR",
+        }
+        mock_client.return_value.payment.fetch.return_value = {
+            "id": "pay_known_1",
+            "order_id": "order_rzp_5",
+            "status": "captured",
+        }
+
+        create_response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+
+        order = Order.objects.get(id=create_response.data["order"]["id"])
+        order.razorpay_payment_id = "pay_known_1"
+        order.save(update_fields=["razorpay_payment_id"])
+
+        reconciled_order = reconcile_order_payment(order)
+
+        self.product.refresh_from_db()
+        reconciled_order.refresh_from_db()
+        self.assertEqual(reconciled_order.status, "paid")
+        self.assertTrue(reconciled_order.payment_processed)
+        self.assertEqual(reconciled_order.razorpay_payment_id, "pay_known_1")
+        self.assertEqual(self.product.stock, 0)
+        mock_client.return_value.payment.fetch.assert_called_once_with("pay_known_1")
+
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_reconciliation_uses_order_item_stock_source_after_product_stock_type_changes(
+        self,
+        mock_client,
+    ):
+        mock_client.return_value.order.create.return_value = {
+            "id": "order_rzp_6",
+            "amount": 40000,
+            "currency": "INR",
+        }
+        mock_client.return_value.order.payments.return_value = {
+            "items": [
+                {
+                    "id": "pay_captured_2",
+                    "order_id": "order_rzp_6",
+                    "status": "captured",
+                }
+            ]
+        }
+
+        create_response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+
+        order = Order.objects.get(id=create_response.data["order"]["id"])
+        self.product.stock_type = "variants"
+        self.product.save(update_fields=["stock_type"])
+
+        reconciled_order = reconcile_order_payment(order)
+
+        self.product.refresh_from_db()
+        reconciled_order.refresh_from_db()
+        self.assertEqual(reconciled_order.status, "paid")
+        self.assertTrue(reconciled_order.payment_processed)
+        self.assertEqual(self.product.stock, 0)
+
+    @patch("orders.payment_services.reconcile_order_payment")
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_reconciliation_skips_payment_errors_and_continues(
+        self,
+        mock_client,
+        mock_reconcile_order_payment,
+    ):
+        from orders.payment_services import PaymentError, reconcile_stale_orders
+
+        mock_client.return_value.order.create.return_value = {
+            "id": "order_rzp_7",
+            "amount": 40000,
+            "currency": "INR",
+        }
+
+        first_response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+        self.assertEqual(first_response.status_code, 201)
+
+        second_user = User.objects.create_user(
+            username="pay-user-3",
+            email="pay3@example.com",
+            password="testpass123",
+        )
+        second_cart = Cart.objects.create(user=second_user)
+        CartItem.objects.create(cart=second_cart, product=self.product, quantity=1)
+        from accounts.models import Address
+
+        second_address = Address.objects.create(
+            user=second_user,
+            full_name="Test User 3",
+            phone="7777777777",
+            address_line_1="Street 3",
+            address_line_2="",
+            city="Delhi",
+            state="Delhi",
+            postal_code="110003",
+            is_default=True,
+        )
+        second_client = APIClient()
+        second_client.force_authenticate(user=second_user)
+
+        third_response = second_client.post(
+            reverse("create_payment_order"),
+            {"address_id": second_address.id},
+            format="json",
+        )
+        self.assertEqual(third_response.status_code, 400)
+
+        successful_order = Order.objects.get(id=first_response.data["order"]["id"])
+
+        def side_effect(order):
+            if order.id == successful_order.id:
+                order.payment_processed = True
+                return order
+            raise PaymentError("stock conflict")
+
+        mock_reconcile_order_payment.side_effect = side_effect
+
+        reconciled = reconcile_stale_orders(limit=50)
+        self.assertEqual(reconciled, 1)

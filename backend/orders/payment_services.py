@@ -113,7 +113,7 @@ def lock_stock_targets_for_items(items):
         {
             item.product_id
             for item in items
-            if item.product and item.product.stock_type != "variants"
+            if item.product and not item.variant_id
         }
     )
     variant_ids = sorted({item.variant_id for item in items if item.variant_id})
@@ -332,7 +332,7 @@ def deduct_stock_for_order(order):
 
     for item in order_items:
         product = item.product
-        if product.stock_type == "variants":
+        if item.variant_id:
             variant = variants_by_id.get(item.variant_id)
             available_stock = variant.stock if variant else 0
             reserved_stock = reservations_by_target.get(("variant", item.variant_id), 0)
@@ -350,8 +350,7 @@ def deduct_stock_for_order(order):
                 )
 
     for item in order_items:
-        product = item.product
-        if product.stock_type == "variants":
+        if item.variant_id:
             variant = variants_by_id[item.variant_id]
             variant.stock -= item.quantity
             variant.save(update_fields=["stock"])
@@ -512,23 +511,21 @@ def reconcile_order_payment(order):
         return order
 
     client = get_razorpay_client()
-    payments_response = client.order.payments(order.razorpay_order_id)
-    payment_items = payments_response.get("items", []) if isinstance(payments_response, dict) else []
 
     successful_payment = None
 
     if order.razorpay_payment_id:
-        successful_payment = next(
-            (
-                item
-                for item in payment_items
-                if item.get("id") == order.razorpay_payment_id
-                and item.get("status") in {"captured", "authorized"}
-            ),
-            None,
-        )
+        payment_response = client.payment.fetch(order.razorpay_payment_id)
+        if (
+            isinstance(payment_response, dict)
+            and payment_response.get("status") in {"captured", "authorized"}
+            and payment_response.get("order_id") == order.razorpay_order_id
+        ):
+            successful_payment = payment_response
 
     if successful_payment is None:
+        payments_response = client.order.payments(order.razorpay_order_id)
+        payment_items = payments_response.get("items", []) if isinstance(payments_response, dict) else []
         successful_payment = next(
             (
                 item
@@ -558,7 +555,11 @@ def reconcile_stale_orders(*, limit=50):
 
     reconciled = 0
     for order in queryset:
-        updated_order = reconcile_order_payment(order)
+        try:
+            updated_order = reconcile_order_payment(order)
+        except PaymentError:
+            continue
+
         if updated_order.payment_processed:
             reconciled += 1
 
