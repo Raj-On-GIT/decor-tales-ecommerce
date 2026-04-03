@@ -443,6 +443,14 @@ def process_successful_payment(*, order, razorpay_order_id, razorpay_payment_id,
     if not order.items.exists():
         raise PaymentError("Order has no items to verify.")
 
+    active_reservations_exist = order.stock_reservations.filter(
+        consumed_at__isnull=True,
+        released_at__isnull=True,
+        reserved_until__gte=timezone.now(),
+    ).exists()
+    if not active_reservations_exist:
+        raise PaymentError("Reservation expired before payment completion.")
+
     deduct_stock_for_order(order)
 
     order.status = "paid"
@@ -481,6 +489,28 @@ def mark_order_payment_stock_conflict(*, order, reason):
         order.razorpay_order_id or "",
         reason,
     )
+
+    if order.payment_processed or order.refund_processed or not order.razorpay_payment_id:
+        return order
+
+    try:
+        client = get_razorpay_client()
+        client.payment.refund(order.razorpay_payment_id)
+        order.refund_processed = True
+        order.save(update_fields=["refund_processed", "updated_at"])
+        logger.info(
+            "Refund initiated for order_id=%s payment_id=%s",
+            order.id,
+            order.razorpay_payment_id,
+        )
+    except Exception as exc:
+        logger.error(
+            "Refund FAILED for order_id=%s payment_id=%s error=%s",
+            order.id,
+            order.razorpay_payment_id,
+            str(exc),
+        )
+
     return order
 
 
@@ -492,6 +522,9 @@ def process_captured_payment_with_stock_safety(*, order, razorpay_order_id, razo
             razorpay_payment_id=razorpay_payment_id,
         )
     except PaymentError as exc:
+        if razorpay_payment_id and not order.razorpay_payment_id:
+            order.razorpay_payment_id = razorpay_payment_id
+            order.save(update_fields=["razorpay_payment_id", "updated_at"])
         return mark_order_payment_stock_conflict(order=order, reason=str(exc))
 
 
@@ -639,6 +672,8 @@ def verify_and_capture_payment(
     razorpay_payment_id,
     razorpay_signature,
 ):
+    conflict_message = None
+
     with transaction.atomic():
         try:
             order = (
@@ -662,12 +697,34 @@ def verify_and_capture_payment(
         ):
             raise PaymentError("Payment signature verification failed.")
 
-        order = process_successful_payment(
-            order=order,
-            razorpay_order_id=razorpay_order_id,
-            razorpay_payment_id=razorpay_payment_id,
-            razorpay_signature=razorpay_signature,
-        )
+        try:
+            order = process_successful_payment(
+                order=order,
+                razorpay_order_id=razorpay_order_id,
+                razorpay_payment_id=razorpay_payment_id,
+                razorpay_signature=razorpay_signature,
+            )
+        except PaymentError as exc:
+            if str(exc) in {
+                "Reservation expired before payment completion.",
+            } or "no longer has enough stock to complete payment." in str(exc):
+                conflict_message = str(exc)
+            else:
+                raise
+
+    if conflict_message:
+        with transaction.atomic():
+            order = (
+                Order.objects.select_for_update()
+                .select_related("user")
+                .get(id=order_id, user=user)
+            )
+            if razorpay_payment_id and not order.razorpay_payment_id:
+                order.razorpay_payment_id = razorpay_payment_id
+                order.save(update_fields=["razorpay_payment_id", "updated_at"])
+
+            mark_order_payment_stock_conflict(order=order, reason=conflict_message)
+        raise PaymentError(conflict_message)
 
     return order
 

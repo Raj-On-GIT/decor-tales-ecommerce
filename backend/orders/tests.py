@@ -557,7 +557,8 @@ class PaymentFlowSafetyTests(TestCase):
         reconciled_order.refresh_from_db()
         self.assertEqual(reconciled_order.status, "failed")
         self.assertFalse(reconciled_order.payment_processed)
-        self.assertEqual(reconciled_order.razorpay_payment_id, "")
+        self.assertEqual(reconciled_order.razorpay_payment_id, "pay_captured_3")
+        self.assertTrue(reconciled_order.refund_processed)
         self.assertEqual(self.product.stock, 0)
         self.assertFalse(
             reconciled_order.stock_reservations.filter(
@@ -565,6 +566,7 @@ class PaymentFlowSafetyTests(TestCase):
                 released_at__isnull=True,
             ).exists()
         )
+        mock_client.return_value.payment.refund.assert_called_once_with("pay_captured_3")
 
     @patch("orders.payment_services.verify_razorpay_webhook_signature", return_value=True)
     @patch("orders.payment_services.get_razorpay_client")
@@ -623,8 +625,52 @@ class PaymentFlowSafetyTests(TestCase):
         self.product.refresh_from_db()
         self.assertEqual(order.status, "failed")
         self.assertFalse(order.payment_processed)
-        self.assertEqual(order.razorpay_payment_id, "")
+        self.assertEqual(order.razorpay_payment_id, "pay_captured_4")
+        self.assertTrue(order.refund_processed)
         self.assertEqual(self.product.stock, 0)
+        mock_client.return_value.payment.refund.assert_called_once_with("pay_captured_4")
+
+    @patch("orders.payment_services.verify_razorpay_signature", return_value=True)
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_verify_payment_refunds_when_reservation_or_stock_conflict_occurs(
+        self,
+        mock_client,
+        mock_verify_signature,
+    ):
+        mock_client.return_value.order.create.return_value = {
+            "id": "order_rzp_11",
+            "amount": 40000,
+            "currency": "INR",
+        }
+
+        create_response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+
+        self.product.stock = 0
+        self.product.save(update_fields=["stock"])
+
+        verify_response = self.client.post(
+            reverse("verify_payment"),
+            {
+                "order_id": create_response.data["order"]["id"],
+                "razorpay_order_id": "order_rzp_11",
+                "razorpay_payment_id": "pay_verify_1",
+                "razorpay_signature": "sig",
+            },
+            format="json",
+        )
+
+        self.assertEqual(verify_response.status_code, 400)
+        order = Order.objects.get(id=create_response.data["order"]["id"])
+        self.assertEqual(order.status, "failed")
+        self.assertFalse(order.payment_processed)
+        self.assertEqual(order.razorpay_payment_id, "pay_verify_1")
+        self.assertTrue(order.refund_processed)
+        mock_client.return_value.payment.refund.assert_called_once_with("pay_verify_1")
 
     @patch("orders.payment_services.reconcile_order_payment")
     @patch("orders.payment_services.get_razorpay_client")

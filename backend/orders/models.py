@@ -154,6 +154,7 @@ class Order(models.Model):
     payment_provider = models.CharField(max_length=30, default="razorpay")
     payment_verified_at = models.DateTimeField(blank=True, null=True)
     payment_processed = models.BooleanField(default=False)
+    refund_processed = models.BooleanField(default=False)
     
     # Shipping details
     shipping_address = models.TextField()
