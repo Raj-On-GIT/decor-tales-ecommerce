@@ -66,7 +66,13 @@ def parse_database_url(database_url):
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 cloudinary_url = os.getenv("CLOUDINARY_URL")
-USE_CLOUDINARY = get_env_bool("USE_CLOUDINARY", default=bool(cloudinary_url))
+cloudinary_cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
+cloudinary_api_key = os.getenv("CLOUDINARY_API_KEY")
+cloudinary_api_secret = os.getenv("CLOUDINARY_API_SECRET")
+cloudinary_config_present = bool(
+    cloudinary_url or (cloudinary_cloud_name and cloudinary_api_key and cloudinary_api_secret)
+)
+USE_CLOUDINARY = get_env_bool("USE_CLOUDINARY", default=cloudinary_config_present)
 
 if USE_CLOUDINARY:
     if cloudinary_url:
@@ -74,15 +80,15 @@ if USE_CLOUDINARY:
         CLOUDINARY_STORAGE = {"CLOUDINARY_URL": cloudinary_url}
     else:
         cloudinary.config(
-            cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-            api_key=os.getenv("CLOUDINARY_API_KEY"),
-            api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+            cloud_name=cloudinary_cloud_name,
+            api_key=cloudinary_api_key,
+            api_secret=cloudinary_api_secret,
         )
 
         CLOUDINARY_STORAGE = {
-            "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME"),
-            "API_KEY": os.getenv("CLOUDINARY_API_KEY"),
-            "API_SECRET": os.getenv("CLOUDINARY_API_SECRET"),
+            "CLOUD_NAME": cloudinary_cloud_name,
+            "API_KEY": cloudinary_api_key,
+            "API_SECRET": cloudinary_api_secret,
         }
 else:
     CLOUDINARY_STORAGE = {}
