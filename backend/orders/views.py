@@ -20,6 +20,7 @@ from .models import (
     OrderItemImage,
 )
 from products.models import Product, ProductVariant
+from products.media_utils import build_media_url
 
 
 def get_product_price(product):
@@ -74,9 +75,9 @@ def serialize_pricing(product, variant=None, effective_price=None):
 
 def build_image_urls(request, image_objects):
     return [
-        request.build_absolute_uri(image.image.url)
+        request.build_absolute_uri(build_media_url(image.image))
         for image in image_objects
-        if image.image
+        if image.image and build_media_url(image.image)
     ]
 
 
@@ -423,7 +424,7 @@ def get_cart(request):
                         "title": item.product.title,
                         "slug": item.product.slug,
                         "image": (
-                            request.build_absolute_uri(item.product.image.url)
+                            request.build_absolute_uri(build_media_url(item.product.image))
                             if item.product.image
                             else None
                         ),
@@ -455,10 +456,10 @@ def get_cart(request):
                     "custom_text": item.custom_text,
                     "custom_images": build_image_urls(request, item.custom_images.all()),
                     "custom_image": (
-                        request.build_absolute_uri(item.custom_image.url)
+                        request.build_absolute_uri(build_media_url(item.custom_image))
                         if item.custom_image
                         else (
-                            request.build_absolute_uri(item.custom_images.first().image.url)
+                            request.build_absolute_uri(build_media_url(item.custom_images.first().image))
                             if item.custom_images.exists()
                             else None
                         )
@@ -749,7 +750,7 @@ def get_my_orders(request):
                             "title": item.product.title,
                             "slug": item.product.slug,
                             "image": (
-                                request.build_absolute_uri(item.product.image.url)
+                                request.build_absolute_uri(build_media_url(item.product.image))
                                 if item.product.image
                                 else None
                             ),
@@ -800,7 +801,7 @@ def get_order_detail(request, order_id):
                 "id": item.product.id,
                 "title": item.product.title,
                 "image": (
-                    request.build_absolute_uri(item.product.image.url)
+                    request.build_absolute_uri(build_media_url(item.product.image))
                     if item.product.image
                     else None
                 ),
@@ -829,10 +830,10 @@ def get_order_detail(request, order_id):
             "custom_text": item.custom_text,
             "custom_images": build_image_urls(request, item.custom_images.all()),
             "custom_image": (
-                request.build_absolute_uri(item.custom_image.url)
+                request.build_absolute_uri(build_media_url(item.custom_image))
                 if item.custom_image
                 else (
-                    request.build_absolute_uri(item.custom_images.first().image.url)
+                    request.build_absolute_uri(build_media_url(item.custom_images.first().image))
                     if item.custom_images.exists()
                     else None
                 )

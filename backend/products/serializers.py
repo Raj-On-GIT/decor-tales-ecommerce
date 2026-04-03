@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Banner, Product, Category, SubCategory, ProductVariant, ProductImage
+from .media_utils import build_media_url
 from django.db.models import Count, Q
 
 
@@ -7,9 +8,8 @@ def build_safe_media_url(request, file_field):
     if not file_field:
         return None
 
-    try:
-        url = file_field.url
-    except Exception:
+    url = build_media_url(file_field)
+    if not url:
         return None
 
     if request:
