@@ -258,6 +258,15 @@ class PaymentFlowSafetyTests(TestCase):
             "amount": 40000,
             "currency": "INR",
         }
+        mock_client.return_value.order.payments.return_value = {
+            "items": [
+                {
+                    "id": "pay_123",
+                    "order_id": "order_rzp_2",
+                    "status": "captured",
+                }
+            ]
+        }
 
         create_response = self.client.post(
             reverse("create_payment_order"),
@@ -302,6 +311,15 @@ class PaymentFlowSafetyTests(TestCase):
             "amount": 40000,
             "currency": "INR",
         }
+        mock_client.return_value.order.payments.return_value = {
+            "items": [
+                {
+                    "id": "pay_456",
+                    "order_id": "order_rzp_3",
+                    "status": "captured",
+                }
+            ]
+        }
 
         create_response = self.client.post(
             reverse("create_payment_order"),
@@ -344,6 +362,57 @@ class PaymentFlowSafetyTests(TestCase):
         order = Order.objects.get(id=order_id)
         self.assertEqual(self.product.stock, 0)
         self.assertTrue(order.payment_processed)
+
+    @patch("orders.payment_services.verify_razorpay_webhook_signature", return_value=True)
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_order_paid_webhook_uses_reconciliation_flow(self, mock_client, mock_verify_signature):
+        mock_client.return_value.order.create.return_value = {
+            "id": "order_rzp_8",
+            "amount": 40000,
+            "currency": "INR",
+        }
+        mock_client.return_value.order.payments.return_value = {
+            "items": [
+                {
+                    "id": "pay_789",
+                    "order_id": "order_rzp_8",
+                    "status": "captured",
+                }
+            ]
+        }
+
+        create_response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+        order_id = create_response.data["order"]["id"]
+
+        webhook_payload = {
+            "event": "order.paid",
+            "payload": {
+                "order": {
+                    "entity": {
+                        "id": "order_rzp_8",
+                    }
+                }
+            },
+        }
+
+        response = self.client.post(
+            reverse("razorpay_webhook"),
+            webhook_payload,
+            format="json",
+            HTTP_X_RAZORPAY_SIGNATURE="sig",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        order = Order.objects.get(id=order_id)
+        self.product.refresh_from_db()
+        self.assertTrue(order.payment_processed)
+        self.assertEqual(order.razorpay_payment_id, "pay_789")
+        self.assertEqual(self.product.stock, 0)
 
     @patch("orders.payment_services.get_razorpay_client")
     def test_reconciliation_uses_razorpay_order_id_when_payment_id_is_missing(self, mock_client):

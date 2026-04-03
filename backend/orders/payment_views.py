@@ -139,7 +139,9 @@ def razorpay_webhook(request):
             signature=request.headers.get("X-Razorpay-Signature", ""),
         )
     except PaymentError as exc:
-        return Response({"error": str(exc)}, status=400)
+        if "signature verification failed" in str(exc).lower():
+            return Response({"error": str(exc)}, status=400)
+        return Response({"message": "Webhook acknowledged.", "error": str(exc)}, status=200)
     except ImproperlyConfigured as exc:
         return Response({"error": str(exc)}, status=500)
     except Exception:

@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import logging
 import os
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -28,6 +29,7 @@ from .models import (
 from .views import evaluate_coupon_for_cart, get_cart_line_items, get_coupon_queryset, get_product_price
 
 PAISE_MULTIPLIER = Decimal("100")
+logger = logging.getLogger(__name__)
 
 
 class PaymentError(Exception):
@@ -465,6 +467,30 @@ def process_successful_payment(*, order, razorpay_order_id, razorpay_payment_id,
     return order
 
 
+def get_captured_payment_for_order(*, order, client=None):
+    client = client or get_razorpay_client()
+
+    if order.razorpay_payment_id:
+        payment_response = client.payment.fetch(order.razorpay_payment_id)
+        if (
+            isinstance(payment_response, dict)
+            and payment_response.get("status") in {"captured", "authorized"}
+            and payment_response.get("order_id") == order.razorpay_order_id
+        ):
+            return payment_response
+
+    payments_response = client.order.payments(order.razorpay_order_id)
+    payment_items = payments_response.get("items", []) if isinstance(payments_response, dict) else []
+    return next(
+        (
+            item
+            for item in payment_items
+            if item.get("status") == "captured"
+        ),
+        None,
+    )
+
+
 def verify_razorpay_webhook_signature(*, body, signature):
     webhook_secret = getattr(settings, "RAZORPAY_WEBHOOK_SECRET", "").strip()
     if not webhook_secret:
@@ -489,21 +515,54 @@ def process_razorpay_webhook(*, body, signature):
 
     event = payload.get("event") or ""
     if event not in {"payment.captured", "order.paid"}:
+        logger.info("Ignoring Razorpay webhook event=%s", event)
         return {"ignored": True, "event": event}
 
-    payment_entity, order_entity = get_payment_entity_data(payload)
-    razorpay_order_id = payment_entity.get("order_id") or order_entity.get("id")
-    razorpay_payment_id = payment_entity.get("id") or ""
+    payload_object = payload.get("payload", {}) if isinstance(payload, dict) else {}
+    if event == "order.paid":
+        razorpay_order_id = payload_object.get("order", {}).get("entity", {}).get("id", "")
+    else:
+        razorpay_order_id = payload_object.get("payment", {}).get("entity", {}).get("order_id", "")
+
+    logger.info("Processing Razorpay webhook event=%s razorpay_order_id=%s", event, razorpay_order_id or "")
+
+    if not razorpay_order_id:
+        raise PaymentError("Webhook payload missing razorpay_order_id.")
 
     with transaction.atomic():
-        order = get_order_from_payment_event(payload)
-        process_successful_payment(
-            order=order,
-            razorpay_order_id=razorpay_order_id,
-            razorpay_payment_id=razorpay_payment_id,
+        order = (
+            Order.objects.select_for_update()
+            .select_related("user")
+            .filter(razorpay_order_id=razorpay_order_id)
+            .first()
         )
 
-    return {"ignored": False, "event": event, "order_id": order.id}
+        if not order:
+            raise PaymentError("Order not found.")
+
+        if order.payment_processed:
+            logger.info(
+                "Skipping Razorpay webhook event=%s razorpay_order_id=%s reason=already_processed",
+                event,
+                razorpay_order_id,
+            )
+            return {"ignored": False, "event": event, "order_id": order.id, "skipped": True}
+
+        updated_order = reconcile_order_payment(order)
+
+    logger.info(
+        "Processed Razorpay webhook event=%s razorpay_order_id=%s updated=%s",
+        event,
+        razorpay_order_id,
+        bool(updated_order.payment_processed),
+    )
+
+    return {
+        "ignored": False,
+        "event": event,
+        "order_id": updated_order.id,
+        "updated": bool(updated_order.payment_processed),
+    }
 
 
 def reconcile_order_payment(order):
@@ -511,29 +570,7 @@ def reconcile_order_payment(order):
         return order
 
     client = get_razorpay_client()
-
-    successful_payment = None
-
-    if order.razorpay_payment_id:
-        payment_response = client.payment.fetch(order.razorpay_payment_id)
-        if (
-            isinstance(payment_response, dict)
-            and payment_response.get("status") in {"captured", "authorized"}
-            and payment_response.get("order_id") == order.razorpay_order_id
-        ):
-            successful_payment = payment_response
-
-    if successful_payment is None:
-        payments_response = client.order.payments(order.razorpay_order_id)
-        payment_items = payments_response.get("items", []) if isinstance(payments_response, dict) else []
-        successful_payment = next(
-            (
-                item
-                for item in payment_items
-                if item.get("status") == "captured"
-            ),
-            None,
-        )
+    successful_payment = get_captured_payment_for_order(order=order, client=client)
 
     if not successful_payment:
         return order
