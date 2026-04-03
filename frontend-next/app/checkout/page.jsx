@@ -200,7 +200,7 @@ export default function CheckoutPage() {
         key: razorpayKey,
         amount: response.payment.amount,
         currency: response.payment.currency,
-        name: "Luxe Frames",
+        name: "Decor Tales",
         description: `Order ${response.order.order_number}`,
         order_id: response.payment.razorpay_order_id,
         handler: async (paymentResult) => {

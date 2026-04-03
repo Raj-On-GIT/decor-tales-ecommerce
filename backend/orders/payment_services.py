@@ -467,6 +467,34 @@ def process_successful_payment(*, order, razorpay_order_id, razorpay_payment_id,
     return order
 
 
+def mark_order_payment_stock_conflict(*, order, reason):
+    if order.payment_processed or order.status == "paid":
+        return order
+
+    release_order_reservations(order)
+    order.status = "failed"
+    order.save(update_fields=["status", "updated_at"])
+    logger.error(
+        "Payment stock conflict order_id=%s order_number=%s razorpay_order_id=%s reason=%s",
+        order.id,
+        order.order_number,
+        order.razorpay_order_id or "",
+        reason,
+    )
+    return order
+
+
+def process_captured_payment_with_stock_safety(*, order, razorpay_order_id, razorpay_payment_id):
+    try:
+        return process_successful_payment(
+            order=order,
+            razorpay_order_id=razorpay_order_id,
+            razorpay_payment_id=razorpay_payment_id,
+        )
+    except PaymentError as exc:
+        return mark_order_payment_stock_conflict(order=order, reason=str(exc))
+
+
 def get_captured_payment_for_order(*, order, client=None):
     client = client or get_razorpay_client()
 
@@ -577,7 +605,7 @@ def reconcile_order_payment(order):
 
     with transaction.atomic():
         locked_order = Order.objects.select_for_update().select_related("user").get(id=order.id)
-        return process_successful_payment(
+        return process_captured_payment_with_stock_safety(
             order=locked_order,
             razorpay_order_id=locked_order.razorpay_order_id,
             razorpay_payment_id=successful_payment.get("id", ""),
