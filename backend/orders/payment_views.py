@@ -13,16 +13,33 @@ from .payment_services import (
 )
 
 
+def _coerce_positive_int(value, *, field_name):
+    # SECURITY FIX: reject malformed identifiers early to avoid relying on
+    # implicit casting deeper in the payment flow.
+    try:
+        coerced = int(str(value).strip())
+    except (TypeError, ValueError):
+        raise PaymentError(f"{field_name} must be a valid integer.")
+
+    if coerced <= 0:
+        raise PaymentError(f"{field_name} must be a valid integer.")
+
+    return coerced
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_payment_order(request):
     address_id = request.data.get("address_id")
-    coupon_code = request.data.get("coupon_code", "")
+    coupon_code = str(request.data.get("coupon_code", "") or "").strip()
 
     if not address_id:
         return Response({"error": "Address required."}, status=400)
 
     try:
+        # SECURITY FIX: normalize and validate address input before touching the
+        # checkout flow so tampered payloads fail fast with a 400.
+        address_id = _coerce_positive_int(address_id, field_name="address_id")
         payment_payload = create_pending_order_from_cart(
             user=request.user,
             address_id=address_id,
@@ -65,9 +82,9 @@ def create_payment_order(request):
 @permission_classes([IsAuthenticated])
 def verify_payment(request):
     order_id = request.data.get("order_id")
-    razorpay_order_id = request.data.get("razorpay_order_id")
-    razorpay_payment_id = request.data.get("razorpay_payment_id")
-    razorpay_signature = request.data.get("razorpay_signature")
+    razorpay_order_id = str(request.data.get("razorpay_order_id", "") or "").strip()
+    razorpay_payment_id = str(request.data.get("razorpay_payment_id", "") or "").strip()
+    razorpay_signature = str(request.data.get("razorpay_signature", "") or "").strip()
 
     required_fields = {
         "order_id": order_id,
@@ -83,6 +100,8 @@ def verify_payment(request):
         )
 
     try:
+        # SECURITY FIX: reject malformed order identifiers before verification.
+        order_id = _coerce_positive_int(order_id, field_name="order_id")
         order = verify_and_capture_payment(
             user=request.user,
             order_id=order_id,
@@ -119,10 +138,12 @@ def mark_payment_failed(request):
         return Response({"error": "order_id is required."}, status=400)
 
     try:
+        # SECURITY FIX: reject malformed order identifiers before state changes.
+        order_id = _coerce_positive_int(order_id, field_name="order_id")
         message = mark_order_payment_failed(
             user=request.user,
             order_id=order_id,
-            message=request.data.get("message"),
+            message=str(request.data.get("message", "") or "").strip(),
         )
     except PaymentError as exc:
         return Response({"error": str(exc)}, status=400)
@@ -154,7 +175,13 @@ def razorpay_webhook(request):
 @permission_classes([IsAuthenticated])
 def reconcile_payments(request):
     try:
-        reconciled = reconcile_stale_orders(limit=int(request.data.get("limit", 50)))
+        # SECURITY FIX: reconciliation is an operational endpoint and should not
+        # be callable by regular authenticated customers.
+        if not request.user.is_staff:
+            return Response({"error": "Forbidden."}, status=403)
+
+        limit = request.data.get("limit", 50)
+        reconciled = reconcile_stale_orders(limit=_coerce_positive_int(limit, field_name="limit"))
     except ImproperlyConfigured as exc:
         return Response({"error": str(exc)}, status=500)
     except Exception:

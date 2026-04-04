@@ -427,7 +427,7 @@ export default function CheckoutPage() {
                   Order Summary
                 </h2>
               </div>
-              <p className="text-sm text-gray-500">Ready for final review</p>
+              <p className="text-sm text-gray-500">Review your order</p>
             </div>
 
             <div className="space-y-4">
@@ -517,32 +517,27 @@ export default function CheckoutPage() {
             </div>
 
             <div className="mt-8">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-                    Step 3
-                  </p>
-                  <h3 className="mt-2 text-xl font-serif font-semibold text-gray-900 sm:text-2xl">
-                    Available Coupons
-                  </h3>
-                </div>
-                <p className="text-sm text-gray-500">
-                  {coupons.length} offer{coupons.length === 1 ? "" : "s"}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+                  Step 3
                 </p>
+                <h3 className="mt-2 text-xl font-serif font-semibold text-gray-900 sm:text-2xl">
+                  Available Coupons
+                </h3>
               </div>
 
-              <div className="mt-4 rounded-[1.5rem] border border-[#dce7db] bg-white/70 p-4 shadow-[0_10px_35px_rgba(15,23,42,0.04)] sm:p-5">
-                <p className="text-sm text-gray-500">
-                  Apply the best offer available for this order.
+              {coupons.length === 0 ? (
+                <p className="mt-4 text-sm text-gray-500">
+                  No active coupons are available right now.
                 </p>
-
-                <div className="mt-4 space-y-2.5 sm:space-y-3">
-                {coupons.length === 0 ? (
-                  <p className="rounded-2xl border border-dashed border-gray-200 bg-[#fafaf7] px-4 py-4 text-sm text-gray-500">
-                    No active coupons are available right now.
+              ) : (
+                <div className="mt-4 rounded-[1.5rem] border border-[#dce7db] bg-white/70 p-4 shadow-[0_10px_35px_rgba(15,23,42,0.04)] sm:p-5">
+                  <p className="text-sm text-gray-500">
+                    Apply the best offer available for this order.
                   </p>
-                ) : (
-                  coupons.map((coupon) => {
+
+                  <div className="mt-4 space-y-2.5 sm:space-y-3">
+                  {coupons.map((coupon) => {
                     const isApplied = selectedCoupon?.code === coupon.code;
                     const isEligible = Boolean(coupon.eligible);
                     const descriptionLines = getCouponDescriptionLines(coupon);
@@ -636,9 +631,10 @@ export default function CheckoutPage() {
                       </div>
                     );
                   })
-                )}
+                  }
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="mt-8 rounded-[1.5rem] bg-[#002424] px-5 py-5 text-white">

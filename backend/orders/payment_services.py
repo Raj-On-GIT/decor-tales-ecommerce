@@ -57,6 +57,40 @@ def amount_to_paise(amount):
     return int((Decimal(amount) * PAISE_MULTIPLIER).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
+def _normalize_entity_identifier(value):
+    return str(value).strip() if value is not None else ""
+
+
+def validate_payment_entity_for_order(*, order, payment_entity):
+    # SECURITY FIX: enforce backend-side trust by validating the fetched Razorpay
+    # payment entity against the server-side order before marking anything paid.
+    if not isinstance(payment_entity, dict):
+        raise PaymentError("Unable to validate payment with provider.")
+
+    payment_order_id = _normalize_entity_identifier(payment_entity.get("order_id"))
+    if payment_order_id != _normalize_entity_identifier(order.razorpay_order_id):
+        raise PaymentError("Payment order mismatch.")
+
+    payment_status = _normalize_entity_identifier(payment_entity.get("status")).lower()
+    if payment_status not in {"captured", "authorized"}:
+        raise PaymentError("Payment has not been confirmed by the provider.")
+
+    payment_amount = payment_entity.get("amount")
+    if payment_amount is not None and int(payment_amount) != amount_to_paise(order.total_amount):
+        raise PaymentError("Payment amount mismatch.")
+
+    payment_notes = payment_entity.get("notes") or {}
+    noted_order_id = _normalize_entity_identifier(payment_notes.get("order_id"))
+    if noted_order_id and noted_order_id != str(order.id):
+        raise PaymentError("Payment notes mismatch.")
+
+    noted_user_id = _normalize_entity_identifier(payment_notes.get("user_id"))
+    if noted_user_id and noted_user_id != str(order.user_id):
+        raise PaymentError("Payment user mismatch.")
+
+    return payment_entity
+
+
 def get_checkout_cart_queryset(user, lock=False):
     cart = Cart.objects.filter(user=user).first()
     if not cart:
@@ -533,23 +567,19 @@ def get_captured_payment_for_order(*, order, client=None):
 
     if order.razorpay_payment_id:
         payment_response = client.payment.fetch(order.razorpay_payment_id)
-        if (
-            isinstance(payment_response, dict)
-            and payment_response.get("status") in {"captured", "authorized"}
-            and payment_response.get("order_id") == order.razorpay_order_id
-        ):
-            return payment_response
+        try:
+            return validate_payment_entity_for_order(order=order, payment_entity=payment_response)
+        except PaymentError:
+            pass
 
     payments_response = client.order.payments(order.razorpay_order_id)
     payment_items = payments_response.get("items", []) if isinstance(payments_response, dict) else []
-    return next(
-        (
-            item
-            for item in payment_items
-            if item.get("status") == "captured"
-        ),
-        None,
-    )
+    for item in payment_items:
+        try:
+            return validate_payment_entity_for_order(order=order, payment_entity=item)
+        except PaymentError:
+            continue
+    return None
 
 
 def verify_razorpay_webhook_signature(*, body, signature):
@@ -673,6 +703,7 @@ def verify_and_capture_payment(
     razorpay_signature,
 ):
     conflict_message = None
+    client = get_razorpay_client()
 
     with transaction.atomic():
         try:
@@ -696,6 +727,11 @@ def verify_and_capture_payment(
             razorpay_signature=razorpay_signature,
         ):
             raise PaymentError("Payment signature verification failed.")
+
+        # SECURITY FIX: fetch and validate the payment directly from Razorpay so
+        # the backend never trusts client-submitted amount/order context alone.
+        payment_response = client.payment.fetch(razorpay_payment_id)
+        validate_payment_entity_for_order(order=order, payment_entity=payment_response)
 
         try:
             order = process_successful_payment(

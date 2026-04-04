@@ -642,6 +642,16 @@ class PaymentFlowSafetyTests(TestCase):
             "amount": 40000,
             "currency": "INR",
         }
+        mock_client.return_value.payment.fetch.return_value = {
+            "id": "pay_verify_1",
+            "order_id": "order_rzp_11",
+            "status": "captured",
+            "amount": 40000,
+            "notes": {
+                "order_id": "1",
+                "user_id": str(self.user.id),
+            },
+        }
 
         create_response = self.client.post(
             reverse("create_payment_order"),
@@ -671,6 +681,29 @@ class PaymentFlowSafetyTests(TestCase):
         self.assertEqual(order.razorpay_payment_id, "pay_verify_1")
         self.assertTrue(order.refund_processed)
         mock_client.return_value.payment.refund.assert_called_once_with("pay_verify_1")
+
+    def test_reconcile_payments_requires_staff_user(self):
+        response = self.client.post(
+            reverse("reconcile_payments"),
+            {"limit": 10},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    @patch("orders.payment_views.reconcile_stale_orders", return_value=0)
+    def test_reconcile_payments_allows_staff_user(self, mock_reconcile):
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_staff"])
+
+        response = self.client.post(
+            reverse("reconcile_payments"),
+            {"limit": 10},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mock_reconcile.assert_called_once_with(limit=10)
 
     @patch("orders.payment_services.reconcile_order_payment")
     @patch("orders.payment_services.get_razorpay_client")
