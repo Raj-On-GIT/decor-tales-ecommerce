@@ -18,7 +18,7 @@ export default function BrowseByCategoryClient({ categories, reveal = false }) {
   const content = categories.map((category) => (
     <Link key={category.id} href={`/catalog/${category.slug}`}>
       <div className="group cursor-pointer">
-        <div className="relative flex flex-col overflow-hidden rounded-2xl border border-gray-300 bg-[#F0FFF0] p-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] sm:h-64">
+        <div className="relative flex flex-col overflow-hidden rounded-2xl border border-gray-300 bg-[#F0FFF0] p-1 sm:p-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] sm:h-64">
           <div className="relative h-25 w-full overflow-hidden rounded-xl bg-gray-50 sm:h-45">
             {category.image ? (
               <Image
@@ -43,7 +43,9 @@ export default function BrowseByCategoryClient({ categories, reveal = false }) {
 
             <p className="text-xs text-gray-600 sm:text-sm">
               {category.subcategoryCount > 0
-                ? `${category.subcategoryCount} subcategories`
+                ? `${category.subcategoryCount} ${
+                    category.subcategoryCount === 1 ? "subcategory" : "subcategories"
+                  }`
                 : `${category.productCount} ${
                     category.productCount === 1 ? "product" : "products"
                   }`}

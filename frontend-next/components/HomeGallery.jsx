@@ -23,7 +23,7 @@ export default async function HomeGallery() {
         max-w-screen-xl mx-auto
 
         px-4 sm:px-6
-        pt-20 pb-10
+        pt-10 pb-10
       "
     >
       <ViewportReveal>
