@@ -276,7 +276,7 @@ export default function CheckoutPage() {
 
   if (authLoading || (isAuthenticated && initialLoading)) {
     return (
-      <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-10 sm:px-6 sm:py-12">
+      <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto flex min-h-[60vh] max-w-screen-xl items-center justify-center rounded-[2rem] border border-white/70 bg-white/70 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
           <PageLoader text="Loading checkout..." />
         </div>
@@ -286,7 +286,7 @@ export default function CheckoutPage() {
 
   if (!cart.length) {
     return (
-      <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-10 sm:px-6 sm:py-12">
+      <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto flex min-h-[60vh] max-w-screen-xl items-center justify-center">
           <div className="rounded-[2rem] border border-white/70 bg-white/90 px-8 py-12 text-center shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur">
             <p className="text-lg font-medium text-gray-800">Your cart is empty.</p>
@@ -300,15 +300,15 @@ export default function CheckoutPage() {
   }
 
   return (
-    <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-10 sm:px-6 sm:py-12">
+    <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-8 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-screen-xl">
-        <div className="mb-8 rounded-[2rem] border border-white/70 bg-white/70 px-6 py-7 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:px-8">
+        <div className="mb-6 rounded-[1.75rem] border border-white/70 bg-white/70 px-5 py-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:mb-8 sm:rounded-[2rem] sm:px-8 sm:py-7">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-teal-800/70">
                 Secure Checkout
               </p>
-              <h1 className="mt-3 font-serif text-3xl font-bold text-gray-900 sm:text-4xl">
+              <h1 className="mt-3 font-serif text-2xl font-bold text-gray-900 sm:text-4xl">
                 Review your order before payment
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600 sm:text-base">
@@ -328,18 +328,18 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+        <div className="grid gap-5 lg:gap-6 xl:grid-cols-[0.85fr_1.15fr]">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8"
+            className="rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-[2rem] sm:p-8"
           >
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
                   Step 1
                 </p>
-                <h2 className="mt-2 text-3xl font-serif font-semibold text-gray-900">
+                <h2 className="mt-2 text-2xl font-serif font-semibold text-gray-900 sm:text-3xl">
                   Shipping Address
                 </h2>
               </div>
@@ -347,7 +347,7 @@ export default function CheckoutPage() {
               {addresses.length > 0 && (
                 <button
                   onClick={() => router.push("/account/addresses")}
-                  className="rounded-full bg-[#002424] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#013535]"
+                  className="w-full rounded-full bg-[#002424] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#013535] sm:w-auto"
                 >
                   + Add Address
                 </button>
@@ -416,21 +416,21 @@ export default function CheckoutPage() {
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-[2rem] border border-white/80 bg-[#fffdf8]/95 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8 xl:sticky xl:top-24"
+            className="rounded-[1.75rem] border border-white/80 bg-[#fffdf8]/95 p-5 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-[2rem] sm:p-8 xl:sticky xl:top-24"
           >
-            <div className="mb-8 flex items-end justify-between gap-4">
+            <div className="mb-6 flex flex-col gap-2 sm:mb-8 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
                   Step 2
                 </p>
-                <h2 className="mt-2 text-3xl font-serif font-semibold text-gray-900">
+                <h2 className="mt-2 text-2xl font-serif font-semibold text-gray-900 sm:text-3xl">
                   Order Summary
                 </h2>
               </div>
               <p className="text-sm text-gray-500">Ready for final review</p>
             </div>
 
-            <div className="space-y-4 px-4">
+            <div className="space-y-4">
               {cart.map((item) => {
                 const customizationTag = getCustomizationTag(item);
 
@@ -500,16 +500,16 @@ export default function CheckoutPage() {
                   }
                   customizationLayout={customizationTag === "customized" ? "below" : "inline"}
                   actions={(
-                    <div className="text-right">
+                    <div className="w-full text-left sm:w-auto sm:text-right">
                       <p className="text-sm font-semibold text-gray-900">
                         Total: ₹{(item.qty * Number(item.price)).toFixed(2)}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">Qty: {item.qty}</p>
                     </div>
                   )}
-                  rowClassName="flex-row items-start justify-between"
-                  contentClassName="min-w-0 flex-1 items-center"
-                  asideClassName="self-start sm:self-center"
+                  rowClassName="sm:flex-row sm:items-start sm:justify-between"
+                  contentClassName="min-w-0 flex-1"
+                  asideClassName="w-full self-start sm:w-auto sm:self-center"
                   truncateText
                 />
                 );
@@ -517,12 +517,12 @@ export default function CheckoutPage() {
             </div>
 
             <div className="mt-8">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
                     Step 3
                   </p>
-                  <h3 className="mt-2 text-2xl font-serif font-semibold text-gray-900">
+                  <h3 className="mt-2 text-xl font-serif font-semibold text-gray-900 sm:text-2xl">
                     Available Coupons
                   </h3>
                 </div>
@@ -608,12 +608,12 @@ export default function CheckoutPage() {
                             ) : null}
                           </div>
 
-                          <div className="flex shrink-0 items-center gap-2 self-start">
+                          <div className="flex shrink-0 items-center gap-2 self-start sm:self-center">
                             {isApplied ? (
                               <button
                                 type="button"
                                 onClick={() => setSelectedCoupon(null)}
-                                className="rounded-full border border-[#002424] px-4 py-2 text-sm font-medium text-[#002424] transition hover:bg-[#eef5ee]"
+                                className="w-full rounded-full border border-[#002424] px-4 py-2 text-sm font-medium text-[#002424] transition hover:bg-[#eef5ee] sm:w-auto"
                               >
                                 Remove
                               </button>
@@ -622,7 +622,7 @@ export default function CheckoutPage() {
                                 type="button"
                                 disabled={!isEligible}
                                 onClick={() => setSelectedCoupon(coupon)}
-                                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                                className={`w-full rounded-full px-4 py-2 text-sm font-medium transition sm:w-auto ${
                                   isEligible
                                     ? "bg-[#002424] text-white hover:bg-[#013535]"
                                     : "cursor-not-allowed bg-gray-200 text-gray-500"
