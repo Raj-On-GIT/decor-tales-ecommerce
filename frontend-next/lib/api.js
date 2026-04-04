@@ -5,22 +5,6 @@ import {
 } from "./auth";
 import { API_BASE, BACKEND, RAZORPAY_KEY } from "./config";
 
-const PUBLIC_FETCH_TIMEOUT_MS = 10000;
-
-async function fetchWithTimeout(url, options = {}, timeoutMs = PUBLIC_FETCH_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
 export async function getProducts(filters = {}) {
   if (!API_BASE) {
     console.error("API_BASE is undefined. Check your .env.local file.");
@@ -33,7 +17,7 @@ export async function getProducts(filters = {}) {
       params.set("category_slug", filters.category);
     }
     const url = `${API_BASE}/api/products/?${params.toString()}`;
-    const res = await fetchWithTimeout(url, {
+    const res = await fetch(url, {
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -122,7 +106,7 @@ export async function getCategories() {
 
   try {
     const url = `${API_BASE}/api/categories/`;
-    const res = await fetchWithTimeout(url, {
+    const res = await fetch(url, {
       cache: "no-store",
     });
     if (!res.ok) {
@@ -151,7 +135,7 @@ export async function getTrendingProducts() {
   if (!API_BASE) return [];
 
   try {
-    const res = await fetchWithTimeout(`${API_BASE}/api/products/trending/`, {
+    const res = await fetch(`${API_BASE}/api/products/trending/`, {
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -202,7 +186,7 @@ export async function getBanners() {
   }
 
   try {
-    const res = await fetchWithTimeout(`${API_BASE}/api/banners/`, {
+    const res = await fetch(`${API_BASE}/api/banners/`, {
       next: { revalidate: 60 },
     });
 
