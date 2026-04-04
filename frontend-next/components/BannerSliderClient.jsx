@@ -4,10 +4,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import DOMPurify from "dompurify";
 import ViewportReveal from "./ViewportReveal";
 
 function BannerContent({ banner }) {
   const hasCta = Boolean(banner.cta_text && banner.cta_link);
+  const sanitizedDescription = useMemo(
+    () =>
+      banner.description
+        ? DOMPurify.sanitize(banner.description)
+        : "",
+    [banner.description],
+  );
   const content = (
     <>
       {banner.subtitle ? (
@@ -21,10 +29,10 @@ function BannerContent({ banner }) {
           {banner.title}
         </h2>
 
-        {banner.description ? (
+        {sanitizedDescription ? (
           <div
             className="max-w-2xl text-[13px] leading-5 opacity-90 sm:text-base sm:leading-7"
-            dangerouslySetInnerHTML={{ __html: banner.description }}
+            dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
           />
         ) : null}
       </div>
