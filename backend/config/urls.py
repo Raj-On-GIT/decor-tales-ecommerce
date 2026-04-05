@@ -19,7 +19,14 @@ from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve
-from accounts.views import reset_password_view, signup_view, login_view, forgot_password_view, google_auth_view
+from accounts.views import (
+    reset_password_view,
+    signup_view,
+    login_view,
+    forgot_password_view,
+    google_auth_view,
+    google_auth_nonce_view,
+)
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -35,7 +42,8 @@ urlpatterns = [
 
     path('api/auth/signup/', signup_view, name='signup'),
     path('api/auth/login/', login_view, name='login'),
-    path('api/auth/google/', google_auth_view),
+    path('api/auth/google/nonce/', google_auth_nonce_view, name='google_auth_nonce'),
+    path('api/auth/google/', google_auth_view, name='google'),
 
     path("api/accounts/", include("accounts.urls")),
 

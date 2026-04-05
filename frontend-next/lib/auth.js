@@ -35,6 +35,40 @@ export async function login(credentials) {
   return response.json();
 }
 
+export async function getGoogleAuthNonce() {
+  const response = await fetch(`${API_BASE}/api/auth/google/nonce/`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Unable to start Google login.');
+  }
+
+  return data;
+}
+
+export async function loginWithGoogle(credential, nonceToken) {
+  const response = await fetch(`${API_BASE}/api/auth/google/`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      credential,
+      nonce_token: nonceToken,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Google login failed.');
+  }
+
+  return data;
+}
+
 // ============================================================================
 // TOKEN MANAGEMENT FUNCTIONS
 // ============================================================================

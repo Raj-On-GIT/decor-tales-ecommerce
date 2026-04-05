@@ -3,15 +3,18 @@ from rest_framework.decorators import api_view, permission_classes, parser_class
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.core import signing
+from django.core.signing import BadSignature, SignatureExpired
 from .serializers import ProfileSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, ChangePasswordSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
 from .serializers import SignupSerializer, LoginSerializer, UserSerializer, AddressSerializer
 from .models import Address
 from google.oauth2 import id_token
-from google.auth.transport import requests
+from google.auth.transport import requests as google_requests
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
+import secrets
 
 
 # ============================================================================
@@ -276,33 +279,77 @@ def change_password_view(request):
 # GOOGLE LOGIN VIEW
 # ============================================================================
 
-import requests
+GOOGLE_NONCE_SALT = "accounts.google-auth-nonce"
+GOOGLE_NONCE_MAX_AGE_SECONDS = 300
+
+
+def issue_google_nonce():
+    nonce = secrets.token_urlsafe(32)
+    nonce_token = signing.dumps({"nonce": nonce}, salt=GOOGLE_NONCE_SALT)
+    return nonce, nonce_token
+
+
+def consume_google_nonce(nonce_token):
+    payload = signing.loads(
+        nonce_token,
+        salt=GOOGLE_NONCE_SALT,
+        max_age=GOOGLE_NONCE_MAX_AGE_SECONDS,
+    )
+    return payload.get("nonce")
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def google_auth_nonce_view(request):
+    nonce, nonce_token = issue_google_nonce()
+    return Response({"nonce": nonce, "nonce_token": nonce_token}, status=200)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def google_auth_view(request):
-    print("REQUEST DATA:", request.data)
+    credential = str(request.data.get("credential", "") or "").strip()
+    nonce_token = str(request.data.get("nonce_token", "") or "").strip()
 
-    access_token = request.data.get("access_token")
-
-    if not access_token:
-        return Response({"error": "Access token missing"}, status=400)
-
-    try:
-        # Verify token with Google
-        google_response = requests.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": f"Bearer {access_token}"}
+    if not credential or not nonce_token:
+        return Response(
+            {"error": "Google credential and nonce token are required."},
+            status=400,
         )
 
-        if google_response.status_code != 200:
-            return Response({"error": "Invalid Google token"}, status=400)
+    try:
+        if not settings.GOOGLE_CLIENT_ID:
+            return Response({"error": "Google login is not configured."}, status=500)
 
-        user_info = google_response.json()
+        try:
+            expected_nonce = consume_google_nonce(nonce_token)
+        except SignatureExpired:
+            return Response({"error": "Google login session expired. Please try again."}, status=400)
+        except BadSignature:
+            return Response({"error": "Invalid Google login session."}, status=400)
 
-        email = user_info.get("email")
-        first_name = user_info.get("given_name", "")
-        last_name = user_info.get("family_name", "")
+        token_info = id_token.verify_oauth2_token(
+            credential,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID,
+        )
+
+        issuer = token_info.get("iss")
+        if issuer not in {"accounts.google.com", "https://accounts.google.com"}:
+            return Response({"error": "Invalid Google token issuer."}, status=400)
+
+        token_nonce = token_info.get("nonce")
+        if not token_nonce or token_nonce != expected_nonce:
+            return Response({"error": "Invalid Google token nonce."}, status=400)
+
+        if not token_info.get("email_verified"):
+            return Response({"error": "Google email is not verified."}, status=400)
+
+        email = (token_info.get("email") or "").strip().lower()
+        first_name = token_info.get("given_name", "")
+        last_name = token_info.get("family_name", "")
+
+        if not email:
+            return Response({"error": "Google account email is unavailable."}, status=400)
 
         # Create or get user
         user, created = User.objects.get_or_create(
@@ -322,6 +369,5 @@ def google_auth_view(request):
             "user": UserSerializer(user).data
         })
 
-    except Exception as e:
-        print("GOOGLE AUTH ERROR:", str(e))
-        return Response({"error": str(e)}, status=400)
+    except Exception:
+        return Response({"error": "Google authentication failed."}, status=400)
