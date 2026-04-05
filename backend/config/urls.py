@@ -26,22 +26,26 @@ from accounts.views import (
     forgot_password_view,
     google_auth_view,
     google_auth_nonce_view,
+    csrf_token_view,
+    refresh_token_view,
+    logout_view,
 )
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
-    TokenRefreshView,
     TokenVerifyView,
 )
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     
+    path('api/auth/csrf/', csrf_token_view, name='csrf_token'),
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/token/refresh/', refresh_token_view, name='token_refresh'),
     path('api/auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
     path('api/auth/signup/', signup_view, name='signup'),
     path('api/auth/login/', login_view, name='login'),
+    path('api/auth/logout/', logout_view, name='logout'),
     path('api/auth/google/nonce/', google_auth_nonce_view, name='google_auth_nonce'),
     path('api/auth/google/', google_auth_view, name='google'),
 

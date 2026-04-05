@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock, Shield } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/lib/auth";
 import { API_BASE } from "@/lib/config";
 
 export default function ChangePasswordPage() {
@@ -35,17 +36,11 @@ export default function ChangePasswordPage() {
       return;
     }
 
-    const accessToken =
-      typeof window !== "undefined"
-        ? localStorage.getItem("access_token")
-        : null;
-
     try {
-      const res = await fetch(`${API_BASE}/api/accounts/change-password/`, {
+      const res = await apiFetch(`${API_BASE}/api/accounts/change-password/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           old_password: oldPassword,

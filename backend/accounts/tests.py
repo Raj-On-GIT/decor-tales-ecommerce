@@ -84,7 +84,62 @@ class GoogleAuthTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("access", response.data)
-        self.assertIn("refresh", response.data)
+        self.assertIn("access_token", response.cookies)
+        self.assertIn("refresh_token", response.cookies)
         self.assertEqual(response.data["user"]["email"], "google@example.com")
         self.assertTrue(User.objects.filter(email="google@example.com").exists())
+
+
+class CookieAuthTests(TestCase):
+    def setUp(self):
+        self.client = APIClient(enforce_csrf_checks=True)
+        self.user = User.objects.create_user(
+            username="cookie-user",
+            email="cookie@example.com",
+            password="testpass123",
+        )
+
+    def test_login_sets_auth_cookies(self):
+        csrf_response = self.client.get(reverse("csrf_token"))
+        csrf_token = csrf_response.cookies["csrftoken"].value
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "username": "cookie@example.com",
+                "password": "testpass123",
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access_token", response.cookies)
+        self.assertIn("refresh_token", response.cookies)
+        self.assertEqual(response.data["user"]["email"], "cookie@example.com")
+
+    def test_refresh_rotates_cookie_session(self):
+        csrf_response = self.client.get(reverse("csrf_token"))
+        csrf_token = csrf_response.cookies["csrftoken"].value
+
+        login_response = self.client.post(
+            reverse("login"),
+            {
+                "username": "cookie@example.com",
+                "password": "testpass123",
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.client.cookies["refresh_token"] = login_response.cookies["refresh_token"].value
+        refresh_response = self.client.post(
+            reverse("token_refresh"),
+            {},
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(refresh_response.status_code, 200)
+        self.assertIn("access_token", refresh_response.cookies)
+        self.assertIn("refresh_token", refresh_response.cookies)

@@ -16,8 +16,11 @@ import {
 } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "@/context/AuthContext";
-import { getGoogleAuthNonce, loginWithGoogle } from "@/lib/auth";
-import { API_BASE } from "@/lib/config";
+import {
+  getGoogleAuthNonce,
+  loginWithGoogle,
+  signup as signupRequest,
+} from "@/lib/auth";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -81,10 +84,7 @@ export default function SignupPage() {
         googleNonceToken,
       );
 
-      await authLogin({
-        access: data.access,
-        refresh: data.refresh,
-      });
+      await authLogin({ user: data.user });
 
       const nextNonce = await getGoogleAuthNonce();
       setGoogleNonce(nextNonce.nonce);
@@ -103,7 +103,6 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
-    // Validation
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -112,37 +111,28 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/signup/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          password2: formData.confirmPassword,
-          phone: formData.phone, // 🔥 REQUIRED
-          first_name: formData.name.split(" ")[0] || "",
-          last_name: formData.name.split(" ").slice(1).join(" ") || "",
-        }),
+      const data = await signupRequest({
+        email: formData.email,
+        password: formData.password,
+        password2: formData.confirmPassword,
+        phone: formData.phone,
+        first_name: formData.name.split(" ")[0] || "",
+        last_name: formData.name.split(" ").slice(1).join(" ") || "",
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        // Handle field-specific errors
-        const errors = Object.entries(errorData)
-          .map(([field, messages]) => `${field}: ${messages.join(", ")}`)
-          .join("\\n");
-        throw new Error(errors);
-      }
-
-      const data = await response.json();
-
-      // Show success message
       alert(data.message);
-
-      // Redirect to login
       router.push("/login");
     } catch (err) {
-      setError(err.message);
+      if (err && typeof err === "object" && !Array.isArray(err)) {
+        const errors = Object.entries(err)
+          .map(([field, messages]) =>
+            `${field}: ${Array.isArray(messages) ? messages.join(", ") : messages}`,
+          )
+          .join("\n");
+        setError(errors || "Signup failed");
+      } else {
+        setError(err.message || "Signup failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -158,14 +148,12 @@ export default function SignupPage() {
                  rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)]
                  overflow-hidden grid grid-cols-1 md:grid-cols-2"
       >
-        {/* LEFT PANEL — SIGNUP FORM */}
         <div className="p-8 md:p-10 flex flex-col justify-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-5">
             Create Account
           </h1>
 
           <form onSubmit={handleSubmit} className="space-y-3">
-            {/* Name */}
             <div className="relative">
               <User
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -184,7 +172,6 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* Email */}
             <div className="relative">
               <Mail
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -203,7 +190,6 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* Phone */}
             <div className="relative">
               <Phone
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -222,7 +208,6 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* Password */}
             <div className="relative">
               <Lock
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -248,7 +233,6 @@ export default function SignupPage() {
               </button>
             </div>
 
-            {/* Confirm Password */}
             <div className="relative">
               <Lock
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -274,18 +258,16 @@ export default function SignupPage() {
               </button>
             </div>
 
-            {/* Error */}
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-red-600 text-sm"
+                className="text-red-600 text-sm whitespace-pre-line"
               >
                 {error}
               </motion.div>
             )}
 
-            {/* Terms */}
             <div className="flex items-start gap-2 text-sm text-gray-600 px-2 py-2">
               <input type="checkbox" required className="mt-1" />
               <span>
@@ -306,7 +288,6 @@ export default function SignupPage() {
               </span>
             </div>
 
-            {/* Create Button */}
             <button
               type="submit"
               disabled={loading}
@@ -326,7 +307,6 @@ export default function SignupPage() {
               {loading ? "Creating Account..." : "Create Account"}
             </button>
 
-            {/* Google */}
             <div className="flex justify-center">
               {googleNonce && googleNonceToken ? (
                 <GoogleLogin
@@ -357,15 +337,14 @@ export default function SignupPage() {
               )}
             </div>
           </form>
+
           <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">
             <Shield size={14} className="text-[#2f5d56]" />
             <span>Your information is securely encrypted</span>
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
         <div className="hidden md:flex relative items-center justify-center p-10 overflow-hidden">
-          {/* Animated Gradient Background */}
           <div
             className="absolute inset-0 
              bg-[length:200%_200%]
@@ -376,16 +355,13 @@ export default function SignupPage() {
              animate-gradient-slow"
           />
 
-          {/* Optional Soft Image Texture (same as login) */}
           <div
             className="absolute inset-0 bg-cover bg-center opacity-80 blur-lg scale-110"
             style={{ backgroundImage: "url('/signup.jpg')" }}
           />
 
-          {/* Soft Overlay for Depth */}
           <div className="absolute inset-0 bg-black/10" />
 
-          {/* Content */}
           <div className="relative text-white text-center max-w-xs flex flex-col items-center">
             <h2 className="text-3xl font-bold mb-4">Welcome Back!</h2>
 

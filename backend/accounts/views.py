@@ -3,6 +3,8 @@ from rest_framework.decorators import api_view, permission_classes, parser_class
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.middleware.csrf import get_token
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
 from .serializers import ProfileSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, ChangePasswordSerializer
@@ -12,6 +14,7 @@ from .models import Address
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from django.contrib.auth.models import User
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
 import secrets
@@ -20,6 +23,45 @@ import secrets
 # ============================================================================
 # SIGNUP VIEW
 # ============================================================================
+
+
+def _get_cookie_settings():
+    return {
+        "httponly": True,
+        "secure": settings.AUTH_COOKIE_SECURE,
+        "samesite": settings.AUTH_COOKIE_SAMESITE,
+        "domain": settings.AUTH_COOKIE_DOMAIN,
+        "path": "/",
+    }
+
+
+def set_auth_cookies(response, *, access_token, refresh_token):
+    cookie_settings = _get_cookie_settings()
+    access_max_age = int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds())
+    refresh_max_age = int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
+
+    response.set_cookie(
+        "access_token",
+        access_token,
+        max_age=access_max_age,
+        **cookie_settings,
+    )
+    response.set_cookie(
+        "refresh_token",
+        refresh_token,
+        max_age=refresh_max_age,
+        **cookie_settings,
+    )
+
+
+def clear_auth_cookies(response):
+    cookie_settings = {
+        "domain": settings.AUTH_COOKIE_DOMAIN,
+        "path": "/",
+        "samesite": settings.AUTH_COOKIE_SAMESITE,
+    }
+    response.delete_cookie("access_token", **cookie_settings)
+    response.delete_cookie("refresh_token", **cookie_settings)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])  # Public endpoint
@@ -63,17 +105,16 @@ def login_view(request):
         # Tokens are generated in serializer.validate()
         user = serializer.validated_data.get('user')
         
-        # Prepare response
-        response_data = {
-            'access': serializer.validated_data['access'],
-            'refresh': serializer.validated_data['refresh'],
-            'user': UserSerializer(user).data
-        }
-        
-        return Response(
-            response_data,
+        response = Response(
+            {"user": UserSerializer(user).data},
             status=status.HTTP_200_OK
         )
+        set_auth_cookies(
+            response,
+            access_token=serializer.validated_data["access"],
+            refresh_token=serializer.validated_data["refresh"],
+        )
+        return response
     
     # Return authentication errors
     return Response(
@@ -116,17 +157,17 @@ class LoginView(APIView):
         
         if serializer.is_valid():
             user = serializer.validated_data.get('user')
-            
-            response_data = {
-                'access': serializer.validated_data['access'],
-                'refresh': serializer.validated_data['refresh'],
-                'user': UserSerializer(user).data
-            }
-            
-            return Response(
-                response_data,
+
+            response = Response(
+                {"user": UserSerializer(user).data},
                 status=status.HTTP_200_OK
             )
+            set_auth_cookies(
+                response,
+                access_token=serializer.validated_data["access"],
+                refresh_token=serializer.validated_data["refresh"],
+            )
+            return response
         
         return Response(
             serializer.errors,
@@ -300,6 +341,13 @@ def consume_google_nonce(nonce_token):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
+@ensure_csrf_cookie
+def csrf_token_view(request):
+    return Response({"csrfToken": get_token(request)}, status=200)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
 def google_auth_nonce_view(request):
     nonce, nonce_token = issue_google_nonce()
     return Response({"nonce": nonce, "nonce_token": nonce_token}, status=200)
@@ -352,7 +400,7 @@ def google_auth_view(request):
             return Response({"error": "Google account email is unavailable."}, status=400)
 
         # Create or get user
-        user, created = User.objects.get_or_create(
+        user, _created = User.objects.get_or_create(
             username=email,
             defaults={
                 "email": email,
@@ -363,11 +411,64 @@ def google_auth_view(request):
 
         refresh = RefreshToken.for_user(user)
 
-        return Response({
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
-            "user": UserSerializer(user).data
-        })
+        response = Response({"user": UserSerializer(user).data})
+        set_auth_cookies(
+            response,
+            access_token=str(refresh.access_token),
+            refresh_token=str(refresh),
+        )
+        return response
 
     except Exception:
         return Response({"error": "Google authentication failed."}, status=400)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def refresh_token_view(request):
+    refresh_token = (
+        str(request.data.get("refresh", "") or "").strip()
+        or str(request.COOKIES.get("refresh_token", "") or "").strip()
+    )
+
+    if not refresh_token:
+        response = Response({"error": "Refresh token missing."}, status=401)
+        clear_auth_cookies(response)
+        return response
+
+    serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
+
+    try:
+        serializer.is_valid(raise_exception=True)
+    except Exception:
+        response = Response({"error": "Refresh token is invalid or expired."}, status=401)
+        clear_auth_cookies(response)
+        return response
+
+    access_token = serializer.validated_data["access"]
+    next_refresh_token = serializer.validated_data.get("refresh", refresh_token)
+
+    response = Response({"message": "Session refreshed."}, status=200)
+    set_auth_cookies(
+        response,
+        access_token=access_token,
+        refresh_token=next_refresh_token,
+    )
+    return response
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def logout_view(request):
+    refresh_token = str(request.COOKIES.get("refresh_token", "") or "").strip()
+
+    if refresh_token:
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except Exception:
+            pass
+
+    response = Response({"message": "Logged out."}, status=200)
+    clear_auth_cookies(response)
+    return response

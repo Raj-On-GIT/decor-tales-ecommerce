@@ -7,8 +7,11 @@ import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Shield } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "@/context/AuthContext";
-import { getGoogleAuthNonce, loginWithGoogle } from "@/lib/auth";
-import { API_BASE } from "@/lib/config";
+import {
+  getGoogleAuthNonce,
+  login as loginRequest,
+  loginWithGoogle,
+} from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -69,7 +72,7 @@ export default function LoginPage() {
         googleNonceToken,
       );
 
-      await login({ access: data.access, refresh: data.refresh });
+      await login({ user: data.user });
 
       const nextNonce = await getGoogleAuthNonce();
       setGoogleNonce(nextNonce.nonce);
@@ -78,7 +81,7 @@ export default function LoginPage() {
       router.refresh();
       router.replace("/");
     } catch (err) {
-      setError(err.message || "Google login failed");
+      setError(err?.message || err?.error || "Google login failed");
     } finally {
       setGoogleLoading(false);
     }
@@ -90,31 +93,21 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/login/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: formData.email,
-          password: formData.password,
-        }),
+      const data = await loginRequest({
+        username: formData.email,
+        password: formData.password,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.non_field_errors?.[0] || "Login failed. Please try again.",
-        );
-      }
-
-      const data = await response.json();
-      await login({ access: data.access, refresh: data.refresh });
+      await login({ user: data.user });
 
       router.refresh();
       router.replace("/");
     } catch (err) {
-      setError(err.message);
+      const message =
+        err?.non_field_errors?.[0] ||
+        err?.detail ||
+        err?.message ||
+        "Login failed. Please try again.";
+      setError(message);
     } finally {
       setLoading(false);
     }

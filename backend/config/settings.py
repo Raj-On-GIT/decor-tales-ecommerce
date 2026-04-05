@@ -62,6 +62,14 @@ def parse_database_url(database_url):
         "PORT": str(parsed.port or ""),
     }
 
+
+def is_local_host(value):
+    if not value:
+        return False
+
+    parsed = urlparse(value if "://" in value else f"http://{value}")
+    return (parsed.hostname or "").lower() in {"localhost", "127.0.0.1"}
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -250,13 +258,17 @@ CORS_ALLOWED_ORIGINS = get_env_list(
 
 CSRF_TRUSTED_ORIGINS = get_env_list(
     "CSRF_TRUSTED_ORIGINS",
-    "https://decor-tales-ecommerce.vercel.app",
+    "http://localhost:3000,http://127.0.0.1:3000,https://decor-tales-ecommerce.vercel.app",
 )
+
+for origin in CORS_ALLOWED_ORIGINS:
+    if origin.startswith(("http://", "https://")) and origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
 
 REST_FRAMEWORK = {
     # Default authentication classes (in order of priority)
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT (new)
+        'accounts.authentication.CookieJWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',         # Session (existing)
     ),
     
@@ -278,7 +290,7 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': False,
+    'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
 
     'ALGORITHM': 'HS256',
@@ -339,8 +351,29 @@ PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
 # Frontend URL (important for reset link)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://decor-tales-ecommerce.vercel.app")
 
+if (
+    FRONTEND_URL.startswith(("http://", "https://"))
+    and FRONTEND_URL not in CSRF_TRUSTED_ORIGINS
+):
+    CSRF_TRUSTED_ORIGINS.append(FRONTEND_URL)
+
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "").strip()
 PAYMENT_RESERVATION_MINUTES = int(os.getenv("PAYMENT_RESERVATION_MINUTES", "15"))
 ALLOW_LEGACY_DIRECT_ORDER = get_env_bool("ALLOW_LEGACY_DIRECT_ORDER", default=False)
+
+local_cookie_context = is_local_host(
+    os.getenv("FRONTEND_URL", "https://decor-tales-ecommerce.vercel.app")
+) or any(
+    is_local_host(origin) for origin in CORS_ALLOWED_ORIGINS
+)
+AUTH_COOKIE_SECURE = get_env_bool(
+    "AUTH_COOKIE_SECURE",
+    default=False if local_cookie_context else not DEBUG,
+)
+AUTH_COOKIE_SAMESITE = os.getenv(
+    "AUTH_COOKIE_SAMESITE",
+    "None" if AUTH_COOKIE_SECURE else "Lax",
+)
+AUTH_COOKIE_DOMAIN = os.getenv("AUTH_COOKIE_DOMAIN") or None

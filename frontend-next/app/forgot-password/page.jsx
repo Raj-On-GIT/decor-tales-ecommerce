@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowLeft, Mail, Shield } from "lucide-react";
+import { apiFetch } from "@/lib/auth";
 import { API_BASE } from "@/lib/config";
 
 export default function ForgotPasswordPage() {
@@ -19,7 +20,7 @@ export default function ForgotPasswordPage() {
     setMessage("");
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/forgot-password/`, {
+      const res = await apiFetch(`${API_BASE}/api/auth/forgot-password/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

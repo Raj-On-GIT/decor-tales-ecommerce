@@ -1,22 +1,13 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  addToCart as addToCartAPI,
-  getCart,
-} from "@/lib/api";
+import { addToCart as addToCartAPI, getCart } from "@/lib/api";
 import {
   clearAuthSession,
-  getAccessToken,
-  isTokenExpired,
-  shouldRefreshToken,
+  getSessionUser,
   refreshAccessToken,
 } from "@/lib/auth";
-
-// ============================================================================
-// CONTEXT CREATION
-// ============================================================================
 
 const AuthContext = createContext({
   user: null,
@@ -73,123 +64,29 @@ function mergeCartMetadata(previousCart = [], nextCart = []) {
   });
 }
 
-// ============================================================================
-// AUTH PROVIDER COMPONENT
-// ============================================================================
-
-/**
- * AuthProvider Component
- *
- * Wraps the application and provides global authentication state.
- *
- * Features:
- * - Loads auth state from localStorage on mount
- * - Maintains login state across page refreshes
- * - Updates UI instantly on login/logout
- * - Syncs across multiple tabs (via localStorage)
- *
- * @param {object} props
- * @param {React.ReactNode} props.children - Child components
- */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  /**
-   * Rehydrate authentication state from localStorage
-   *
-   * This function:
-   * 1. Checks localStorage for access_token
-   * 2. If found, decodes JWT to get user info
-   * 3. Sets authenticated state
-   * 4. Prevents flash of logged-out state
-   */
   const rehydrateAuth = async () => {
     try {
-      // Check if we're in browser environment
       if (typeof window === "undefined") {
         setLoading(false);
         return;
       }
 
-      // Get access token from localStorage
-      let accessToken = localStorage.getItem("access_token");
+      const sessionUser = await getSessionUser();
 
-      if (!accessToken) {
-        // No token found - user is logged out
+      if (!sessionUser) {
         setUser(null);
         setIsAuthenticated(false);
         setLoading(false);
         return;
       }
 
-      // Decode JWT to get user info
-      const userData = decodeToken(accessToken);
-
-      if (!userData) {
-        // Invalid token - clear and logout
-        clearAuthSession();
-        setUser(null);
-        setIsAuthenticated(false);
-        setLoading(false);
-        return;
-      }
-
-      // Check if token is expired
-      if (isTokenExpired(userData)) {
-        // Try refresh first so sessions survive normal inactivity windows.
-        const refreshed = await refreshAccessToken();
-
-        if (!refreshed.ok) {
-          if (!refreshed.shouldLogout) {
-            setUser({
-              id: userData.user_id,
-              exp: userData.exp,
-              iat: userData.iat,
-            });
-            setIsAuthenticated(true);
-            setLoading(false);
-            return;
-          }
-
-          console.warn("Access token expired and refresh failed");
-          clearAuthSession();
-          setUser(null);
-          setIsAuthenticated(false);
-          setLoading(false);
-          return;
-        }
-
-        accessToken = getAccessToken();
-        const refreshedUserData = decodeToken(accessToken);
-
-        if (!refreshedUserData || isTokenExpired(refreshedUserData)) {
-          clearAuthSession();
-          setUser(null);
-          setIsAuthenticated(false);
-          setLoading(false);
-          return;
-        }
-
-        setUser({
-          id: refreshedUserData.user_id,
-          exp: refreshedUserData.exp,
-          iat: refreshedUserData.iat,
-        });
-        setIsAuthenticated(true);
-        window.dispatchEvent(new Event("user-login"));
-        setLoading(false);
-        return;
-      }
-
-      // Token is valid - set authenticated state
-      setUser({
-        id: userData.user_id,
-        exp: userData.exp,
-        iat: userData.iat,
-      });
+      setUser(sessionUser);
       setIsAuthenticated(true);
       window.dispatchEvent(new Event("user-login"));
       setLoading(false);
@@ -201,10 +98,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-  /**
-   * Load authentication state from localStorage on mount
-   * Runs once when app starts (rehydration)
-   */
   useEffect(() => {
     function handleForcedLogout() {
       setUser(null);
@@ -232,23 +125,11 @@ export function AuthProvider({ children }) {
       return undefined;
     }
 
+    if (!isAuthenticated) {
+      return undefined;
+    }
+
     async function maintainSession() {
-      const accessToken = getAccessToken();
-
-      if (!accessToken) {
-        return;
-      }
-
-      const userData = decodeToken(accessToken);
-
-      if (!userData) {
-        return;
-      }
-
-      if (!isTokenExpired(userData) && !shouldRefreshToken()) {
-        return;
-      }
-
       const refreshed = await refreshAccessToken();
 
       if (!refreshed.ok) {
@@ -260,18 +141,12 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      const nextAccessToken = getAccessToken();
-      const nextUserData = decodeToken(nextAccessToken);
-
-      if (!nextUserData) {
+      const sessionUser = await getSessionUser();
+      if (!sessionUser) {
         return;
       }
 
-      setUser({
-        id: nextUserData.user_id,
-        exp: nextUserData.exp,
-        iat: nextUserData.iat,
-      });
+      setUser(sessionUser);
       setIsAuthenticated(true);
     }
 
@@ -295,29 +170,12 @@ export function AuthProvider({ children }) {
       window.removeEventListener("online", handleVisibilityOrFocus);
       document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
     };
-  }, []);
+  }, [isAuthenticated]);
 
-  /**
-   * Login function
-   *
-   * Called after successful login API call.
-   * Stores tokens and updates authentication state.
-   *
-   * @param {object} tokens - Access and refresh tokens
-   * @param {string} tokens.access - JWT access token
-   * @param {string} tokens.refresh - JWT refresh token
-   *
-   * Usage:
-   *   const { login } = useAuth();
-   *
-   *   // After successful API call
-   *   const data = await loginAPI(credentials);
-   *   login({ access: data.access, refresh: data.refresh });
-   */
-  const login = async (tokens) => {
+  const login = async (payload) => {
     try {
-      if (!tokens || !tokens.access || !tokens.refresh) {
-        console.error("Invalid tokens provided to login()");
+      if (!payload?.user?.id) {
+        console.error("Invalid user payload provided to login()");
         return;
       }
 
@@ -325,21 +183,6 @@ export function AuthProvider({ children }) {
         typeof window !== "undefined"
           ? JSON.parse(localStorage.getItem("cart") || "[]")
           : [];
-
-      // Store tokens
-      localStorage.setItem("access_token", tokens.access);
-      localStorage.setItem("refresh_token", tokens.refresh);
-
-      const userData = decodeToken(tokens.access);
-
-      if (!userData) {
-        console.error("Failed to decode token");
-        return;
-      }
-
-      // -------------------------------------------------
-      // 🔥 MERGE GUEST CART INTO SERVER CART
-      // -------------------------------------------------
 
       if (guestCart.length > 0) {
         for (const item of guestCart) {
@@ -365,26 +208,17 @@ export function AuthProvider({ children }) {
         }
       }
 
-      // -------------------------------------------------
-      // 🔥 REFRESH SERVER CART
-      // -------------------------------------------------
-
       try {
         const data = await getCart();
         if (typeof window !== "undefined") {
           const mergedItems = mergeCartMetadata(guestCart, data.items || []);
           localStorage.setItem("cart", JSON.stringify(mergedItems));
         }
-      } catch {
-        console.error("Failed to reload cart after merge");
+      } catch (error) {
+        console.error("Failed to reload cart after merge", error);
       }
 
-      setUser({
-        id: userData.user_id,
-        exp: userData.exp,
-        iat: userData.iat,
-      });
-
+      setUser(payload.user);
       setIsAuthenticated(true);
       window.dispatchEvent(new Event("user-login"));
     } catch (error) {
@@ -392,68 +226,28 @@ export function AuthProvider({ children }) {
     }
   };
 
-  /**
-   * Logout function
-   *
-   * Clears tokens from localStorage and resets authentication state.
-   * Redirects to homepage.
-   *
-   * Usage:
-   *   const { logout } = useAuth();
-   *
-   *   <button onClick={logout}>Logout</button>
-   */
   const logout = () => {
     try {
       clearAuthSession();
-
-      // Reset auth state
       setUser(null);
       setIsAuthenticated(false);
-
       router.push("/");
-
-      console.log("✅ User logged out successfully");
     } catch (error) {
       console.error("Error in logout():", error);
     }
   };
 
-  /**
-   * Context value provided to consuming components
-   */
   const value = {
-    user, // User object with { id, exp, iat } or null
-    isAuthenticated, // Boolean: true if logged in, false if not
-    loading, // Boolean: true while loading, false when ready
-    login, // Function: login({ access, refresh })
-    logout, // Function: logout()
+    user,
+    isAuthenticated,
+    loading,
+    login,
+    logout,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// ============================================================================
-// HOOK FOR CONSUMING AUTH CONTEXT
-// ============================================================================
-
-/**
- * useAuth Hook
- *
- * Custom hook to access authentication state and functions.
- * Must be used within AuthProvider.
- *
- * @returns {object} Auth context value
- *
- * Example:
- *   const { user, isAuthenticated, loading, login, logout } = useAuth();
- *
- *   if (loading) return <div>Loading...</div>;
- *
- *   if (!isAuthenticated) return <div>Please login</div>;
- *
- *   return <div>Welcome, User {user.id}!</div>;
- */
 export function useAuth() {
   const context = useContext(AuthContext);
 
@@ -462,46 +256,6 @@ export function useAuth() {
   }
 
   return context;
-}
-
-// ============================================================================
-// UTILITY FUNCTIONS (Internal)
-// ============================================================================
-
-/**
- * Decode JWT token payload (client-side only)
- *
- * WARNING: This does NOT verify the token signature.
- * Only use for reading payload data, not for security decisions.
- * Server must always verify tokens.
- *
- * @param {string} token - JWT token to decode
- * @returns {object|null} Decoded payload or null if invalid
- */
-function decodeToken(token) {
-  if (!token) return null;
-
-  try {
-    // Split token into parts
-    const parts = token.split(".");
-
-    // JWT must have 3 parts
-    if (parts.length !== 3) {
-      return null;
-    }
-
-    // Decode the payload (middle part)
-    const payload = parts[1];
-
-    // Base64 decode
-    const decoded = atob(payload);
-
-    // Parse JSON
-    return JSON.parse(decoded);
-  } catch (error) {
-    console.error("Error decoding token:", error);
-    return null;
-  }
 }
 
 export default AuthContext;

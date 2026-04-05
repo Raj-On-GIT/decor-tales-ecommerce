@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/lib/auth";
 import { API_BASE } from "@/lib/config";
 
 export default function ResetPasswordPage() {
@@ -27,7 +28,7 @@ export default function ResetPasswordPage() {
         return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/auth/reset-password/`, {
+      const res = await apiFetch(`${API_BASE}/api/auth/reset-password/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

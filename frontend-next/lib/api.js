@@ -1,8 +1,4 @@
-import {
-  clearAuthSession,
-  getAccessToken,
-  refreshAccessToken,
-} from "./auth";
+import { fetchWithAuth as authFetchWithAuth } from "./auth";
 import { API_BASE, BACKEND, RAZORPAY_KEY } from "./config";
 
 export async function getProducts(filters = {}) {
@@ -254,43 +250,7 @@ export async function searchProducts(query) {
 }
 
 async function fetchWithAuth(url, options = {}) {
-  let token = getAccessToken();
-
-  if (!token) {
-    throw new Error("Not authenticated");
-  }
-
-  let response = await fetch(url, {
-    ...options,
-    headers: {
-      ...options.headers,
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  // If token expired → try refresh once
-  if (response.status === 401) {
-    const refreshed = await refreshAccessToken();
-
-    if (refreshed.ok) {
-      token = getAccessToken();
-
-      response = await fetch(url, {
-        ...options,
-        headers: {
-          ...options.headers,
-          Authorization: `Bearer ${token}`,
-        },
-      });
-    } else if (refreshed.shouldLogout) {
-      clearAuthSession({ redirectTo: "/login" });
-      throw new Error("Session expired");
-    } else {
-      throw new Error("Unable to refresh session right now.");
-    }
-  }
-
-  return response;
+  return authFetchWithAuth(url, options);
 }
 
 // Use in existing functions
