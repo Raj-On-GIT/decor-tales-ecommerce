@@ -276,7 +276,13 @@ def serialize_coupon(coupon, evaluation):
 def add_to_cart(request):
     try:
         product_id = request.data.get("product_id")
-        quantity = int(request.data.get("quantity", 1))
+        try:
+            quantity = int(request.data.get("quantity", 1))
+        except (TypeError, ValueError):
+            return Response({"error": "Quantity must be a valid integer."}, status=400)
+
+        if quantity < 1:
+            return Response({"error": "Quantity must be at least 1."}, status=400)
 
         product = get_object_or_404(Product, id=product_id)
         cart, _ = Cart.objects.get_or_create(user=request.user)
@@ -286,6 +292,18 @@ def add_to_cart(request):
 
         if variant_id:
             variant = get_object_or_404(ProductVariant, id=variant_id)
+
+            if product.stock_type != "variants":
+                return Response(
+                    {"error": "Variants are not supported for this product."},
+                    status=400,
+                )
+
+            if variant.product_id != product.id:
+                return Response(
+                    {"error": "Selected variant does not belong to this product."},
+                    status=400,
+                )
 
         custom_text = request.data.get("custom_text")
         custom_images = get_custom_image_files(request)

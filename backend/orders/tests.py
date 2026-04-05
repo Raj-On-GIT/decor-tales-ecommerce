@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 from orders.models import Cart, CartItem, Coupon, CouponUsage, Order, StockReservation
 from orders.payment_services import reconcile_order_payment
-from products.models import Category, Product, SubCategory
+from products.models import Category, Product, ProductVariant, SubCategory
 
 
 class AvailableCouponsTests(TestCase):
@@ -157,6 +157,120 @@ class AvailableCouponsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["coupons"], [])
+
+
+class CartValidationTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="cart-user",
+            email="cart@example.com",
+            password="testpass123",
+        )
+        self.client.force_authenticate(user=self.user)
+
+        self.category = Category.objects.create(name="Cart Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Cart Wall Frames",
+        )
+
+        self.simple_product = Product.objects.create(
+            title="Simple Frame",
+            mrp=Decimal("500.00"),
+            slashed_price=Decimal("400.00"),
+            stock=5,
+            stock_type="main",
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.variant_product = Product.objects.create(
+            title="Variant Frame",
+            stock=0,
+            stock_type="variants",
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.other_variant_product = Product.objects.create(
+            title="Other Variant Frame",
+            stock=0,
+            stock_type="variants",
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+
+        self.variant = ProductVariant.objects.create(
+            product=self.variant_product,
+            mrp=Decimal("900.00"),
+            slashed_price=Decimal("700.00"),
+            stock=3,
+        )
+        self.other_variant = ProductVariant.objects.create(
+            product=self.other_variant_product,
+            mrp=Decimal("1000.00"),
+            slashed_price=Decimal("800.00"),
+            stock=2,
+        )
+
+    def test_rejects_quantity_less_than_one(self):
+        response = self.client.post(
+            reverse("add_to_cart"),
+            {"product_id": self.simple_product.id, "quantity": 0},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"], "Quantity must be at least 1.")
+        self.assertFalse(CartItem.objects.filter(product=self.simple_product).exists())
+
+    def test_rejects_variant_for_non_variant_product(self):
+        response = self.client.post(
+            reverse("add_to_cart"),
+            {
+                "product_id": self.simple_product.id,
+                "variant_id": self.variant.id,
+                "quantity": 1,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"], "Variants are not supported for this product.")
+        self.assertFalse(CartItem.objects.filter(product=self.simple_product).exists())
+
+    def test_rejects_variant_that_belongs_to_different_product(self):
+        response = self.client.post(
+            reverse("add_to_cart"),
+            {
+                "product_id": self.variant_product.id,
+                "variant_id": self.other_variant.id,
+                "quantity": 1,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["error"],
+            "Selected variant does not belong to this product.",
+        )
+        self.assertFalse(CartItem.objects.filter(product=self.variant_product).exists())
+
+    def test_allows_variant_that_matches_product(self):
+        response = self.client.post(
+            reverse("add_to_cart"),
+            {
+                "product_id": self.variant_product.id,
+                "variant_id": self.variant.id,
+                "quantity": 1,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        cart_item = CartItem.objects.get(product=self.variant_product)
+        self.assertEqual(cart_item.variant_id, self.variant.id)
+        self.assertEqual(cart_item.quantity, 1)
 
 
 class PaymentFlowSafetyTests(TestCase):
