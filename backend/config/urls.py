@@ -19,6 +19,7 @@ from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve
+from orders.views import serve_order_media_direct
 from accounts.views import (
     reset_password_view,
     signup_view,
@@ -57,6 +58,11 @@ urlpatterns = [
 
     path("api/auth/forgot-password/", forgot_password_view),
     path("api/auth/reset-password/", reset_password_view),
+    re_path(
+        r"^media/order_customizations/(?P<file_path>.*)$",
+        serve_order_media_direct,
+        name="order_media_direct",
+    ),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

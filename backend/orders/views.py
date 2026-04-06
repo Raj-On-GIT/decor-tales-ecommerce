@@ -1,11 +1,15 @@
 from decimal import Decimal
 import logging
+import mimetypes
 
 from django.conf import settings
+from django.core.files.storage import default_storage
+from django.http import FileResponse, Http404
 from django.db import transaction
 from django.db.models import F, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.urls import reverse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -22,7 +26,7 @@ from .models import (
 )
 from .serializers import AddToCartSerializer
 from products.models import Product, ProductVariant
-from products.media_utils import build_media_url
+from products.media_utils import build_media_url, normalize_media_name
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +111,79 @@ def get_first_error_message(errors):
             return get_first_error_message(errors[first_key])
 
     return str(errors)
+
+
+def build_secure_order_media_url(request, file_field):
+    normalized_name = normalize_media_name(getattr(file_field, "name", ""))
+    if not normalized_name or not normalized_name.startswith("order_customizations/"):
+        return build_media_url(file_field)
+
+    secure_path = reverse("order_media", kwargs={"file_path": normalized_name})
+    return request.build_absolute_uri(secure_path) if request else secure_path
+
+
+def build_secure_order_image_urls(request, image_objects):
+    return [
+        build_secure_order_media_url(request, image.image)
+        for image in image_objects
+        if image.image and build_secure_order_media_url(request, image.image)
+    ]
+
+
+def get_order_owner_for_media(file_path):
+    normalized_path = normalize_media_name(file_path)
+    if not normalized_path.startswith("order_customizations/"):
+        raise Http404("Unsupported media path.")
+
+    order_item_image = (
+        OrderItemImage.objects.select_related("order_item__order__user")
+        .filter(image=normalized_path)
+        .first()
+    )
+    if order_item_image:
+        return order_item_image.order_item.order.user
+
+    order_item = (
+        OrderItem.objects.select_related("order__user")
+        .filter(custom_image=normalized_path)
+        .first()
+    )
+    if order_item:
+        return order_item.order.user
+
+    raise Http404("Media file not found.")
+
+
+def _serve_order_media_response(request, file_path):
+    normalized_path = normalize_media_name(file_path)
+    owner = get_order_owner_for_media(normalized_path)
+
+    if not (request.user.is_staff or owner.id == request.user.id):
+        raise Http404("Media file not found.")
+
+    if not default_storage.exists(normalized_path):
+        raise Http404("Media file not found.")
+
+    media_file = default_storage.open(normalized_path, "rb")
+    content_type = mimetypes.guess_type(normalized_path)[0] or "application/octet-stream"
+    response = FileResponse(media_file, content_type=content_type)
+    response["Cache-Control"] = "private, max-age=300"
+    return response
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def serve_order_media(request, file_path):
+    return _serve_order_media_response(request, file_path)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def serve_order_media_direct(request, file_path):
+    return _serve_order_media_response(
+        request,
+        f"order_customizations/{normalize_media_name(file_path)}",
+    )
 
 
 def get_coupon_queryset():
@@ -468,12 +545,12 @@ def get_cart(request):
                     ),
                     "quantity": item.quantity,
                     "custom_text": item.custom_text,
-                    "custom_images": build_image_urls(request, item.custom_images.all()),
+                    "custom_images": build_secure_order_image_urls(request, item.custom_images.all()),
                     "custom_image": (
-                        request.build_absolute_uri(build_media_url(item.custom_image))
+                        build_secure_order_media_url(request, item.custom_image)
                         if item.custom_image
                         else (
-                            request.build_absolute_uri(build_media_url(item.custom_images.first().image))
+                            build_secure_order_media_url(request, item.custom_images.first().image)
                             if item.custom_images.exists()
                             else None
                         )
@@ -845,12 +922,12 @@ def get_order_detail(request, order_id):
             "price": str(item.price),
             "total": str(item.price * item.quantity),
             "custom_text": item.custom_text,
-            "custom_images": build_image_urls(request, item.custom_images.all()),
+            "custom_images": build_secure_order_image_urls(request, item.custom_images.all()),
             "custom_image": (
-                request.build_absolute_uri(build_media_url(item.custom_image))
+                build_secure_order_media_url(request, item.custom_image)
                 if item.custom_image
                 else (
-                    request.build_absolute_uri(build_media_url(item.custom_images.first().image))
+                    build_secure_order_media_url(request, item.custom_images.first().image)
                     if item.custom_images.exists()
                     else None
                 )

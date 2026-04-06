@@ -11,7 +11,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 from rest_framework.test import APIClient
 
-from orders.models import Cart, CartItem, Coupon, CouponUsage, Order, StockReservation
+from orders.models import Cart, CartItem, Coupon, CouponUsage, Order, OrderItem, OrderItemImage, StockReservation
 from orders.payment_services import reconcile_order_payment
 from products.models import Category, Product, ProductVariant, SubCategory
 
@@ -378,6 +378,124 @@ class CartValidationTests(TestCase):
         self.assertEqual(response.status_code, 201)
         cart_item = CartItem.objects.get(product=self.simple_product)
         self.assertEqual(cart_item.custom_images.count(), 1)
+
+
+class SecureOrderMediaTests(TestCase):
+    def setUp(self):
+        self.media_root = os.path.join(os.getcwd(), "test_media_secure_orders")
+        shutil.rmtree(self.media_root, ignore_errors=True)
+        os.makedirs(self.media_root, exist_ok=True)
+
+        from django.conf import settings
+
+        self._original_media_root = settings.MEDIA_ROOT
+        settings.MEDIA_ROOT = self.media_root
+
+        self.owner = User.objects.create_user(
+            username="owner-user",
+            email="owner@example.com",
+            password="testpass123",
+        )
+        self.other_user = User.objects.create_user(
+            username="other-user",
+            email="other@example.com",
+            password="testpass123",
+        )
+        self.admin_user = User.objects.create_user(
+            username="admin-user",
+            email="admin@example.com",
+            password="testpass123",
+            is_staff=True,
+        )
+
+        self.category = Category.objects.create(name="Secure Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Secure Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Secure Frame",
+            mrp=Decimal("500.00"),
+            slashed_price=Decimal("400.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.order = Order.objects.create(
+            user=self.owner,
+            subtotal_amount=Decimal("400.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("400.00"),
+            shipping_address="Address line",
+            city="Delhi",
+            postal_code="110001",
+            phone="9999999999",
+            status="paid",
+        )
+        self.order_item = OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("400.00"),
+        )
+        self.order_item_image = OrderItemImage.objects.create(
+            order_item=self.order_item,
+            image=build_test_image("secure-custom.png", size=(200, 200)),
+        )
+
+    def tearDown(self):
+        from django.conf import settings
+
+        settings.MEDIA_ROOT = self._original_media_root
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_owner_can_access_secure_media_endpoint(self):
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+
+        response = client.get(
+            reverse("order_media", kwargs={"file_path": self.order_item_image.image.name})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/png")
+
+    def test_admin_can_access_secure_media_endpoint(self):
+        client = APIClient()
+        client.force_authenticate(user=self.admin_user)
+
+        response = client.get(
+            reverse("order_media", kwargs={"file_path": self.order_item_image.image.name})
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_other_user_cannot_access_secure_media_endpoint(self):
+        client = APIClient()
+        client.force_authenticate(user=self.other_user)
+
+        response = client.get(
+            reverse("order_media", kwargs={"file_path": self.order_item_image.image.name})
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_legacy_media_path_is_now_protected(self):
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+
+        response = client.get(f"/media/{self.order_item_image.image.name}")
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_order_detail_uses_secure_media_urls(self):
+        client = APIClient()
+        client.force_authenticate(user=self.owner)
+
+        response = client.get(reverse("order_detail", kwargs={"order_id": self.order.id}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("/api/orders/media/order_customizations/", response.data["order"]["items"][0]["custom_image"])
 
 
 class PaymentFlowSafetyTests(TestCase):
