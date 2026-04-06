@@ -119,6 +119,8 @@ export async function login(credentials) {
     throw data;
   }
 
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  
   return data;
 }
 
@@ -222,30 +224,23 @@ export async function refreshAccessToken() {
 export async function fetchWithAuth(url, options = {}) {
   let response = await apiFetch(url, options);
 
+  // 🔥 Only handle 401
   if (response.status === 401) {
-    // 🔥 Only attempt refresh if we had a session before
-    if (!hasTriedRefresh) {
-      const refreshed = await refreshAccessToken()
-      if (refreshed.ok) {
-        return retryRequest()
+    const refreshed = await refreshAccessToken();
+
+    if (!refreshed.ok) {
+      if (refreshed.shouldLogout) {
+        clearAuthSession();
+        throw new Error("Session expired. Please login again.");
       }
+
+      throw new Error("Unable to refresh session.");
     }
 
-    // otherwise just treat as logged out
+    // 🔁 Retry once after refresh
+    response = await apiFetch(url, options);
   }
 
-  const refreshed = await refreshAccessToken();
-
-  if (!refreshed.ok) {
-    if (refreshed.shouldLogout) {
-      clearAuthSession();
-      throw new Error("Session expired. Please login again.");
-    }
-
-    throw new Error("Unable to refresh session right now. Please try again.");
-  }
-
-  response = await apiFetch(url, options);
   return response;
 }
 
