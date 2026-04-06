@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 import cloudinary
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -102,11 +103,17 @@ else:
     CLOUDINARY_STORAGE = {}
 
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = get_env_bool("DEBUG", default=False)
+
+# SECURITY WARNING: keep the secret key used in production secret.
+# A local fallback is allowed only while DEBUG is enabled to avoid breaking development.
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "django-insecure-dev-key-change-in-production"
+    else:
+        raise ImproperlyConfigured("SECRET_KEY must be set when DEBUG is False.")
 
 ALLOWED_HOSTS = get_env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 USE_X_FORWARDED_HOST = True
@@ -383,11 +390,30 @@ AUTH_COOKIE_SAMESITE = os.getenv(
 )
 AUTH_COOKIE_DOMAIN = os.getenv("AUTH_COOKIE_DOMAIN") or None
 
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
+# Only send CSRF cookies over HTTPS in production.
+CSRF_COOKIE_SECURE = not DEBUG
+# Only send session cookies over HTTPS in production.
+SESSION_COOKIE_SECURE = not DEBUG
 
-CSRF_COOKIE_SAMESITE = "None"
-SESSION_COOKIE_SAMESITE = "None"
+# Keep localhost development working without Secure+SameSite=None requirements.
+CSRF_COOKIE_SAMESITE = "None" if not DEBUG else "Lax"
+# Keep localhost development working without Secure+SameSite=None requirements.
+SESSION_COOKIE_SAMESITE = "None" if not DEBUG else "Lax"
+
+# Redirect plain HTTP to HTTPS only in production. Proxy headers above prevent redirect loops.
+SECURE_SSL_REDIRECT = not DEBUG
+# Enable long-lived HSTS only in production.
+SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
+# Apply HSTS to subdomains once HTTPS is enforced.
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# Allow this domain to be included in browser preload lists.
+SECURE_HSTS_PRELOAD = True
+# Legacy browser XSS header; modern browsers mostly ignore it, but it is harmless to keep.
+SECURE_BROWSER_XSS_FILTER = True
+# Prevent MIME sniffing so browsers respect declared content types.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+# Limit referrer leakage on cross-origin requests while preserving same-origin usefulness.
+REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 if not DEBUG:
     AUTH_COOKIE_SECURE = True

@@ -1,3 +1,8 @@
+import os
+
+
+os.environ.setdefault("DEBUG", "True")
+
 from .settings import *  # noqa: F401,F403
 
 
