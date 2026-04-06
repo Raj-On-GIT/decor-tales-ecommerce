@@ -443,6 +443,7 @@ def google_auth_view(request):
         return Response({"error": "Google authentication failed."}, status=400)
 
 
+# FIXED
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def refresh_token_view(request):
@@ -452,15 +453,15 @@ def refresh_token_view(request):
     )
 
     if not refresh_token:
-        response = Response({"error": "Refresh token missing."}, status=401)
-        clear_auth_cookies(response)
-        return response
+        # Token is absent — don't touch cookies, browser may still be processing login
+        return Response({"error": "Refresh token missing."}, status=401)
 
     serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
 
     try:
         serializer.is_valid(raise_exception=True)
     except Exception:
+        # Token exists but is cryptographically invalid or expired — safe to clear
         response = Response({"error": "Refresh token is invalid or expired."}, status=401)
         clear_auth_cookies(response)
         return response
