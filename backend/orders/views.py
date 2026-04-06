@@ -19,6 +19,7 @@ from .models import (
     OrderItem,
     OrderItemImage,
 )
+from .serializers import AddToCartSerializer
 from products.models import Product, ProductVariant
 from products.media_utils import build_media_url
 
@@ -89,6 +90,20 @@ def get_custom_image_files(request):
 
     legacy_image = request.FILES.get("custom_image")
     return [legacy_image] if legacy_image else []
+
+
+def get_first_error_message(errors):
+    if isinstance(errors, list) and errors:
+        return get_first_error_message(errors[0])
+
+    if isinstance(errors, dict):
+        if "non_field_errors" in errors:
+            return get_first_error_message(errors["non_field_errors"])
+        first_key = next(iter(errors), None)
+        if first_key is not None:
+            return get_first_error_message(errors[first_key])
+
+    return str(errors)
 
 
 def get_coupon_queryset():
@@ -275,7 +290,6 @@ def serialize_coupon(coupon, evaluation):
 @permission_classes([IsAuthenticated])
 def add_to_cart(request):
     try:
-        product_id = request.data.get("product_id")
         try:
             quantity = int(request.data.get("quantity", 1))
         except (TypeError, ValueError):
@@ -284,52 +298,26 @@ def add_to_cart(request):
         if quantity < 1:
             return Response({"error": "Quantity must be at least 1."}, status=400)
 
-        product = get_object_or_404(Product, id=product_id)
+        serializer = AddToCartSerializer(
+            data={
+                "product_id": request.data.get("product_id"),
+                "quantity": quantity,
+                "variant_id": request.data.get("variant_id"),
+                "custom_text": request.data.get("custom_text"),
+                "custom_images": get_custom_image_files(request),
+            }
+        )
+        if not serializer.is_valid():
+            return Response(
+                {"error": get_first_error_message(serializer.errors)},
+                status=400,
+            )
+
+        product = serializer.validated_data["product"]
         cart, _ = Cart.objects.get_or_create(user=request.user)
-
-        variant_id = request.data.get("variant_id")
-        variant = None
-
-        if variant_id:
-            variant = get_object_or_404(ProductVariant, id=variant_id)
-
-            if product.stock_type != "variants":
-                return Response(
-                    {"error": "Variants are not supported for this product."},
-                    status=400,
-                )
-
-            if variant.product_id != product.id:
-                return Response(
-                    {"error": "Selected variant does not belong to this product."},
-                    status=400,
-                )
-
-        custom_text = request.data.get("custom_text")
-        custom_images = get_custom_image_files(request)
-
-        if custom_text == "":
-            custom_text = None
-
-        if custom_images and not product.allow_custom_image:
-            return Response(
-                {"error": "This product does not allow image customization."},
-                status=400,
-            )
-
-        if custom_images and len(custom_images) > product.custom_image_limit:
-            return Response(
-                {
-                    "error": f"This product allows only {product.custom_image_limit} custom image(s)."
-                },
-                status=400,
-            )
-
-        if custom_text and not product.allow_custom_text:
-            return Response(
-                {"error": "This product does not allow text customization."},
-                status=400,
-            )
+        variant = serializer.validated_data["variant"]
+        custom_text = serializer.validated_data["custom_text"]
+        custom_images = serializer.validated_data["custom_images"]
 
         available_stock = variant.stock if variant else product.stock
 

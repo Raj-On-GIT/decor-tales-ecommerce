@@ -1,14 +1,27 @@
 from decimal import Decimal
+import os
+import shutil
+import tempfile
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
+from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image
 from rest_framework.test import APIClient
 
 from orders.models import Cart, CartItem, Coupon, CouponUsage, Order, StockReservation
 from orders.payment_services import reconcile_order_payment
 from products.models import Category, Product, ProductVariant, SubCategory
+
+
+def build_test_image(name, size=(100, 100), image_format="PNG", content_type="image/png"):
+    image_io = tempfile.SpooledTemporaryFile()
+    image = Image.new("RGB", size, color=(90, 150, 210))
+    image.save(image_io, format=image_format)
+    image_io.seek(0)
+    return SimpleUploadedFile(name, image_io.read(), content_type=content_type)
 
 
 class AvailableCouponsTests(TestCase):
@@ -161,6 +174,9 @@ class AvailableCouponsTests(TestCase):
 
 class CartValidationTests(TestCase):
     def setUp(self):
+        self.media_root = os.path.join(os.getcwd(), "test_media_orders")
+        shutil.rmtree(self.media_root, ignore_errors=True)
+        os.makedirs(self.media_root, exist_ok=True)
         self.client = APIClient()
         self.user = User.objects.create_user(
             username="cart-user",
@@ -211,6 +227,17 @@ class CartValidationTests(TestCase):
             slashed_price=Decimal("800.00"),
             stock=2,
         )
+
+        from django.conf import settings
+
+        self._original_media_root = settings.MEDIA_ROOT
+        settings.MEDIA_ROOT = self.media_root
+
+    def tearDown(self):
+        from django.conf import settings
+
+        settings.MEDIA_ROOT = self._original_media_root
+        shutil.rmtree(self.media_root, ignore_errors=True)
 
     def test_rejects_quantity_less_than_one(self):
         response = self.client.post(
@@ -271,6 +298,86 @@ class CartValidationTests(TestCase):
         cart_item = CartItem.objects.get(product=self.variant_product)
         self.assertEqual(cart_item.variant_id, self.variant.id)
         self.assertEqual(cart_item.quantity, 1)
+
+    def test_strips_html_from_custom_text_before_saving(self):
+        self.simple_product.allow_custom_text = True
+        self.simple_product.save(update_fields=["allow_custom_text"])
+
+        response = self.client.post(
+            reverse("add_to_cart"),
+            {
+                "product_id": self.simple_product.id,
+                "quantity": 1,
+                "custom_text": "  <b>Hello Frame</b>  ",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        cart_item = CartItem.objects.get(product=self.simple_product)
+        self.assertEqual(cart_item.custom_text, "Hello Frame")
+
+    def test_rejects_whitespace_only_custom_text(self):
+        self.simple_product.allow_custom_text = True
+        self.simple_product.save(update_fields=["allow_custom_text"])
+
+        response = self.client.post(
+            reverse("add_to_cart"),
+            {
+                "product_id": self.simple_product.id,
+                "quantity": 1,
+                "custom_text": "   ",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"], "Custom text cannot be empty.")
+
+    def test_rejects_invalid_custom_image_payload(self):
+        self.simple_product.allow_custom_image = True
+        self.simple_product.save(update_fields=["allow_custom_image"])
+
+        fake_image = SimpleUploadedFile(
+            "custom.png",
+            b"not-a-real-image",
+            content_type="image/png",
+        )
+
+        response = self.client.post(
+            reverse("add_to_cart"),
+            {
+                "product_id": self.simple_product.id,
+                "quantity": 1,
+                "custom_images": [fake_image],
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["error"],
+            "Upload a valid image. The file you uploaded was either not an image or a corrupted image.",
+        )
+
+    def test_accepts_valid_custom_image_and_saves_it(self):
+        self.simple_product.allow_custom_image = True
+        self.simple_product.custom_image_limit = 2
+        self.simple_product.save(update_fields=["allow_custom_image", "custom_image_limit"])
+
+        response = self.client.post(
+            reverse("add_to_cart"),
+            {
+                "product_id": self.simple_product.id,
+                "quantity": 1,
+                "custom_images": [build_test_image("custom.png", size=(1200, 1200))],
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        cart_item = CartItem.objects.get(product=self.simple_product)
+        self.assertEqual(cart_item.custom_images.count(), 1)
 
 
 class PaymentFlowSafetyTests(TestCase):

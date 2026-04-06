@@ -9,6 +9,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import smart_bytes, smart_str
 from django.core.mail import send_mail
 from django.conf import settings
+from utils.validation import validate_avatar
 
 # ============================================================================
 # SIGNUP SERIALIZER
@@ -183,6 +184,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Phone number must be exactly 10 digits.")
 
         return digits
+
+    def validate_avatar(self, value):
+        if value is None:
+            return value
+
+        # Avatar uploads are sanitized here so the existing profile update flow stays unchanged.
+        return validate_avatar(value)
 
 class ProfileSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer()
