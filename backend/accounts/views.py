@@ -134,6 +134,7 @@ def login_view(request):
             access_token=serializer.validated_data["access"],
             refresh_token=serializer.validated_data["refresh"],
         )
+        print("COOKIES SET ON RESPONSE:", response.cookies)
         return response
     
     # Return authentication errors
