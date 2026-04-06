@@ -73,14 +73,15 @@ def set_auth_cookies(response, *, access_token, refresh_token):
 
 def clear_auth_cookies(response):
     cookie_settings = {
-    "path": "/",
-    "samesite": settings.AUTH_COOKIE_SAMESITE,
+        "path": "/",
+        "samesite": settings.AUTH_COOKIE_SAMESITE,
     }
 
     if settings.AUTH_COOKIE_DOMAIN:
         cookie_settings["domain"] = settings.AUTH_COOKIE_DOMAIN
-        response.delete_cookie("access_token", **cookie_settings)
-        response.delete_cookie("refresh_token", **cookie_settings)
+    response.delete_cookie("access_token", **cookie_settings)
+    response.delete_cookie("refresh_token", **cookie_settings)
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])  # Public endpoint
