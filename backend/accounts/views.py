@@ -26,13 +26,17 @@ import secrets
 
 
 def _get_cookie_settings():
-    return {
+    settings_dict = {
         "httponly": True,
         "secure": settings.AUTH_COOKIE_SECURE,
         "samesite": settings.AUTH_COOKIE_SAMESITE,
-        "domain": settings.AUTH_COOKIE_DOMAIN,
         "path": "/",
     }
+
+    if settings.AUTH_COOKIE_DOMAIN:
+        settings_dict["domain"] = settings.AUTH_COOKIE_DOMAIN
+
+    return settings_dict
 
 
 def set_auth_cookies(response, *, access_token, refresh_token):
@@ -56,12 +60,14 @@ def set_auth_cookies(response, *, access_token, refresh_token):
 
 def clear_auth_cookies(response):
     cookie_settings = {
-        "domain": settings.AUTH_COOKIE_DOMAIN,
-        "path": "/",
-        "samesite": settings.AUTH_COOKIE_SAMESITE,
+    "path": "/",
+    "samesite": settings.AUTH_COOKIE_SAMESITE,
     }
-    response.delete_cookie("access_token", **cookie_settings)
-    response.delete_cookie("refresh_token", **cookie_settings)
+
+    if settings.AUTH_COOKIE_DOMAIN:
+        cookie_settings["domain"] = settings.AUTH_COOKIE_DOMAIN
+        response.delete_cookie("access_token", **cookie_settings)
+        response.delete_cookie("refresh_token", **cookie_settings)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])  # Public endpoint
