@@ -102,6 +102,7 @@ export default function Hero() {
         sm:h-[80vh] md:h-[85vh]
       "
     >
+      
       <img
         src="https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=2000"
         className="absolute inset-0 h-full w-full object-cover"
