@@ -281,6 +281,12 @@ REST_FRAMEWORK = {
     # Keep your existing pagination, renderers, etc.
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 100,
+    'DEFAULT_THROTTLE_RATES': {
+        'login': '5/minute',
+        'signup': '10/hour',
+        'password_reset': '3/hour',
+        'google_auth': '10/minute',
+    },
 
     'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler',
 }

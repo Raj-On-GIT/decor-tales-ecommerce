@@ -1,5 +1,5 @@
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,6 +11,12 @@ from .serializers import ProfileSerializer, ForgotPasswordSerializer, ResetPassw
 from rest_framework.parsers import MultiPartParser, FormParser
 from .serializers import SignupSerializer, LoginSerializer, UserSerializer, AddressSerializer
 from .models import Address
+from .throttles import (
+    GoogleAuthThrottle,
+    LoginThrottle,
+    PasswordResetThrottle,
+    SignupThrottle,
+)
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from django.contrib.auth.models import User
@@ -85,6 +91,7 @@ def clear_auth_cookies(response):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])  # Public endpoint
+@throttle_classes([SignupThrottle])
 def signup_view(request):
        
     serializer = SignupSerializer(data=request.data)
@@ -117,6 +124,7 @@ def signup_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])  # Public endpoint
+@throttle_classes([LoginThrottle])
 def login_view(request):
         
     serializer = LoginSerializer(data=request.data)
@@ -285,6 +293,7 @@ def delete_address(request, address_id):
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([PasswordResetThrottle])
 def forgot_password_view(request):
     serializer = ForgotPasswordSerializer(data=request.data)
 
@@ -375,6 +384,7 @@ def google_auth_nonce_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([GoogleAuthThrottle])
 def google_auth_view(request):
     credential = str(request.data.get("credential", "") or "").strip()
     nonce_token = str(request.data.get("nonce_token", "") or "").strip()

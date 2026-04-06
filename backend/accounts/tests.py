@@ -3,11 +3,13 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 
 class GoogleAuthTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
 
     @patch("accounts.views.settings.GOOGLE_CLIENT_ID", "google-client-id")
@@ -92,6 +94,7 @@ class GoogleAuthTests(TestCase):
 
 class CookieAuthTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient(enforce_csrf_checks=True)
         self.user = User.objects.create_user(
             username="cookie-user",
@@ -143,3 +146,98 @@ class CookieAuthTests(TestCase):
         self.assertEqual(refresh_response.status_code, 200)
         self.assertIn("access_token", refresh_response.cookies)
         self.assertIn("refresh_token", refresh_response.cookies)
+
+
+class AuthThrottleTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="throttle-user",
+            email="throttle@example.com",
+            password="testpass123",
+        )
+
+    def test_login_throttle_returns_429_after_five_requests(self):
+        for _ in range(5):
+            response = self.client.post(
+                reverse("login"),
+                {"username": "throttle@example.com", "password": "wrong-password"},
+                format="json",
+            )
+            self.assertEqual(response.status_code, 400)
+
+        throttled_response = self.client.post(
+            reverse("login"),
+            {"username": "throttle@example.com", "password": "wrong-password"},
+            format="json",
+        )
+
+        self.assertEqual(throttled_response.status_code, 429)
+
+    def test_signup_throttle_returns_429_after_ten_requests(self):
+        signup_payload = {
+            "email": "new-user@example.com",
+            "password": "Strongpass123!",
+            "password2": "Strongpass123!",
+            "first_name": "New",
+            "last_name": "User",
+            "phone": "9876543210",
+        }
+
+        for _ in range(10):
+            response = self.client.post(
+                reverse("signup"),
+                signup_payload,
+                format="json",
+            )
+            self.assertIn(response.status_code, {201, 400})
+
+        throttled_response = self.client.post(
+            reverse("signup"),
+            signup_payload,
+            format="json",
+        )
+
+        self.assertEqual(throttled_response.status_code, 429)
+
+    def test_password_reset_throttle_returns_429_after_three_requests(self):
+        for _ in range(3):
+            response = self.client.post(
+                "/api/auth/forgot-password/",
+                {"email": "throttle@example.com"},
+                format="json",
+            )
+            self.assertEqual(response.status_code, 200)
+
+        throttled_response = self.client.post(
+            "/api/auth/forgot-password/",
+            {"email": "throttle@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(throttled_response.status_code, 429)
+
+    @patch("accounts.views.settings.GOOGLE_CLIENT_ID", "google-client-id")
+    def test_google_auth_throttle_returns_429_after_ten_requests(self):
+        for _ in range(10):
+            response = self.client.post(
+                reverse("google"),
+                {
+                    "credential": "fake-jwt",
+                    "nonce_token": "invalid-token",
+                },
+                format="json",
+            )
+            self.assertEqual(response.status_code, 400)
+
+        throttled_response = self.client.post(
+            reverse("google"),
+            {
+                "credential": "fake-jwt",
+                "nonce_token": "invalid-token",
+            },
+            format="json",
+        )
+
+        self.assertEqual(throttled_response.status_code, 429)
