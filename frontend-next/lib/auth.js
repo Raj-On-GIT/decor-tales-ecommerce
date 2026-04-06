@@ -222,8 +222,16 @@ export async function refreshAccessToken() {
 export async function fetchWithAuth(url, options = {}) {
   let response = await apiFetch(url, options);
 
-  if (response.status !== 401) {
-    return response;
+  if (response.status === 401) {
+    // 🔥 Only attempt refresh if we had a session before
+    if (!hasTriedRefresh) {
+      const refreshed = await refreshAccessToken()
+      if (refreshed.ok) {
+        return retryRequest()
+      }
+    }
+
+    // otherwise just treat as logged out
   }
 
   const refreshed = await refreshAccessToken();
