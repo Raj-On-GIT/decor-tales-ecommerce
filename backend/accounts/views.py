@@ -26,10 +26,23 @@ import secrets
 
 
 def _get_cookie_settings():
+    samesite = settings.AUTH_COOKIE_SAMESITE
+
+    # 🔥 HARD FIX
+    if samesite:
+        samesite = samesite.strip()
+
+    if samesite == "None":
+        samesite = "None"
+    elif samesite == "Lax":
+        samesite = "Lax"
+    else:
+        samesite = "None"  # fallback for safety
+
     settings_dict = {
         "httponly": True,
         "secure": settings.AUTH_COOKIE_SECURE,
-        "samesite": settings.AUTH_COOKIE_SAMESITE,
+        "samesite": samesite,
         "path": "/",
     }
 

@@ -365,9 +365,8 @@ ALLOW_LEGACY_DIRECT_ORDER = get_env_bool("ALLOW_LEGACY_DIRECT_ORDER", default=Fa
 
 local_cookie_context = is_local_host(
     os.getenv("FRONTEND_URL", "https://decor-tales-ecommerce.vercel.app")
-) or any(
-    is_local_host(origin) for origin in CORS_ALLOWED_ORIGINS
 )
+
 AUTH_COOKIE_SECURE = get_env_bool(
     "AUTH_COOKIE_SECURE",
     default=False if local_cookie_context else not DEBUG,
@@ -383,3 +382,8 @@ SESSION_COOKIE_SECURE = True
 
 CSRF_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SAMESITE = "None"
+
+if not DEBUG:
+    AUTH_COOKIE_SECURE = True
+    AUTH_COOKIE_SAMESITE = "None"
+    
