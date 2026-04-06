@@ -1,4 +1,5 @@
 from decimal import Decimal
+import logging
 
 from django.conf import settings
 from django.db import transaction
@@ -22,6 +23,8 @@ from .models import (
 from .serializers import AddToCartSerializer
 from products.models import Product, ProductVariant
 from products.media_utils import build_media_url
+
+logger = logging.getLogger(__name__)
 
 
 def get_product_price(product):
@@ -390,7 +393,12 @@ def add_to_cart(request):
         )
 
     except Exception as e:
-        print("ADD TO CART ERROR:", str(e))
+        logger.exception(
+            "cart_add_failed user_id=%s product_id=%s variant_id=%s",
+            getattr(request.user, "id", None),
+            request.data.get("product_id"),
+            request.data.get("variant_id"),
+        )
         return Response({"error": str(e)}, status=400)
 
 
@@ -476,7 +484,10 @@ def get_cart(request):
         return Response({"items": items, "total": str(total), "count": len(items)})
 
     except Exception as e:
-        print("GET CART ERROR:", str(e))
+        logger.exception(
+            "cart_get_failed user_id=%s",
+            getattr(request.user, "id", None),
+        )
         return Response({"error": str(e)}, status=400)
 
 

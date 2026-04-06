@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, parser_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -24,6 +26,9 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
 import secrets
+from utils.logging_helpers import mask_sensitive
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -142,7 +147,12 @@ def login_view(request):
             access_token=serializer.validated_data["access"],
             refresh_token=serializer.validated_data["refresh"],
         )
-        print("COOKIES SET ON RESPONSE:", response.cookies)
+        logger.info(
+            "auth_login_success user_id=%s access_token=%s refresh_token=%s",
+            user.id,
+            mask_sensitive(serializer.validated_data["access"]),
+            mask_sensitive(serializer.validated_data["refresh"]),
+        )
         return response
     
     # Return authentication errors
@@ -451,6 +461,11 @@ def google_auth_view(request):
         return response
 
     except Exception:
+        logger.warning(
+            "auth_refresh_invalid source=%s refresh_token=%s",
+            refresh_token_source,
+            mask_sensitive(refresh_token),
+        )
         return Response({"error": "Google authentication failed."}, status=400)
 
 
@@ -458,10 +473,10 @@ def google_auth_view(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def refresh_token_view(request):
-    refresh_token = (
-        str(request.data.get("refresh", "") or "").strip()
-        or str(request.COOKIES.get("refresh_token", "") or "").strip()
-    )
+    request_refresh_token = str(request.data.get("refresh", "") or "").strip()
+    cookie_refresh_token = str(request.COOKIES.get("refresh_token", "") or "").strip()
+    refresh_token = request_refresh_token or cookie_refresh_token
+    refresh_token_source = "body" if request_refresh_token else "cookie"
 
     if not refresh_token:
         # Token is absent — don't touch cookies, browser may still be processing login
@@ -486,6 +501,12 @@ def refresh_token_view(request):
         access_token=access_token,
         refresh_token=next_refresh_token,
     )
+    logger.info(
+        "auth_refresh_success source=%s access_token=%s refresh_token=%s",
+        refresh_token_source,
+        mask_sensitive(access_token),
+        mask_sensitive(next_refresh_token),
+    )
     return response
 
 
@@ -499,6 +520,10 @@ def logout_view(request):
             token = RefreshToken(refresh_token)
             token.blacklist()
         except Exception:
+            logger.warning(
+                "auth_logout_blacklist_failed refresh_token=%s",
+                mask_sensitive(refresh_token),
+            )
             pass
 
     response = Response({"message": "Logged out."}, status=200)
