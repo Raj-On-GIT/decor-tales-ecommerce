@@ -260,12 +260,12 @@ STORAGES = {
 
 CORS_ALLOWED_ORIGINS = get_env_list(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,https://decor-tales-ecommerce.vercel.app",
+    "http://localhost:3000,http://127.0.0.1:3000,https://decor-tales-ecommerce.vercel.app,https://www.decortalesshop.com,https://decortalesshop.com",
 )
 
 CSRF_TRUSTED_ORIGINS = get_env_list(
     "CSRF_TRUSTED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,https://decor-tales-ecommerce.vercel.app",
+    "http://localhost:3000,http://127.0.0.1:3000,https://decor-tales-ecommerce.vercel.app,https://www.decortalesshop.com,https://decortalesshop.com",
 )
 
 for origin in CORS_ALLOWED_ORIGINS:
