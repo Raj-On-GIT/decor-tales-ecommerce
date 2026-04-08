@@ -77,7 +77,7 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      const sessionUser = await getSessionUser();
+      const sessionUser = await getSessionUser({ tryRefresh: true });
 
       if (!sessionUser) {
         setUser(null);

@@ -159,7 +159,7 @@ export async function loginWithGoogle(credential, nonceToken) {
   return data;
 }
 
-export async function getSessionUser() {
+async function readSessionUser() {
   const response = await apiFetch(`${getApiBase()}/api/accounts/profile/`, {
     method: "GET",
   });
@@ -179,6 +179,21 @@ export async function getSessionUser() {
     first_name: data.first_name,
     last_name: data.last_name,
   };
+}
+
+export async function getSessionUser({ tryRefresh = false } = {}) {
+  const sessionUser = await readSessionUser();
+
+  if (sessionUser || !tryRefresh) {
+    return sessionUser;
+  }
+
+  const refreshed = await refreshAccessToken();
+  if (!refreshed.ok) {
+    return null;
+  }
+
+  return readSessionUser();
 }
 
 export async function refreshAccessToken() {
@@ -207,7 +222,7 @@ export async function refreshAccessToken() {
         shouldLogout: false,
         reason: null,
       };
-    } catch (error) {
+    } catch {
       return {
         ok: false,
         shouldLogout: false,
