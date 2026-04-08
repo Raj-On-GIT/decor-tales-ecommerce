@@ -118,9 +118,6 @@ export async function login(credentials) {
   if (!response.ok) {
     throw data;
   }
-
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  
   return data;
 }
 

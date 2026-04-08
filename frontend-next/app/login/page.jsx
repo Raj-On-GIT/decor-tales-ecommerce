@@ -76,10 +76,6 @@ export default function LoginPage() {
 
       await login({ user: data.user });
 
-      const nextNonce = await getGoogleAuthNonce();
-      setGoogleNonce(nextNonce.nonce);
-      setGoogleNonceToken(nextNonce.nonce_token);
-
       router.refresh();
       router.replace("/");
     } catch (err) {
