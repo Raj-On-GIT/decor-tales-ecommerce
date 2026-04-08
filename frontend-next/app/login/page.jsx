@@ -244,14 +244,14 @@ export default function LoginPage() {
                   type="button"
                   disabled
                   className="
-                  w-full
-                  border border-gray-200
-                  text-gray-500 font-medium
-                  py-3 rounded-none
-                  flex items-center justify-center gap-3
-                  bg-gray-50
-                  cursor-not-allowed
-                "
+                    w-full
+                    border border-gray-200
+                    text-gray-500 font-medium
+                    py-3 rounded-none
+                    flex items-center justify-center gap-3
+                    bg-gray-50
+                    cursor-not-allowed
+                  "
                 >
                   {googleLoading
                     ? "Loading Google sign-in..."

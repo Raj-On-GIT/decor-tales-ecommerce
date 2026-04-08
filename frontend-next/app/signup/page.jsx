@@ -71,7 +71,9 @@ export default function SignupPage() {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     if (!credentialResponse.credential || !googleNonceToken) {
-      setError("Google signup could not be initialized. Please refresh and try again.");
+      setError(
+        "Google signup could not be initialized. Please refresh and try again.",
+      );
       return;
     }
 
@@ -125,8 +127,9 @@ export default function SignupPage() {
     } catch (err) {
       if (err && typeof err === "object" && !Array.isArray(err)) {
         const errors = Object.entries(err)
-          .map(([field, messages]) =>
-            `${field}: ${Array.isArray(messages) ? messages.join(", ") : messages}`,
+          .map(
+            ([field, messages]) =>
+              `${field}: ${Array.isArray(messages) ? messages.join(", ") : messages}`,
           )
           .join("\n");
         setError(errors || "Signup failed");
@@ -145,7 +148,7 @@ export default function SignupPage() {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="w-full max-w-5xl backdrop-blur-xl bg-white/70 border border-white/40
-                 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)]
+                 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.15)]
                  overflow-hidden grid grid-cols-1 md:grid-cols-2"
       >
         <div className="p-8 md:p-10 flex flex-col justify-center">
@@ -307,18 +310,23 @@ export default function SignupPage() {
               {loading ? "Creating Account..." : "Create Account"}
             </button>
 
-            <div className="flex justify-center">
+            <div className="flex items-center gap-3 my-3">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-gray-500 text-sm">Or</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
+            <div className="w-full mt-3 flex justify-center">
               {googleNonce && googleNonceToken ? (
-                <div className="w-full">
-                <GoogleLogin
-                  nonce={googleNonce}
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError("Google signup failed")}
-                  text="continue_with"
-                  shape="rectangular"
-                  theme="outline"
-                  width="auto"
-                />
+                <div className="flex justify-center w-full">
+                  <GoogleLogin
+                    nonce={googleNonce}
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => setError("Google signup failed")}
+                    text="continue_with"
+                    shape="rectangular"
+                    theme="outline"
+                  />
                 </div>
               ) : (
                 <button
@@ -334,7 +342,9 @@ export default function SignupPage() {
                     cursor-not-allowed
                   "
                 >
-                  {googleLoading ? "Loading Google sign-up..." : "Google signup unavailable"}
+                  {googleLoading
+                    ? "Loading Google sign-up..."
+                    : "Google signup unavailable"}
                 </button>
               )}
             </div>
