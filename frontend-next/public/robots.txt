@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://decortaleshop.com
+
+# Sitemaps
+Sitemap: https://decortaleshop.com/sitemap.xml
