@@ -225,18 +225,17 @@ export default function LoginPage() {
                 <div className="flex-1 h-px bg-gray-200" />
               </div>
 
-            <div className="flex justify-center mt-4">
+            <div className="w-full mt-4">
               {googleNonce && googleNonceToken ? (
-                <div className="w-full">
-                <GoogleLogin
-                  nonce={googleNonce}
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError("Google login failed")}
-                  text="continue_with"
-                  shape="rectangular"
-                  theme="outline"
-                  
-                />
+                <div className="w-full [&>div]:w-full">
+                  <GoogleLogin
+                    nonce={googleNonce}
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => setError("Google login failed")}
+                    text="continue_with"
+                    shape="rectangular"
+                    theme="outline"
+                  />
                 </div>
               ) : (
                 <button
