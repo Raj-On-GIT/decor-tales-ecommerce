@@ -59,7 +59,9 @@ export default function LoginPage() {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     if (!credentialResponse.credential || !googleNonceToken) {
-      setError("Google login could not be initialized. Please refresh and try again.");
+      setError(
+        "Google login could not be initialized. Please refresh and try again.",
+      );
       return;
     }
 
@@ -219,15 +221,15 @@ export default function LoginPage() {
               {loading ? "Logging In..." : "Sign In"}
             </button>
 
-              <div className="flex items-center gap-3 my-2">
-                <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-gray-500 text-sm">Or</span>
-                <div className="flex-1 h-px bg-gray-200" />
-              </div>
+            <div className="flex items-center gap-3 my-2">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-gray-500 text-sm">Or</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
 
-            <div className="w-full mt-4">
+            <div className="w-full mt-4 flex justify-center">
               {googleNonce && googleNonceToken ? (
-                <div className="w-full [&>div]:w-full">
+                <div className="flex justify-center w-full">
                   <GoogleLogin
                     nonce={googleNonce}
                     onSuccess={handleGoogleSuccess}
@@ -242,16 +244,18 @@ export default function LoginPage() {
                   type="button"
                   disabled
                   className="
-                    w-full
-                    border border-gray-200
-                    text-gray-500 font-medium
-                    py-3 rounded-none
-                    flex items-center justify-center gap-3
-                    bg-gray-50
-                    cursor-not-allowed
-                  "
+                  w-full
+                  border border-gray-200
+                  text-gray-500 font-medium
+                  py-3 rounded-none
+                  flex items-center justify-center gap-3
+                  bg-gray-50
+                  cursor-not-allowed
+                "
                 >
-                  {googleLoading ? "Loading Google sign-in..." : "Google login unavailable"}
+                  {googleLoading
+                    ? "Loading Google sign-in..."
+                    : "Google login unavailable"}
                 </button>
               )}
             </div>
