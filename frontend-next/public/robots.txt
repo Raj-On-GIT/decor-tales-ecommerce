@@ -3,7 +3,7 @@ User-agent: *
 Allow: /
 
 # Host
-Host: https://decortaleshop.com
+Host: https://decortalesshop.com
 
 # Sitemaps
-Sitemap: https://decortaleshop.com/sitemap.xml
+Sitemap: https://decortalesshop.com/sitemap.xml
