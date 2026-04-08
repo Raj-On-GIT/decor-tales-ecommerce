@@ -114,7 +114,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#e8f3f1] via-white to-[#f6efe2] px-10">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#e8f3f1] via-white to-[#f6efe2] px-5 sm:px-10">
       <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-[#2f5d56]/30 rounded-full blur-[120px]" />
       <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-[#ffb347]/20 rounded-full blur-[120px]" />
 
@@ -128,13 +128,13 @@ export default function LoginPage() {
         backdrop-blur-xl
         bg-white/70
         border border-white/40
-        rounded-3xl
+        rounded-xl
         shadow-[0_20px_60px_rgba(0,0,0,0.15)]
         overflow-hidden
         grid grid-cols-1 md:grid-cols-2
       "
       >
-        <div className="p-10 md:p-14 flex flex-col justify-center">
+        <div className="p-5 md:p-12 flex flex-col justify-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">Sign In</h1>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -150,7 +150,7 @@ export default function LoginPage() {
                   setFormData({ ...formData, email: e.target.value })
                 }
                 placeholder="Email Address"
-                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-full
+                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg
                          focus:outline-none focus:border-gray-900 transition"
                 required
               />
@@ -168,7 +168,7 @@ export default function LoginPage() {
                   setFormData({ ...formData, password: e.target.value })
                 }
                 placeholder="Password"
-                className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-full
+                className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-lg
                          focus:outline-none focus:border-gray-900 transition"
                 required
               />
@@ -207,7 +207,7 @@ export default function LoginPage() {
               w-full
               bg-[#2f5d56] hover:bg-[#244944]
               text-white font-semibold
-              py-3 rounded-full
+              py-3 rounded-lg
               transition
               disabled:opacity-80 disabled:cursor-not-allowed
               flex items-center justify-center gap-2
@@ -219,17 +219,25 @@ export default function LoginPage() {
               {loading ? "Logging In..." : "Sign In"}
             </button>
 
-            <div className="flex justify-center">
+              <div className="flex items-center gap-3 my-2">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-gray-500 text-sm">Or</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+            <div className="flex justify-center mt-4">
               {googleNonce && googleNonceToken ? (
+                <div className="w-full">
                 <GoogleLogin
                   nonce={googleNonce}
                   onSuccess={handleGoogleSuccess}
                   onError={() => setError("Google login failed")}
                   text="continue_with"
-                  shape="pill"
+                  shape="rectangular"
                   theme="outline"
-                  width="320"
+                  
                 />
+                </div>
               ) : (
                 <button
                   type="button"
@@ -238,7 +246,7 @@ export default function LoginPage() {
                     w-full
                     border border-gray-200
                     text-gray-500 font-medium
-                    py-3 rounded-full
+                    py-3 rounded-none
                     flex items-center justify-center gap-3
                     bg-gray-50
                     cursor-not-allowed
@@ -306,9 +314,6 @@ export default function LoginPage() {
           </div>
         </div>
       </motion.div>
-      <p className="absolute bottom-4 text-xs text-gray-400">
-        © {new Date().getFullYear()} Decor Tales. All rights reserved.
-      </p>
     </div>
   );
 }

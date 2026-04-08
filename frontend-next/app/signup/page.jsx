@@ -139,7 +139,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#e8f3f1] via-white to-[#f6efe2] px-4 py-6">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#e8f3f1] via-white to-[#f6efe2] px-5 sm:px-10">
       <motion.div
         initial={{ opacity: 0, y: 40, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -166,7 +166,7 @@ export default function SignupPage() {
                   setFormData({ ...formData, name: e.target.value })
                 }
                 placeholder="Full Name"
-                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-full
+                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg
                          focus:outline-none focus:border-gray-900 transition"
                 required
               />
@@ -184,7 +184,7 @@ export default function SignupPage() {
                   setFormData({ ...formData, email: e.target.value })
                 }
                 placeholder="Email Address"
-                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-full
+                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg
                          focus:outline-none focus:border-gray-900 transition"
                 required
               />
@@ -202,7 +202,7 @@ export default function SignupPage() {
                   setFormData({ ...formData, phone: e.target.value })
                 }
                 placeholder="Phone Number"
-                className="w-full pl-12 pr-4 py-2.5 border border-gray-200 rounded-full
+                className="w-full pl-12 pr-4 py-2.5 border border-gray-200 rounded-lg
                           focus:outline-none focus:border-gray-900 transition"
                 required
               />
@@ -220,7 +220,7 @@ export default function SignupPage() {
                   setFormData({ ...formData, password: e.target.value })
                 }
                 placeholder="Password"
-                className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-full
+                className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-lg
                          focus:outline-none focus:border-gray-900 transition"
                 required
               />
@@ -245,7 +245,7 @@ export default function SignupPage() {
                   setFormData({ ...formData, confirmPassword: e.target.value })
                 }
                 placeholder="Confirm Password"
-                className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-full
+                className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-lg
                          focus:outline-none focus:border-gray-900 transition"
                 required
               />
@@ -295,7 +295,7 @@ export default function SignupPage() {
                 w-full
                 bg-[#2f5d56] hover:bg-[#244944]
                 text-white font-semibold
-                py-3 rounded-full
+                py-3 rounded-lg
                 transition
                 disabled:opacity-80 disabled:cursor-not-allowed
                 flex items-center justify-center gap-2
@@ -309,15 +309,17 @@ export default function SignupPage() {
 
             <div className="flex justify-center">
               {googleNonce && googleNonceToken ? (
+                <div className="w-full">
                 <GoogleLogin
                   nonce={googleNonce}
                   onSuccess={handleGoogleSuccess}
                   onError={() => setError("Google signup failed")}
                   text="continue_with"
-                  shape="pill"
+                  shape="rectangular"
                   theme="outline"
-                  width="320"
+                  width="auto"
                 />
+                </div>
               ) : (
                 <button
                   type="button"
@@ -326,7 +328,7 @@ export default function SignupPage() {
                     w-full
                     border border-gray-300
                     py-3
-                    rounded-full
+                    rounded-lg
                     text-gray-500
                     bg-gray-50
                     cursor-not-allowed
@@ -397,9 +399,6 @@ export default function SignupPage() {
           </div>
         </div>
       </motion.div>
-      <p className="absolute bottom-4 text-xs text-gray-400">
-        © {new Date().getFullYear()} Decor Tales. All rights reserved.
-      </p>
     </div>
   );
 }
