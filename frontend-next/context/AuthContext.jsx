@@ -90,7 +90,10 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      const sessionUser = await getSessionUser({ tryRefresh: true });
+      const sessionUser = await getSessionUser({
+        tryRefresh: true,
+        refreshFirst: true,
+      });
 
       if (!isActiveAuthRequest(requestId)) {
         return;

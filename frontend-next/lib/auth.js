@@ -178,7 +178,22 @@ async function readSessionUser() {
   };
 }
 
-export async function getSessionUser({ tryRefresh = false } = {}) {
+export async function getSessionUser({
+  tryRefresh = false,
+  refreshFirst = false,
+} = {}) {
+  if (tryRefresh && refreshFirst) {
+    const refreshed = await refreshAccessToken();
+
+    if (refreshed.ok) {
+      return readSessionUser();
+    }
+
+    if (refreshed.shouldLogout) {
+      return null;
+    }
+  }
+
   const sessionUser = await readSessionUser();
 
   if (sessionUser || !tryRefresh) {
