@@ -83,15 +83,22 @@ def set_auth_cookies(response, *, access_token, refresh_token):
 
 
 def clear_auth_cookies(response):
-    cookie_settings = {
-        "path": "/",
-        "samesite": settings.AUTH_COOKIE_SAMESITE,
-    }
+    cookie_settings = _get_cookie_settings()
 
-    if settings.AUTH_COOKIE_DOMAIN:
-        cookie_settings["domain"] = settings.AUTH_COOKIE_DOMAIN
-    response.delete_cookie("access_token", **cookie_settings)
-    response.delete_cookie("refresh_token", **cookie_settings)
+    response.set_cookie(
+        "access_token",
+        "",
+        max_age=0,
+        expires="Thu, 01 Jan 1970 00:00:00 GMT",
+        **cookie_settings,
+    )
+    response.set_cookie(
+        "refresh_token",
+        "",
+        max_age=0,
+        expires="Thu, 01 Jan 1970 00:00:00 GMT",
+        **cookie_settings,
+    )
 
 
 @api_view(['POST'])

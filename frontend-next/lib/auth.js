@@ -257,14 +257,14 @@ export async function fetchWithAuth(url, options = {}) {
 }
 
 export async function logoutRequest() {
-  try {
-    await apiFetch(`${getApiBase()}/api/auth/logout/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-  } catch {
-    // Best effort logout; client state is still cleared below.
+  const response = await apiFetch(`${getApiBase()}/api/auth/logout/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Logout failed with status ${response.status}`);
   }
 }
 
