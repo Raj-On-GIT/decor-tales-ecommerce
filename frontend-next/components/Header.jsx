@@ -11,7 +11,15 @@ import CartDrawer from "./CartDrawer";
 import SearchBar from "./SearchBar";
 import { useGlobalToast } from "@/context/ToastContext";
 import { usePathname, useRouter } from "next/navigation";
-import { getProfile } from "@/lib/api";
+
+function getProfileName(user) {
+  const fullName = [user?.first_name, user?.last_name]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
+
+  return fullName || user?.email || "Your Account";
+}
 
 export default function Header() {
   const { cart } = useStore();
@@ -21,8 +29,6 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [profileName, setProfileName] = useState("");
-  const [isProfileLoading, setIsProfileLoading] = useState(false);
   const toast = useGlobalToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -50,50 +56,8 @@ export default function Header() {
   }, [isProfileOpen]);
 
   const cartCount = mounted ? cart.reduce((acc, item) => acc + item.qty, 0) : 0;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadProfileName() {
-      setIsProfileLoading(true);
-      try {
-        const profile = await getProfile();
-        if (cancelled) return;
-
-        const fullName = [profile.first_name, profile.last_name]
-          .map((part) => part?.trim())
-          .filter(Boolean)
-          .join(" ");
-
-        setProfileName(fullName || profile.email || "Your Account");
-      } catch {
-        if (!cancelled) {
-          setProfileName("Your Account");
-        }
-      } finally {
-        if (!cancelled) {
-          setIsProfileLoading(false);
-        }
-      }
-    }
-
-    if (!isAuthenticated) {
-      setProfileName("");
-      setIsProfileLoading(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    loadProfileName();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated, user?.id]);
-
-  const visibleProfileName = isAuthenticated ? profileName : "";
-  const isIdentityLoading = loading || (isAuthenticated && isProfileLoading);
+  const visibleProfileName = isAuthenticated ? getProfileName(user) : "";
+  const isIdentityLoading = loading;
   const firstName =
     visibleProfileName && visibleProfileName !== "Your Account"
       ? visibleProfileName.trim().split(/\s+/)[0]
