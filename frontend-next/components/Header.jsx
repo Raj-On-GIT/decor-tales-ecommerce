@@ -10,7 +10,7 @@ import { useAuth } from "../context/AuthContext";
 import CartDrawer from "./CartDrawer";
 import SearchBar from "./SearchBar";
 import { useGlobalToast } from "@/context/ToastContext";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 function getProfileName(user) {
   const fullName = [user?.first_name, user?.last_name]
@@ -30,7 +30,6 @@ export default function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const toast = useGlobalToast();
-  const router = useRouter();
   const pathname = usePathname();
   const mounted = useSyncExternalStore(
     () => () => {},
@@ -85,16 +84,12 @@ export default function Header() {
    * - Resets auth state
    * - Redirects to homepage
    */
-  const handleLogout = () => {
-    logout(); // clears auth state
+  const handleLogout = async () => {
+    await logout();
     setIsProfileOpen(false);
 
     toast.info("You’ve been signed out! See you soon 👋", 2500);
 
-    // Small delay so toast renders before navigation
-    setTimeout(() => {
-      router.push("/");
-    }, 200);
   };
   const trackOrderHref = isAuthenticated ? "/orders" : "/login";
 // F0FFDF

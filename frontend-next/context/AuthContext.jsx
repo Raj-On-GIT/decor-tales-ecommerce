@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addToCart as addToCartAPI, getCart } from "@/lib/api";
 import {
@@ -68,16 +68,33 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const authRequestIdRef = useRef(0);
   const router = useRouter();
 
+  const beginAuthRequest = () => {
+    authRequestIdRef.current += 1;
+    return authRequestIdRef.current;
+  };
+
+  const isActiveAuthRequest = (requestId) =>
+    authRequestIdRef.current === requestId;
+
   const rehydrateAuth = async () => {
+    const requestId = beginAuthRequest();
+
     try {
       if (typeof window === "undefined") {
-        setLoading(false);
+        if (isActiveAuthRequest(requestId)) {
+          setLoading(false);
+        }
         return;
       }
 
       const sessionUser = await getSessionUser({ tryRefresh: true });
+
+      if (!isActiveAuthRequest(requestId)) {
+        return;
+      }
 
       if (!sessionUser) {
         setUser(null);
@@ -91,6 +108,10 @@ export function AuthProvider({ children }) {
       window.dispatchEvent(new Event("user-login"));
       setLoading(false);
     } catch (error) {
+      if (!isActiveAuthRequest(requestId)) {
+        return;
+      }
+
       console.error("Error rehydrating auth:", error);
       setUser(null);
       setIsAuthenticated(false);
@@ -100,6 +121,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     function handleForcedLogout() {
+      beginAuthRequest();
       setUser(null);
       setIsAuthenticated(false);
       setLoading(false);
@@ -130,11 +152,16 @@ export function AuthProvider({ children }) {
     }
 
     async function maintainSession() {
+      const requestId = beginAuthRequest();
       const refreshed = await refreshAccessToken();
+
+      if (!isActiveAuthRequest(requestId)) {
+        return;
+      }
 
       if (!refreshed.ok) {
         if (refreshed.shouldLogout) {
-          clearAuthSession();
+          void clearAuthSession();
           setUser(null);
           setIsAuthenticated(false);
         }
@@ -142,7 +169,7 @@ export function AuthProvider({ children }) {
       }
 
       const sessionUser = await getSessionUser();
-      if (!sessionUser) {
+      if (!isActiveAuthRequest(requestId) || !sessionUser) {
         return;
       }
 
@@ -226,11 +253,13 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     try {
-      clearAuthSession();
+      beginAuthRequest();
       setUser(null);
       setIsAuthenticated(false);
+      setLoading(false);
+      await clearAuthSession();
       router.push("/");
     } catch (error) {
       console.error("Error in logout():", error);

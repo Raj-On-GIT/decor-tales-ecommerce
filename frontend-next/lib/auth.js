@@ -288,11 +288,13 @@ export function clearAuthSession({ redirectTo = null } = {}) {
   clearStoredCart();
   dispatchUserLogout();
 
-  void logoutRequest();
+  const logoutPromise = logoutRequest();
 
-  if (redirectTo && isBrowser) {
-    window.location.href = redirectTo;
-  }
+  return logoutPromise.finally(() => {
+    if (redirectTo && isBrowser) {
+      window.location.href = redirectTo;
+    }
+  });
 }
 
 export function getAccessToken() {
