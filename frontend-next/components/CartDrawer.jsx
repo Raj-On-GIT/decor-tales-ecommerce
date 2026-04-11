@@ -35,6 +35,7 @@ function getCustomizationTag(item) {
 export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
   const {
     cart,
+    cartReady,
     removeFromCart,
     decreaseQty,
     increaseQty,
@@ -43,7 +44,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
     getCartAction,
     isCartItemPending,
   } = useStore();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const router = useRouter();
   const { error } = useGlobalToast();
   const [checkingOut, setCheckingOut] = useState(false);
@@ -147,7 +148,12 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
             </div>
 
             <div className="flex-1 space-y-5 overflow-y-auto p-6">
-              {cart.length === 0 ? (
+              {!cartReady || authLoading ? (
+                <div className="py-20 text-center text-gray-500">
+                  <Loader2 size={32} className="mx-auto mb-4 animate-spin opacity-40" />
+                  <p>Loading your cart...</p>
+                </div>
+              ) : cart.length === 0 ? (
                 <div className="py-20 text-center text-gray-500">
                   <ShoppingBag size={48} className="mx-auto mb-4 opacity-20" />
                   <p>Your cart is empty.</p>
@@ -286,7 +292,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
               )}
             </div>
 
-            {cart.length > 0 && (
+            {cartReady && !authLoading && cart.length > 0 && (
               <div className="border-t bg-gray-50 p-6">
                 <div className="mb-4 flex justify-between text-lg font-bold">
                   <span>Subtotal</span>

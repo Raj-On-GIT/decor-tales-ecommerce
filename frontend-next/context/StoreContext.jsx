@@ -12,6 +12,45 @@ import { useAuth } from "@/context/AuthContext";
 import { useGlobalToast } from "@/context/ToastContext";
 
 const StoreContext = createContext(null);
+const CART_STORAGE_KEY = "cart";
+
+function readStoredGuestCart() {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+    return savedCart ? JSON.parse(savedCart) : [];
+  } catch (error) {
+    console.error("Failed to read guest cart from storage:", error);
+    return [];
+  }
+}
+
+function writeStoredGuestCart(items) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+  } catch (error) {
+    console.error("Failed to persist guest cart:", error);
+  }
+}
+
+function clearStoredGuestCart() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    localStorage.removeItem(CART_STORAGE_KEY);
+  } catch (error) {
+    console.error("Failed to clear guest cart:", error);
+  }
+}
 
 function getCustomImageIdentity(item) {
   const images = item?.customImages ?? item?.custom_images ?? [];
@@ -72,17 +111,12 @@ function mergeCartMetadata(previousCart = [], nextCart = []) {
 
 export function StoreProvider({ children }) {
   const { error } = useGlobalToast();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
-  const [cart, setCart] = useState(() => {
-    if (typeof window !== "undefined") {
-      const savedCart = localStorage.getItem("cart");
-      return savedCart ? JSON.parse(savedCart) : [];
-    }
-    return [];
-  });
+  const [cart, setCart] = useState([]);
   const [pendingCartActions, setPendingCartActions] = useState({});
   const [isCheckoutLocked, setIsCheckoutLocked] = useState(false);
+  const [cartReady, setCartReady] = useState(false);
 
   const setPendingAction = useCallback((key, action) => {
     if (!key) return;
@@ -99,32 +133,46 @@ export function StoreProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (authLoading) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setCart(readStoredGuestCart());
+      setCartReady(true);
+      return;
+    }
 
     async function loadServerCart() {
       try {
         const data = await getCart();
-        if (!data?.items) return;
+        if (!data?.items) {
+          setCart([]);
+          clearStoredGuestCart();
+          return;
+        }
 
         const syncedCart = await syncCartStock(data.items);
         const nextItems = syncedCart.items || data.items;
 
-        setCart((prev) => {
-          const mergedItems = mergeCartMetadata(prev, nextItems);
-          localStorage.setItem("cart", JSON.stringify(mergedItems));
-          return mergedItems;
-        });
+        setCart(nextItems);
+        clearStoredGuestCart();
 
         if (syncedCart.changed) {
           error("Cart quantities were updated to match current stock.");
         }
       } catch (err) {
+        setCart([]);
+        clearStoredGuestCart();
         console.error("Failed to load server cart:", err);
+      } finally {
+        setCartReady(true);
       }
     }
 
+    setCartReady(false);
     loadServerCart();
-  }, [error, isAuthenticated]);
+  }, [authLoading, error, isAuthenticated]);
 
   function getAvailableStock(product) {
     if (product.stock_type === "variant" || product.stock_type === "variants") {
@@ -395,19 +443,11 @@ export function StoreProvider({ children }) {
 
   const clearCart = useCallback(() => {
     setCart([]);
-    localStorage.removeItem("cart");
+    clearStoredGuestCart();
   }, []);
 
   const replaceCart = useCallback((newCartItems) => {
-    setCart((prev) => {
-      const mergedItems = mergeCartMetadata(prev, newCartItems || []);
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem("cart", JSON.stringify(mergedItems));
-      }
-
-      return mergedItems;
-    });
+    setCart(newCartItems || []);
   }, []);
 
   function getCartAction(item) {
@@ -421,19 +461,30 @@ export function StoreProvider({ children }) {
   const total = cart.reduce((sum, x) => sum + x.qty * Number(x.price || 0), 0);
 
   useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cart));
-  }, [cart]);
+    if (authLoading || isAuthenticated || !cartReady) {
+      return;
+    }
+
+    writeStoredGuestCart(cart);
+  }, [authLoading, cart, cartReady, isAuthenticated]);
 
   useEffect(() => {
     function handleLogout() {
       setCart([]);
-      localStorage.removeItem("cart");
+      setCartReady(true);
+      clearStoredGuestCart();
+    }
+
+    function handleGuestCartMerged() {
+      clearStoredGuestCart();
     }
 
     window.addEventListener("user-logout", handleLogout);
+    window.addEventListener("guest-cart-merged", handleGuestCartMerged);
 
     return () => {
       window.removeEventListener("user-logout", handleLogout);
+      window.removeEventListener("guest-cart-merged", handleGuestCartMerged);
     };
   }, []);
 
@@ -441,6 +492,7 @@ export function StoreProvider({ children }) {
     <StoreContext.Provider
       value={{
         cart,
+        cartReady,
         addToCart,
         removeFromCart,
         decreaseQty,

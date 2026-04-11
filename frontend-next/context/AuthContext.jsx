@@ -242,7 +242,11 @@ export function AuthProvider({ children }) {
         const data = await getCart();
         if (typeof window !== "undefined") {
           const mergedItems = mergeCartMetadata(guestCart, data.items || []);
-          localStorage.setItem("cart", JSON.stringify(mergedItems));
+          window.dispatchEvent(
+            new CustomEvent("guest-cart-merged", {
+              detail: { items: mergedItems },
+            }),
+          );
         }
       } catch (error) {
         console.error("Failed to reload cart after merge", error);
