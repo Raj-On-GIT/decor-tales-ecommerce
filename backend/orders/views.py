@@ -87,8 +87,29 @@ def serialize_pricing(product, variant=None, effective_price=None):
 
 def get_order_item_variant_snapshot(item):
     variant = item.variant
+
+    # Determine variant status:
+    # - "available" → FK intact (variant exists in DB)
+    # - "available" → FK null but a variant with the same SKU was re-added
+    # - "missing"   → FK null, snapshot data exists, no matching variant found
+    # - None        → item was never a variant item (main stock product)
+    if variant:
+        variant_status = "available"
+    elif item.variant_sku or item.variant_size_name or item.variant_color_name:
+        # The item originally had a variant (snapshot data proves it).
+        # The FK is null because the variant was deleted at some point.
+        # Check if an equivalent variant has since been re-added via SKU match.
+        matching_exists = (
+            item.variant_sku
+            and ProductVariant.objects.filter(sku=item.variant_sku).exists()
+        )
+        variant_status = "available" if matching_exists else "missing"
+    else:
+        variant_status = None
+
     return {
         "id": variant.id if variant else None,
+        "status": variant_status,
         "size_name": (
             variant.size.name if variant and variant.size else item.variant_size_name or None
         ),
@@ -590,6 +611,18 @@ def get_cart(request):
             item_total = price * item.quantity
             total += item_total
 
+            # Detect if this was a variant cart item whose variant was deleted.
+            # CartItem.variant is SET_NULL, so item.variant will be None after deletion.
+            is_variant_missing = (
+                item.product.stock_type == "variants" and item.variant is None
+            )
+            product_available = item.product.is_active and not is_variant_missing
+            product_status = (
+                "available" if product_available
+                else "variant_missing" if is_variant_missing
+                else "unavailable"
+            )
+
             items.append(
                 {
                     "id": item.id,
@@ -606,9 +639,9 @@ def get_cart(request):
                         "stock_type": item.product.stock_type,
                         "allow_custom_text": item.product.allow_custom_text,
                         "allow_custom_image": item.product.allow_custom_image,
-                        "status": "available" if item.product.is_active else "unavailable",
+                        "status": product_status,
                         "can_view": True,
-                        "is_available_for_purchase": item.product.is_active,
+                        "is_available_for_purchase": product_available,
                         **serialize_category_trail(item.product),
                         **serialize_pricing(item.product, item.variant, Decimal(str(price))),
                     },

@@ -99,7 +99,7 @@ class CartItem(models.Model):
 
     variant = models.ForeignKey(
         ProductVariant,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True
     )

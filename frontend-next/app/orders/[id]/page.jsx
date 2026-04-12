@@ -78,13 +78,18 @@ function getCustomizationTag(item) {
   return canBeCustomized ? "standard" : null;
 }
 
-function getProductStateMessage(product) {
+function getProductStateMessage(product, variant) {
   if (product?.status === "unavailable") {
     return "This product is no longer available for purchase.";
   }
 
   if (product?.status === "missing") {
     return "This product is no longer in the catalog.";
+  }
+
+  // Product is fine but the specific variant was deleted from the catalog
+  if (variant?.status === "missing") {
+    return "This variant is no longer available.";
   }
 
   return null;
@@ -257,7 +262,7 @@ export default function OrderDetailPage() {
             <div className="space-y-4">
               {order.items.map((item, index) => {
                 const customizationTag = getCustomizationTag(item);
-                const productStateMessage = getProductStateMessage(item.product);
+                const productStateMessage = getProductStateMessage(item.product, item.variant);
 
                 return (
                 <ProductListItem

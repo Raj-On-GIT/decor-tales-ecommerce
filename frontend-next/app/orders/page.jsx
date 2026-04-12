@@ -68,13 +68,18 @@ function getCustomizationTag(item) {
   return canBeCustomized ? "standard" : null;
 }
 
-function getProductStateMessage(product) {
+function getProductStateMessage(product, variant) {
   if (product?.status === "unavailable") {
     return "No longer available for purchase.";
   }
 
   if (product?.status === "missing") {
     return "Original product removed.";
+  }
+
+  // Product is fine but the specific variant was deleted from the catalog
+  if (variant?.status === "missing") {
+    return "Variant no longer available.";
   }
 
   return null;
@@ -184,7 +189,7 @@ export default function OrdersPage() {
                       <div className="mt-5 grid gap-3">
                         {order.items.slice(0, 1).map((item, index) => {
                           const customizationTag = getCustomizationTag(item);
-                          const productStateMessage = getProductStateMessage(item.product);
+                          const productStateMessage = getProductStateMessage(item.product, item.variant);
 
                           return (
                           <ProductListItem

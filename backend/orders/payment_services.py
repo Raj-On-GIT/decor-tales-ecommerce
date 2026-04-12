@@ -173,6 +173,13 @@ def validate_cart_item_stock(cart_items):
         if not product.is_active:
             raise PaymentError(f"{product.title} is no longer available.")
 
+        # Variant was deleted (SET_NULL) but cart item survived — block checkout.
+        if product.stock_type == "variants" and variant is None:
+            raise PaymentError(
+                f"A variant of {product.title} is no longer available. "
+                "Please remove it from your cart before proceeding."
+            )
+
         if product.stock_type == "variants":
             available_stock = variant.stock if variant else 0
         else:

@@ -41,6 +41,10 @@ function getProductStateMessage(item) {
     return "Original product removed";
   }
 
+  if (item?.availability_status === "variant_missing") {
+    return "Variant no longer available";
+  }
+
   return null;
 }
 
