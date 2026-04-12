@@ -92,7 +92,7 @@ export function AuthProvider({ children }) {
 
       const sessionUser = await getSessionUser({
         tryRefresh: true,
-        refreshFirst: true,
+        refreshFirst: false,
       });
 
       if (!isActiveAuthRequest(requestId)) {
@@ -164,6 +164,18 @@ export function AuthProvider({ children }) {
 
       if (!refreshed.ok) {
         if (refreshed.shouldLogout) {
+          const sessionUser = await getSessionUser({ tryRefresh: false });
+
+          if (!isActiveAuthRequest(requestId)) {
+            return;
+          }
+
+          if (sessionUser) {
+            setUser(sessionUser);
+            setIsAuthenticated(true);
+            return;
+          }
+
           void clearAuthSession();
           setUser(null);
           setIsAuthenticated(false);

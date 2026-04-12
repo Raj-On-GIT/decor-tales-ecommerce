@@ -157,6 +157,8 @@ export async function loginWithGoogle(credential, nonceToken) {
 }
 
 async function readSessionUser() {
+  await ensureCsrfCookie();
+
   const response = await apiFetch(`${getApiBase()}/api/accounts/profile/`, {
     method: "GET",
   });
@@ -178,6 +180,14 @@ async function readSessionUser() {
   };
 }
 
+async function tryReadSessionUserSafely() {
+  try {
+    return await readSessionUser();
+  } catch {
+    return null;
+  }
+}
+
 export async function getSessionUser({
   tryRefresh = false,
   refreshFirst = false,
@@ -189,12 +199,19 @@ export async function getSessionUser({
       return readSessionUser();
     }
 
+    // If refresh fails, confirm whether the existing access-cookie session is
+    // still valid before treating the user as logged out.
+    const sessionUser = await tryReadSessionUserSafely();
+    if (sessionUser) {
+      return sessionUser;
+    }
+
     if (refreshed.shouldLogout) {
       return null;
     }
   }
 
-  const sessionUser = await readSessionUser();
+  const sessionUser = await tryReadSessionUserSafely();
 
   if (sessionUser || !tryRefresh) {
     return sessionUser;
@@ -202,10 +219,10 @@ export async function getSessionUser({
 
   const refreshed = await refreshAccessToken();
   if (!refreshed.ok) {
-    return null;
+    return tryReadSessionUserSafely();
   }
 
-  return readSessionUser();
+  return tryReadSessionUserSafely();
 }
 
 export async function refreshAccessToken() {
@@ -256,8 +273,13 @@ export async function fetchWithAuth(url, options = {}) {
     const refreshed = await refreshAccessToken();
 
     if (!refreshed.ok) {
+      const sessionUser = await tryReadSessionUserSafely();
+
+      if (sessionUser) {
+        return response;
+      }
+
       if (refreshed.shouldLogout) {
-        clearAuthSession();
         throw new Error("Session expired. Please login again.");
       }
 
