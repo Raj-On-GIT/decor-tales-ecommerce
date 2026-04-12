@@ -127,6 +127,84 @@ def get_order_item_variant_snapshot(item):
     }
 
 
+def find_matching_variant_for_snapshot(item):
+    if not item or not item.product or item.product.stock_type != "variants":
+        return None
+
+    if item.variant:
+        return item.variant
+
+    if item.variant_sku:
+        matching_variant = ProductVariant.objects.filter(
+            product=item.product,
+            sku=item.variant_sku,
+        ).select_related("size", "color").first()
+        if matching_variant:
+            return matching_variant
+
+    queryset = ProductVariant.objects.filter(product=item.product).select_related("size", "color")
+
+    if item.variant_size_name:
+        queryset = queryset.filter(size__name=item.variant_size_name)
+
+    if item.variant_color_name:
+        queryset = queryset.filter(color__name=item.variant_color_name)
+
+    if item.variant_size_name or item.variant_color_name:
+        matches = list(queryset[:2])
+        if len(matches) == 1:
+            return matches[0]
+
+    return None
+
+
+def resolve_cart_item_variant(item, persist=False):
+    variant = find_matching_variant_for_snapshot(item)
+
+    if variant and item.variant_id != variant.id:
+        item.variant = variant
+        if persist and item.id:
+            CartItem.objects.filter(id=item.id, variant__isnull=True).update(variant=variant)
+
+    return variant
+
+
+def get_cart_item_variant_snapshot(item, persist=False):
+    variant = resolve_cart_item_variant(item, persist=persist)
+
+    if variant:
+        variant_status = "available"
+    elif item.variant_sku or item.variant_size_name or item.variant_color_name:
+        variant_status = "missing"
+    elif item.product and item.product.stock_type == "variants":
+        variant_status = "missing"
+    else:
+        variant_status = None
+
+    if variant_status is None:
+        return None
+
+    return {
+        "id": variant.id if variant else None,
+        "status": variant_status,
+        "size_name": (
+            variant.size.name if variant and variant.size else item.variant_size_name or None
+        ),
+        "color_name": (
+            variant.color.name if variant and variant.color else item.variant_color_name or None
+        ),
+        "stock": variant.stock if variant else 0,
+        "mrp": str(variant.mrp) if variant and variant.mrp is not None else None,
+        "slashed_price": (
+            str(variant.slashed_price)
+            if variant and variant.slashed_price is not None
+            else None
+        ),
+        "discount_percent": variant.discount_percent if variant else None,
+        "sku": variant.sku if variant else item.variant_sku or None,
+    }
+
+
 def serialize_order_item_product(item, request):
     product = item.product
     product_exists = product is not None
@@ -313,7 +391,7 @@ def get_cart_line_items(cart_items):
 
     for item in cart_items:
         product = item.product
-        variant = item.variant
+        variant = resolve_cart_item_variant(item)
 
         if product.stock_type == "variants":
             price = variant.slashed_price or variant.mrp or Decimal("0.00")
@@ -523,6 +601,19 @@ def add_to_cart(request):
                     quantity=F("quantity") + quantity
                 )
                 cart_item.refresh_from_db()
+                if variant and (
+                    cart_item.variant_size_name != (variant.size.name if variant.size else "")
+                    or cart_item.variant_color_name != (variant.color.name if variant.color else "")
+                    or cart_item.variant_sku != (variant.sku or "")
+                ):
+                    cart_item.capture_variant_snapshot(variant)
+                    cart_item.save(
+                        update_fields=[
+                            "variant_size_name",
+                            "variant_color_name",
+                            "variant_sku",
+                        ]
+                    )
 
                 if cart_item.quantity > available_stock:
                     cart_item.quantity = available_stock
@@ -535,6 +626,9 @@ def add_to_cart(request):
                     cart=cart,
                     product=product,
                     variant=variant,
+                    variant_size_name=variant.size.name if variant and variant.size else "",
+                    variant_color_name=variant.color.name if variant and variant.color else "",
+                    variant_sku=variant.sku if variant else "",
                     quantity=quantity,
                     custom_text=None,
                     custom_image=None,
@@ -547,6 +641,9 @@ def add_to_cart(request):
                 cart=cart,
                 product=product,
                 variant=variant,
+                variant_size_name=variant.size.name if variant and variant.size else "",
+                variant_color_name=variant.color.name if variant and variant.color else "",
+                variant_sku=variant.sku if variant else "",
                 quantity=quantity,
                 custom_text=custom_text,
                 custom_image=None,
@@ -602,8 +699,11 @@ def get_cart(request):
         total = 0
 
         for item in cart_items:
-            if item.variant:
-                price = item.variant.slashed_price or item.variant.mrp or 0
+            variant_snapshot = get_cart_item_variant_snapshot(item, persist=True)
+            resolved_variant = item.variant
+
+            if resolved_variant:
+                price = resolved_variant.slashed_price or resolved_variant.mrp or 0
             else:
                 price = get_product_price(item.product) or 0
 
@@ -611,10 +711,10 @@ def get_cart(request):
             item_total = price * item.quantity
             total += item_total
 
-            # Detect if this was a variant cart item whose variant was deleted.
-            # CartItem.variant is SET_NULL, so item.variant will be None after deletion.
             is_variant_missing = (
-                item.product.stock_type == "variants" and item.variant is None
+                item.product.stock_type == "variants"
+                and variant_snapshot
+                and variant_snapshot["status"] == "missing"
             )
             product_available = item.product.is_active and not is_variant_missing
             product_status = (
@@ -643,25 +743,9 @@ def get_cart(request):
                         "can_view": True,
                         "is_available_for_purchase": product_available,
                         **serialize_category_trail(item.product),
-                        **serialize_pricing(item.product, item.variant, Decimal(str(price))),
+                        **serialize_pricing(item.product, resolved_variant, Decimal(str(price))),
                     },
-                    "variant": (
-                        {
-                            "id": item.variant.id,
-                            "size_name": item.variant.size.name if item.variant.size else None,
-                            "color_name": item.variant.color.name if item.variant.color else None,
-                            "stock": item.variant.stock,
-                            "mrp": str(item.variant.mrp) if item.variant.mrp is not None else None,
-                            "slashed_price": (
-                                str(item.variant.slashed_price)
-                                if item.variant.slashed_price is not None
-                                else None
-                            ),
-                            "discount_percent": item.variant.discount_percent,
-                        }
-                        if item.variant
-                        else None
-                    ),
+                    "variant": variant_snapshot,
                     "quantity": item.quantity,
                     "custom_text": item.custom_text,
                     "custom_images": build_secure_order_image_urls(request, item.custom_images.all()),
@@ -715,7 +799,8 @@ def update_cart_item(request, item_id):
 
     cart_item = get_object_or_404(CartItem, id=item_id, cart=cart)
 
-    available_stock = cart_item.variant.stock if cart_item.variant else cart_item.product.stock
+    variant = resolve_cart_item_variant(cart_item, persist=True)
+    available_stock = variant.stock if variant else cart_item.product.stock
 
     if quantity > available_stock:
         return Response(
@@ -726,8 +811,8 @@ def update_cart_item(request, item_id):
     cart_item.quantity = quantity
     cart_item.save()
 
-    if cart_item.variant:
-        price = cart_item.variant.slashed_price or cart_item.variant.mrp
+    if variant:
+        price = variant.slashed_price or variant.mrp
     else:
         price = get_product_price(cart_item.product)
 
@@ -824,7 +909,7 @@ def create_order(request):
 
         for item in cart_items:
             product = item.product
-            variant = item.variant
+            variant = resolve_cart_item_variant(item, persist=True)
 
             if not is_product_available_for_purchase(product):
                 return Response(
@@ -886,7 +971,7 @@ def create_order(request):
 
         for item in cart_items:
             product = item.product
-            variant = item.variant
+            variant = resolve_cart_item_variant(item, persist=True)
 
             if product.stock_type == "variants":
                 price = variant.slashed_price or variant.mrp

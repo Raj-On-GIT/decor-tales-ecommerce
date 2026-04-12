@@ -13,7 +13,7 @@ from rest_framework.test import APIClient
 
 from orders.models import Cart, CartItem, Coupon, CouponUsage, Order, OrderItem, OrderItemImage, StockReservation
 from orders.payment_services import reconcile_order_payment
-from products.models import Category, Product, ProductVariant, SubCategory
+from products.models import Category, Color, Product, ProductVariant, Size, SubCategory
 
 
 def build_test_image(name, size=(100, 100), image_format="PNG", content_type="image/png"):
@@ -214,9 +214,13 @@ class CartValidationTests(TestCase):
             category=self.category,
             sub_category=self.subcategory,
         )
+        self.size = Size.objects.create(name="12x18")
+        self.color = Color.objects.create(name="Black")
 
         self.variant = ProductVariant.objects.create(
             product=self.variant_product,
+            size=self.size,
+            color=self.color,
             mrp=Decimal("900.00"),
             slashed_price=Decimal("700.00"),
             stock=3,
@@ -298,6 +302,62 @@ class CartValidationTests(TestCase):
         cart_item = CartItem.objects.get(product=self.variant_product)
         self.assertEqual(cart_item.variant_id, self.variant.id)
         self.assertEqual(cart_item.quantity, 1)
+        self.assertEqual(cart_item.variant_size_name, "12x18")
+        self.assertEqual(cart_item.variant_color_name, "Black")
+        self.assertEqual(cart_item.variant_sku, self.variant.sku)
+
+    def test_cart_keeps_missing_variant_snapshot_and_rebinds_when_variant_returns(self):
+        self.client.post(
+            reverse("add_to_cart"),
+            {
+                "product_id": self.variant_product.id,
+                "variant_id": self.variant.id,
+                "quantity": 1,
+            },
+            format="json",
+        )
+
+        cart_item = CartItem.objects.get(product=self.variant_product)
+        original_sku = cart_item.variant_sku
+
+        self.variant.delete()
+        cart_item.refresh_from_db()
+        self.assertIsNone(cart_item.variant_id)
+        self.assertEqual(cart_item.variant_size_name, "12x18")
+        self.assertEqual(cart_item.variant_color_name, "Black")
+        self.assertEqual(cart_item.variant_sku, original_sku)
+
+        missing_response = self.client.get(reverse("get_cart"))
+        self.assertEqual(missing_response.status_code, 200)
+        missing_item = missing_response.data["items"][0]
+        self.assertEqual(missing_item["product"]["status"], "variant_missing")
+        self.assertFalse(missing_item["product"]["is_available_for_purchase"])
+        self.assertEqual(missing_item["variant"]["status"], "missing")
+        self.assertEqual(missing_item["variant"]["size_name"], "12x18")
+        self.assertEqual(missing_item["variant"]["color_name"], "Black")
+
+        restored_variant = ProductVariant.objects.create(
+            product=self.variant_product,
+            size=self.size,
+            color=self.color,
+            mrp=Decimal("900.00"),
+            slashed_price=Decimal("700.00"),
+            stock=2,
+            sku=original_sku,
+        )
+
+        restored_response = self.client.get(reverse("get_cart"))
+        self.assertEqual(restored_response.status_code, 200)
+        restored_item = restored_response.data["items"][0]
+        self.assertEqual(restored_item["product"]["status"], "available")
+        self.assertTrue(restored_item["product"]["is_available_for_purchase"])
+        self.assertEqual(restored_item["variant"]["status"], "available")
+        self.assertEqual(restored_item["variant"]["id"], restored_variant.id)
+        self.assertEqual(restored_item["variant"]["size_name"], "12x18")
+        self.assertEqual(restored_item["variant"]["color_name"], "Black")
+
+        cart_item.refresh_from_db()
+        self.assertEqual(cart_item.variant_id, restored_variant.id)
 
     def test_strips_html_from_custom_text_before_saving(self):
         self.simple_product.allow_custom_text = True

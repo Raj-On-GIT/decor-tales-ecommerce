@@ -26,7 +26,13 @@ from .models import (
     OrderItemImage,
     StockReservation,
 )
-from .views import evaluate_coupon_for_cart, get_cart_line_items, get_coupon_queryset, get_product_price
+from .views import (
+    evaluate_coupon_for_cart,
+    get_cart_line_items,
+    get_coupon_queryset,
+    get_product_price,
+    resolve_cart_item_variant,
+)
 
 PAISE_MULTIPLIER = Decimal("100")
 logger = logging.getLogger(__name__)
@@ -168,7 +174,7 @@ def lock_stock_targets_for_items(items):
 def validate_cart_item_stock(cart_items):
     for item in cart_items:
         product = item.product
-        variant = item.variant
+        variant = resolve_cart_item_variant(item, persist=True)
 
         if not product.is_active:
             raise PaymentError(f"{product.title} is no longer available.")

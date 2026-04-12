@@ -352,6 +352,7 @@ export async function getCart() {
       variant: variant
         ? {
             id: variant.id,
+            status: variant.status || "available",
             size_name: variant.size_name,
             color_name: variant.color_name,
             stock: variant.stock,
@@ -418,6 +419,10 @@ export function analyzeCartStock(cartItems = []) {
   const groupedItems = new Map();
 
   cartItems.forEach((item, index) => {
+    if (item?.is_available_for_purchase === false) {
+      return;
+    }
+
     const bucketKey = getCartStockBucketKey(item);
     const availableStock = Math.max(0, item.variant?.stock ?? item.stock ?? 0);
     const currentGroup = groupedItems.get(bucketKey);

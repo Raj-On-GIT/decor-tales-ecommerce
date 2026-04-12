@@ -67,6 +67,10 @@ function getProductStateMessage(item) {
     return "This item is no longer in the catalog.";
   }
 
+  if (item?.availability_status === "variant_missing") {
+    return "This variant is no longer available for purchase.";
+  }
+
   return null;
 }
 
@@ -138,7 +142,9 @@ export default function CheckoutPage() {
     loadData();
   }, [error, isAuthenticated, replaceCart]);
 
-  const total = cart.reduce((sum, item) => sum + item.qty * Number(item.price), 0);
+  const total = cart
+    .filter((item) => item.is_available_for_purchase !== false)
+    .reduce((sum, item) => sum + item.qty * Number(item.price), 0);
   const itemCount = cart.reduce((sum, item) => sum + item.qty, 0);
   const selectedCouponDiscount = Number(selectedCoupon?.discount_amount || 0);
   const payableTotal = Math.max(0, total - selectedCouponDiscount);
@@ -452,6 +458,7 @@ export default function CheckoutPage() {
               {cart.map((item) => {
                 const customizationTag = getCustomizationTag(item);
                 const productStateMessage = getProductStateMessage(item);
+                const isUnavailable = item.is_available_for_purchase === false;
 
                 return (
                 <ProductListItem
@@ -527,7 +534,11 @@ export default function CheckoutPage() {
                   customizationLayout={customizationTag === "customized" ? "below" : "inline"}
                   actions={(
                     <div className="w-full text-left sm:w-auto sm:text-right">
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p
+                        className={`text-sm font-semibold ${
+                          isUnavailable ? "text-gray-400 line-through" : "text-gray-900"
+                        }`}
+                      >
                         Total: ₹{(item.qty * Number(item.price)).toFixed(2)}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">Qty: {item.qty}</p>

@@ -104,6 +104,10 @@ class CartItem(models.Model):
         blank=True
     )
 
+    variant_size_name = models.CharField(max_length=100, blank=True)
+    variant_color_name = models.CharField(max_length=100, blank=True)
+    variant_sku = models.CharField(max_length=100, blank=True)
+
     quantity = models.IntegerField(default=1)
 
     custom_text = models.TextField(blank=True, null=True)
@@ -116,6 +120,12 @@ class CartItem(models.Model):
 
     class Meta:
         ordering = ["-id"]
+
+    def capture_variant_snapshot(self, variant=None):
+        variant = variant if variant is not None else self.variant
+        self.variant_size_name = variant.size.name if variant and variant.size else ""
+        self.variant_color_name = variant.color.name if variant and variant.color else ""
+        self.variant_sku = variant.sku if variant else ""
 
 
 class CartItemImage(models.Model):
