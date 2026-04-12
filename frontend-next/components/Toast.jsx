@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, CheckCircle, AlertCircle, Info } from "lucide-react";
 
@@ -101,7 +101,7 @@ export function ToastContainer({ toasts, removeToast }) {
 export function useToast() {
   const [toasts, setToasts] = useState([]);
 
-  const showToast = (message, type = "info", duration = 3000) => {
+  const showToast = useCallback((message, type = "info", duration = 3000) => {
     setToasts((prev) => {
       // 🔍 Check if same toast already exists
       const existing = prev.find(
@@ -130,18 +130,33 @@ export function useToast() {
         },
       ];
     });
-  };
+  }, []);
 
-  const removeToast = (id) => {
+  const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  };
+  }, []);
+
+  const success = useCallback(
+    (message, duration) => showToast(message, "success", duration),
+    [showToast],
+  );
+
+  const error = useCallback(
+    (message, duration) => showToast(message, "error", duration),
+    [showToast],
+  );
+
+  const info = useCallback(
+    (message, duration) => showToast(message, "info", duration),
+    [showToast],
+  );
 
   return {
     toasts,
     showToast,
     removeToast,
-    success: (message, duration) => showToast(message, "success", duration),
-    error: (message, duration) => showToast(message, "error", duration),
-    info: (message, duration) => showToast(message, "info", duration),
+    success,
+    error,
+    info,
   };
 }

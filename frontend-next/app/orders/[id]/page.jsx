@@ -3,10 +3,16 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { Merriweather } from "next/font/google";
 import { useAuth } from "@/context/AuthContext";
 import { getOrderDetail } from "@/lib/api";
 import PageLoader from "@/components/ui/PageLoader";
 import ProductListItem from "@/components/ProductListItem";
+
+const orderNumberFont = Merriweather({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+});
 
 const ORDER_PROGRESS_STEPS = [
   { key: "pending", label: "Pending" },
@@ -70,6 +76,18 @@ function getCustomizationTag(item) {
 
   const canBeCustomized = Boolean(item?.allow_custom_text || item?.allow_custom_image);
   return canBeCustomized ? "standard" : null;
+}
+
+function getProductStateMessage(product) {
+  if (product?.status === "unavailable") {
+    return "This product is no longer available for purchase.";
+  }
+
+  if (product?.status === "missing") {
+    return "This product is no longer in the catalog.";
+  }
+
+  return null;
 }
 
 function OrderProgress({ status }) {
@@ -206,7 +224,9 @@ export default function OrderDetailPage() {
               >
                 {"<-"} Back to orders
               </Link>
-              <h1 className="mt-3 font-serif text-3xl font-bold text-gray-900 sm:text-4xl">
+              <h1
+                className={`${orderNumberFont.className} mt-3 text-3xl font-medium tracking-[0.02em] tabular-nums text-gray-900 sm:text-4xl`}
+              >
                 Order #{order.order_number}
               </h1>
             </div>
@@ -226,7 +246,7 @@ export default function OrderDetailPage() {
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8">
             <div className="mb-6 flex items-center justify-between gap-4">
-              <h2 className="font-serif text-3xl font-semibold text-gray-900">
+              <h2 className={`${orderNumberFont.className} text-3xl font-medium tracking-[0.02em] tabular-nums text-gray-900 sm:text-4xl`}>
                 Items in this order
               </h2>
               <div className="rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-600">
@@ -237,11 +257,12 @@ export default function OrderDetailPage() {
             <div className="space-y-4">
               {order.items.map((item, index) => {
                 const customizationTag = getCustomizationTag(item);
+                const productStateMessage = getProductStateMessage(item.product);
 
                 return (
                 <ProductListItem
                   key={index}
-                  href={`/products/${item.product.id}`}
+                  href={item.product?.can_view ? `/products/${item.product.id}` : null}
                   image={item.product.image}
                   imageClassName="self-center"
                   title={item.product.title}
@@ -255,11 +276,18 @@ export default function OrderDetailPage() {
                   }}
                   variant={item.variant}
                   secondaryContent={
-                    customizationTag ? (
-                      <p className="text-[11px] uppercase tracking-[0.16em] text-gray-400">
-                        {customizationTag === "customized" ? "Customized" : "Standard"}
-                      </p>
-                    ) : null
+                    <>
+                      {customizationTag ? (
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-gray-400">
+                          {customizationTag === "customized" ? "Customized" : "Standard"}
+                        </p>
+                      ) : null}
+                      {productStateMessage ? (
+                        <p className="mt-1 text-xs font-medium text-amber-700">
+                          {productStateMessage}
+                        </p>
+                      ) : null}
+                    </>
                   }
                   customizationContent={
                     (item.custom_text || item.custom_image || item.custom_images?.length > 0) ? (
@@ -320,7 +348,7 @@ export default function OrderDetailPage() {
 
           <div className="space-y-6 xl:sticky xl:top-24 xl:h-fit">
             <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8">
-              <h2 className="font-serif text-3xl font-semibold text-gray-900">
+              <h2 className={`${orderNumberFont.className} text-3xl font-medium tracking-[0.02em] tabular-nums text-gray-900 sm:text-4xl`}>
                 Delivery details
               </h2>
               <div className="mt-6 space-y-5">

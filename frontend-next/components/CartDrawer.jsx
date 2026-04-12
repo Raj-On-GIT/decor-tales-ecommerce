@@ -32,6 +32,18 @@ function getCustomizationTag(item) {
   return canBeCustomized ? "standard" : null;
 }
 
+function getProductStateMessage(item) {
+  if (item?.availability_status === "unavailable") {
+    return "No longer available for purchase";
+  }
+
+  if (item?.availability_status === "missing") {
+    return "Original product removed";
+  }
+
+  return null;
+}
+
 export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
   const {
     cart,
@@ -77,6 +89,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
   const stockIssueMap = new Map(
     stockIssues.map((issue) => [issue.cart_item_id, issue]),
   );
+  const hasUnavailableItems = cart.some((item) => item.is_available_for_purchase === false);
 
   async function handleProceedToCheckout() {
     if (!isAuthenticated) {
@@ -88,9 +101,26 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
     setCheckingOut(true);
 
     try {
+      // Fetch cart once — check availability on fresh server data before
+      // doing stock sync, to avoid stale-closure false negatives and the
+      // double getCart() that syncCartStock triggers internally when it
+      // finds issues (which counted as the 2nd refresh).
       const latestCart = await getCart();
-      const syncedCart = await syncCartStock(latestCart.items || []);
-      const nextItems = syncedCart.items || latestCart.items || [];
+      const freshItems = latestCart.items || [];
+
+      replaceCart(freshItems);
+
+      const hasFreshUnavailableItems = freshItems.some(
+        (item) => item.is_available_for_purchase === false,
+      );
+
+      if (hasFreshUnavailableItems) {
+        error("Remove unavailable items from your cart before checkout.");
+        return;
+      }
+
+      const syncedCart = await syncCartStock(freshItems);
+      const nextItems = syncedCart.items || freshItems;
 
       replaceCart(nextItems);
 
@@ -170,8 +200,10 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                   {cart.map((item) => {
                     const itemAction = getCartAction(item);
                     const itemPending = isCartItemPending(item);
+                    const isUnavailable = item.is_available_for_purchase === false;
                     const stockIssue = stockIssueMap.get(item.cart_item_id);
                     const customizationTag = getCustomizationTag(item);
+                    const productStateMessage = getProductStateMessage(item);
 
                     return (
                       <motion.div
@@ -187,7 +219,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                         transition={{ duration: 0.2 }}
                       >
                         <ProductListItem
-                          href={`/products/${item.id}`}
+                          href={item.can_view ? `/products/${item.id}` : null}
                           image={item.image || "https://via.placeholder.com/100"}
                           title={item.title}
                           imageClassName="self-center"
@@ -211,6 +243,11 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                           }
                           noteContent={
                             <>
+                              {productStateMessage ? (
+                                <p className="text-xs font-medium text-amber-700">
+                                  {productStateMessage}
+                                </p>
+                              ) : null}
                               {stockIssue ? (
                                 <p className="text-xs font-medium text-red-600">
                                   {stockIssue.suggestedQty > 0
@@ -218,7 +255,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                                     : "Out of stock"}
                                 </p>
                               ) : null}
-                              <p className="text-sm font-semibold text-gray-900">
+                              <p className={`text-sm font-semibold ${isUnavailable ? "text-gray-400 line-through" : "text-gray-900"}`}>
                                 ₹{formatPrice(item.price)}
                               </p>
                             </>
@@ -248,7 +285,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                                       console.error("Qty decrease failed:", err);
                                     }
                                   }}
-                                  disabled={itemPending}
+                                  disabled={itemPending || isUnavailable}
                                   className="flex h-8 w-8 items-center justify-center border-r border-gray-300 text-base text-gray-700 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {itemAction === "updating" || itemAction === "removing" ? (
@@ -268,7 +305,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                                       console.error("Qty increase failed:", err);
                                     }
                                   }}
-                                  disabled={itemPending}
+                                  disabled={itemPending || isUnavailable}
                                   className="flex h-8 w-8 items-center justify-center border-l border-gray-300 text-base text-gray-700 transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {itemAction === "updating" ? (
@@ -302,12 +339,17 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                 <p className="mb-6 text-center text-xs text-gray-500">
                   Shipping & taxes calculated at checkout.
                 </p>
+                {hasUnavailableItems ? (
+                  <p className="mb-4 text-center text-xs font-medium text-amber-700">
+                    Your cart contains items that are no longer available for purchase.
+                  </p>
+                ) : null}
 
                 <button
                   type="button"
                   onClick={handleProceedToCheckout}
                   disabled={checkingOut}
-                  className="flex w-full items-center justify-center rounded-lg bg-gray-900 py-3 font-medium text-white transition hover:bg-black"
+                  className="flex w-full items-center justify-center rounded-lg bg-gray-900 py-3 font-medium text-white transition hover:bg-black disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {checkingOut ? "Checking Stock..." : "Proceed to Checkout"}
                   <ArrowRight size={16} className="ml-2" />

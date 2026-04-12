@@ -81,10 +81,12 @@ class ProductSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()
     sub_category = serializers.SerializerMethodField()
     total_stock = serializers.SerializerMethodField()
+    availability_status = serializers.SerializerMethodField()
+    is_available_for_purchase = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ['id', 'title', 'slug', 'description', 'mrp', 'slashed_price', 'discount_percent', 'stock', 'stock_type', 'total_stock', 'created_at', 'category', 'sub_category', "allow_custom_image", "custom_image_limit", "allow_custom_text", 'image', 'images', 'variants']
+        fields = ['id', 'title', 'slug', 'description', 'mrp', 'slashed_price', 'discount_percent', 'stock', 'stock_type', 'total_stock', 'created_at', 'category', 'sub_category', "allow_custom_image", "custom_image_limit", "allow_custom_text", "is_active", "availability_status", "is_available_for_purchase", 'image', 'images', 'variants']
     
     def get_total_stock(self, obj):
         return obj.get_total_stock()
@@ -101,6 +103,12 @@ class ProductSerializer(serializers.ModelSerializer):
         if not obj.sub_category:
             return None
         return {"name": obj.sub_category.name, "slug": obj.sub_category.slug}
+
+    def get_availability_status(self, obj):
+        return "available" if obj.is_active else "unavailable"
+
+    def get_is_available_for_purchase(self, obj):
+        return bool(obj.is_active)
     
     def validate(self, data):
         """

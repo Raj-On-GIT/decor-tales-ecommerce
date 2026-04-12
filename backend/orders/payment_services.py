@@ -170,6 +170,9 @@ def validate_cart_item_stock(cart_items):
         product = item.product
         variant = item.variant
 
+        if not product.is_active:
+            raise PaymentError(f"{product.title} is no longer available.")
+
         if product.stock_type == "variants":
             available_stock = variant.stock if variant else 0
         else:
@@ -296,6 +299,19 @@ def create_pending_order_from_cart(*, user, address_id, coupon_code=""):
                 custom_text=item.custom_text,
                 custom_image=item.custom_image if not item.custom_images.exists() else None,
             )
+            order_item.capture_product_snapshot(product=product, variant=variant)
+            order_item.save(update_fields=[
+                "product_title",
+                "product_slug",
+                "product_image",
+                "product_category_name",
+                "product_category_slug",
+                "product_sub_category_name",
+                "product_sub_category_slug",
+                "variant_size_name",
+                "variant_color_name",
+                "variant_sku",
+            ])
 
             for image in item.custom_images.all():
                 OrderItemImage.objects.create(order_item=order_item, image=image.image)

@@ -25,6 +25,7 @@ export default function ProductDetailPage() {
   const { cart, addToCart } = useStore();
 
   const [product, setProduct] = useState(null);
+  const [productState, setProductState] = useState("loading");
   const [relatedProducts, setRelatedProducts] = useState([]); // ✅ Related products state
 
   // ✅ Gallery State
@@ -62,12 +63,24 @@ export default function ProductDetailPage() {
 
     async function loadProduct() {
       try {
+        setProductState("loading");
+        setProduct(null);
+        setRelatedProducts([]);
+
         // 1. Fetch Main Product
-        const res = await fetch(`${API_BASE}/api/products/${id}/`)
+        const res = await fetch(`${API_BASE}/api/products/${id}/`);
+        if (res.status === 404) {
+          setProductState("not_found");
+          return;
+        }
+        if (!res.ok) {
+          throw new Error(`Failed to load product (${res.status})`);
+        }
         const data = await res.json();
 
         productIdRef.current = data.id;
         setProduct(data);
+        setProductState("loaded");
         setCurrentIndex(0);
 
         // 2. Fetch & Filter Related Products
@@ -128,6 +141,7 @@ export default function ProductDetailPage() {
         }
       } catch (error) {
         console.error("Error loading product:", error);
+        setProductState("not_found");
       }
     }
 
@@ -238,6 +252,7 @@ export default function ProductDetailPage() {
   ];
 
   const isVariantProduct = product?.stock_type === "variants";
+  const isUnavailable = product?.availability_status === "unavailable";
   const activeStock = isVariantProduct
     ? selectedVariant?.stock
     : product?.stock;
@@ -252,7 +267,33 @@ export default function ProductDetailPage() {
   const isColorAvailable = (color) =>
     product?.variants.some((v) => v.color_name === color);
 
-  if (!product) {
+  if (productState === "not_found") {
+    return (
+      <section className="min-h-screen bg-white px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-3xl rounded-[2rem] border border-gray-200 bg-[#fffdf8] px-8 py-14 text-center shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-gray-500">
+            Product Not Found
+          </p>
+          <h1 className="mt-4 text-3xl font-bold text-gray-900 sm:text-4xl">
+            This product does not exist.
+          </h1>
+          <p className="mt-4 text-sm leading-7 text-gray-600 sm:text-base">
+            The item may have been removed or the link is no longer valid.
+          </p>
+          <div className="mt-8 flex justify-center">
+            <Link
+              href="/catalog"
+              className="rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+            >
+              Browse catalog
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (productState === "loading" || !product) {
     return <ProductDetailSkeleton />;
   }
 
@@ -446,6 +487,11 @@ export default function ProductDetailPage() {
               {/* Title + Price */}
               <div>
                 <h1 className="text-3xl font-bold leading-tight sm:text-4xl">{product.title}</h1>
+                {isUnavailable ? (
+                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    This product is no longer available for purchase. You can still review its details here, but ordering is disabled.
+                  </div>
+                ) : null}
                 <div className="mt-3">
                   <CategoryTrail
                     category={product.category}
@@ -506,6 +552,7 @@ export default function ProductDetailPage() {
                                   key={uploadResetKey}
                                   type="file"
                                   accept="image/*"
+                                  disabled={isUnavailable}
                                   onChange={(e) =>
                                     handleCustomImageUpload(e, index)
                                   }
@@ -535,6 +582,7 @@ export default function ProductDetailPage() {
                       rows={1}
                       value={customText}
                       maxLength={MAX_CUSTOM_TEXT_LENGTH}
+                      disabled={isUnavailable}
                       onChange={(e) =>
                         setCustomText(e.target.value.slice(0, MAX_CUSTOM_TEXT_LENGTH))
                       }
@@ -565,7 +613,7 @@ export default function ProductDetailPage() {
                                   {sizes.map((size) => (
                                     <button
                                       key={size}
-                                      disabled={!isSizeAvailable(size)}
+                                      disabled={isUnavailable || !isSizeAvailable(size)}
                                       onClick={() => setSelectedSize(size)}
                                       className={`border rounded-lg px-3 py-2 text-sm transition sm:px-4 sm:py-1
                                   ${
@@ -596,7 +644,7 @@ export default function ProductDetailPage() {
                                   {colors.map((color) => (
                                     <button
                                       key={color}
-                                      disabled={!isColorAvailable(color)}
+                                      disabled={isUnavailable || !isColorAvailable(color)}
                                       onClick={() => setSelectedColor(color)}
                                       className={`border rounded-lg px-3 py-2 text-sm transition sm:px-4 sm:py-1
                                   ${
@@ -626,7 +674,14 @@ export default function ProductDetailPage() {
                 {/* ✅ Stock Availability */}
                 {activeStock !== undefined &&
                   activeStock !== null &&
-                  (activeStock === 0 ? (
+                  (isUnavailable ? (
+                    <div className="mt-4 flex items-center gap-2 text-sm">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                        Status
+                      </span>
+                      <span className="font-medium text-amber-700">No longer available</span>
+                    </div>
+                  ) : activeStock === 0 ? (
                     <div className="mt-4 flex items-center gap-2 text-sm">
                       <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
                         Stock
@@ -673,8 +728,9 @@ export default function ProductDetailPage() {
                   {/* Qty Controls */}
                   <div className="flex min-w-0 basis-3/10 items-center justify-center overflow-hidden rounded-xl border">
                     <button
+                      disabled={isUnavailable}
                       onClick={() => setQty((prev) => Math.max(1, prev - 1))}
-                      className="flex-1 px-3 py-2 text-base hover:bg-gray-200 sm:px-4 sm:text-lg"
+                      className="flex-1 px-3 py-2 text-base hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-lg"
                     >
                       -
                     </button>
@@ -684,8 +740,9 @@ export default function ProductDetailPage() {
                     </span>
 
                     <button
+                      disabled={isUnavailable}
                       onClick={() => setQty((prev) => prev + 1)}
-                      className="flex-1 px-3 py-2 text-base hover:bg-gray-200 sm:px-4 sm:text-lg"
+                      className="flex-1 px-3 py-2 text-base hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-lg"
                     >
                       +
                     </button>
@@ -694,6 +751,7 @@ export default function ProductDetailPage() {
                   {/* ✅ Add to Cart Button */}
                   <button
                     disabled={
+                      isUnavailable ||
                       (product.stock_type === "variants" && !selectedVariant) ||
                       activeStock === 0 ||
                       isAddingToCart
@@ -786,7 +844,8 @@ export default function ProductDetailPage() {
                   ${
                     isAddingToCart
                       ? "bg-black text-white cursor-wait"
-                      : (product.stock_type === "variants" && !selectedVariant) ||
+                      : isUnavailable ||
+                          (product.stock_type === "variants" && !selectedVariant) ||
                           activeStock === 0
                       ? "bg-red-600 text-white cursor-not-allowed"
                       : "bg-black text-white hover:bg-gray-800 active:scale-[0.99]"
@@ -797,6 +856,10 @@ export default function ProductDetailPage() {
                       <>
                         <Loader2 size={18} className="animate-spin" />
                         Adding...
+                      </>
+                    ) : isUnavailable ? (
+                      <>
+                        <span className="font-semibold">No Longer Available</span>
                       </>
                     ) : activeStock === 0 ? (
                       <>

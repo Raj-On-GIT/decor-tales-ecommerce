@@ -58,6 +58,18 @@ function getCouponDescriptionLines(coupon) {
     .filter(Boolean);
 }
 
+function getProductStateMessage(item) {
+  if (item?.availability_status === "unavailable") {
+    return "This item is no longer available for purchase.";
+  }
+
+  if (item?.availability_status === "missing") {
+    return "This item is no longer in the catalog.";
+  }
+
+  return null;
+}
+
 export default function CheckoutPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { replaceCart, setCartLock } = useStore();
@@ -130,8 +142,14 @@ export default function CheckoutPage() {
   const itemCount = cart.reduce((sum, item) => sum + item.qty, 0);
   const selectedCouponDiscount = Number(selectedCoupon?.discount_amount || 0);
   const payableTotal = Math.max(0, total - selectedCouponDiscount);
+  const hasUnavailableItems = cart.some((item) => item.is_available_for_purchase === false);
 
   async function handlePlaceOrder() {
+    if (hasUnavailableItems) {
+      error("Remove unavailable items from your cart before starting payment.");
+      return;
+    }
+
     if (!selectedAddress) {
       error("Please select a shipping address");
       return;
@@ -433,6 +451,7 @@ export default function CheckoutPage() {
             <div className="space-y-4">
               {cart.map((item) => {
                 const customizationTag = getCustomizationTag(item);
+                const productStateMessage = getProductStateMessage(item);
 
                 return (
                 <ProductListItem
@@ -440,7 +459,7 @@ export default function CheckoutPage() {
                     item.cart_item_id ||
                     `${item.id}-${item.variant?.id || "v0"}-${item.custom_text || "plain"}-${item.custom_image || "noimg"}`
                   }
-                  href={`/products/${item.id}`}
+                  href={item.can_view ? `/products/${item.id}` : null}
                   image={item.image}
                   imageClassName="self-center"
                   title={item.title}
@@ -454,11 +473,18 @@ export default function CheckoutPage() {
                   }}
                   variant={item.variant}
                   secondaryContent={
-                    customizationTag ? (
-                      <p className="text-[11px] uppercase tracking-[0.16em] text-gray-400">
-                        {customizationTag === "customized" ? "Customized" : "Standard"}
-                      </p>
-                    ) : null
+                    <>
+                      {customizationTag ? (
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-gray-400">
+                          {customizationTag === "customized" ? "Customized" : "Standard"}
+                        </p>
+                      ) : null}
+                      {productStateMessage ? (
+                        <p className="mt-1 text-xs font-medium text-amber-700">
+                          {productStateMessage}
+                        </p>
+                      ) : null}
+                    </>
                   }
                   customizationContent={
                     (item.custom_text || item.custom_image || item.custom_images?.length > 0) ? (
@@ -675,10 +701,15 @@ export default function CheckoutPage() {
             <div className="mt-5 rounded-[1.5rem] border border-[#dce7db] bg-white/80 px-4 py-3 text-sm text-gray-600">
               Prices and stock are rechecked on the server before payment starts and once more before stock is deducted.
             </div>
+            {hasUnavailableItems ? (
+              <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Remove unavailable items from the cart before payment can continue.
+              </div>
+            ) : null}
 
             <button
               onClick={handlePlaceOrder}
-              disabled={paymentInitializing || !selectedAddress || !cart.length}
+              disabled={paymentInitializing || !selectedAddress || !cart.length || hasUnavailableItems}
               className="mt-6 w-full rounded-2xl bg-black py-4 text-lg font-medium tracking-wide text-white transition-all hover:opacity-90 disabled:opacity-50"
             >
               {paymentInitializing ? "Starting Secure Payment..." : "Pay Now"}

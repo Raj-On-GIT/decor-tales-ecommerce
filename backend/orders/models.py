@@ -170,7 +170,12 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     quantity = models.IntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     variant = models.ForeignKey(
@@ -179,6 +184,16 @@ class OrderItem(models.Model):
         null=True,
         blank=True,
     )
+    product_title = models.CharField(max_length=255, blank=True)
+    product_slug = models.SlugField(blank=True)
+    product_image = models.CharField(max_length=500, blank=True)
+    product_category_name = models.CharField(max_length=100, blank=True)
+    product_category_slug = models.SlugField(blank=True)
+    product_sub_category_name = models.CharField(max_length=100, blank=True)
+    product_sub_category_slug = models.SlugField(blank=True)
+    variant_size_name = models.CharField(max_length=100, blank=True)
+    variant_color_name = models.CharField(max_length=100, blank=True)
+    variant_sku = models.CharField(max_length=100, blank=True)
     custom_text = models.TextField(blank=True, null=True)
 
     custom_image = models.ImageField(
@@ -188,7 +203,34 @@ class OrderItem(models.Model):
     )
 
     def __str__(self):
-        return f"{self.quantity}x {self.product.title}"
+        return f"{self.quantity}x {self.product_title or getattr(self.product, 'title', 'Product')}"
+
+    def capture_product_snapshot(self, product=None, variant=None):
+        product = product or self.product
+        variant = variant if variant is not None else self.variant
+
+        if not product:
+            return
+
+        self.product_title = product.title or ""
+        self.product_slug = product.slug or ""
+        self.product_image = getattr(product.image, "name", "") or ""
+        self.product_category_name = product.category.name if product.category else ""
+        self.product_category_slug = product.category.slug if product.category else ""
+        self.product_sub_category_name = (
+            product.sub_category.name if product.sub_category else ""
+        )
+        self.product_sub_category_slug = (
+            product.sub_category.slug if product.sub_category else ""
+        )
+        self.variant_size_name = variant.size.name if variant and variant.size else ""
+        self.variant_color_name = variant.color.name if variant and variant.color else ""
+        self.variant_sku = variant.sku if variant else ""
+
+    def save(self, *args, **kwargs):
+        if self.product and not self.product_title:
+            self.capture_product_snapshot()
+        super().save(*args, **kwargs)
 
 
 class OrderItemImage(models.Model):

@@ -32,6 +32,7 @@ export default function ProductListItem({
 }) {
   const variantText = getVariantText(variant);
   const renderCustomizationBelow = customizationContent && customizationLayout === "below";
+  const hasLink = Boolean(href);
 
   return (
     <div
@@ -42,25 +43,43 @@ export default function ProductListItem({
       >
         <div className={`flex min-w-0 items-start gap-4 ${contentClassName}`.trim()}>
           {image ? (
-            <Link
-              href={href}
-              onClick={onNavigate}
-              className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:h-20 sm:w-20 ${imageClassName}`.trim()}
-            >
-              <img src={image} alt={title} className="h-full w-full object-cover" />
-            </Link>
+            hasLink ? (
+              <Link
+                href={href}
+                onClick={onNavigate}
+                className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:h-20 sm:w-20 ${imageClassName}`.trim()}
+              >
+                <img src={image} alt={title} className="h-full w-full object-cover" />
+              </Link>
+            ) : (
+              <div
+                className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:h-20 sm:w-20 ${imageClassName}`.trim()}
+              >
+                <img src={image} alt={title} className="h-full w-full object-cover" />
+              </div>
+            )
           ) : null}
 
           <div className="min-w-0 flex-1">
-            <Link
-              href={href}
-              onClick={onNavigate}
-              className={`block text-sm font-semibold leading-5 text-gray-900 transition hover:text-[#002424] sm:text-base ${
-                truncateText ? "truncate" : ""
-              }`.trim()}
-            >
-              {title}
-            </Link>          
+            {hasLink ? (
+              <Link
+                href={href}
+                onClick={onNavigate}
+                className={`block text-sm font-semibold leading-5 text-gray-900 transition hover:text-[#002424] sm:text-base ${
+                  truncateText ? "truncate" : ""
+                }`.trim()}
+              >
+                {title}
+              </Link>
+            ) : (
+              <p
+                className={`block text-sm font-semibold leading-5 text-gray-900 sm:text-base ${
+                  truncateText ? "truncate" : ""
+                }`.trim()}
+              >
+                {title}
+              </p>
+            )}
 
             <CategoryTrail
               category={category}

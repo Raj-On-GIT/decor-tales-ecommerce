@@ -1108,3 +1108,95 @@ class PaymentFlowSafetyTests(TestCase):
 
         reconciled = reconcile_stale_orders(limit=50)
         self.assertEqual(reconciled, 1)
+
+
+class ProductAvailabilityHistoryTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="history-user",
+            email="history@example.com",
+            password="testpass123",
+        )
+        self.client.force_authenticate(user=self.user)
+
+        self.category = Category.objects.create(name="Archive Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Archive Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Legacy Frame",
+            mrp=Decimal("999.00"),
+            slashed_price=Decimal("799.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("799.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("799.00"),
+            shipping_address="Address line",
+            city="Delhi",
+            postal_code="110001",
+            phone="9999999999",
+            status="paid",
+        )
+        self.order_item = OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("799.00"),
+        )
+        self.order_item.capture_product_snapshot(product=self.product)
+        self.order_item.save()
+
+    def test_deleting_ordered_product_deactivates_instead_of_removing(self):
+        self.product.delete()
+
+        self.product.refresh_from_db()
+        self.order_item.refresh_from_db()
+
+        self.assertFalse(self.product.is_active)
+        self.assertEqual(self.order_item.product_id, self.product.id)
+        self.assertEqual(self.order_item.product_title, "Legacy Frame")
+
+    def test_order_detail_uses_snapshot_when_live_product_changes(self):
+        self.product.title = "Renamed Frame"
+        self.product.category = None
+        self.product.sub_category = None
+        self.product.save(update_fields=["title", "category", "sub_category"])
+
+        response = self.client.get(reverse("order_detail", kwargs={"order_id": self.order.id}))
+
+        self.assertEqual(response.status_code, 200)
+        product_payload = response.data["order"]["items"][0]["product"]
+        self.assertEqual(product_payload["title"], "Legacy Frame")
+        self.assertEqual(product_payload["category"]["name"], "Archive Frames")
+        self.assertEqual(product_payload["status"], "available")
+        self.assertTrue(product_payload["can_view"])
+
+    def test_inactive_product_detail_is_accessible_but_marked_unavailable(self):
+        self.product.is_active = False
+        self.product.save(update_fields=["is_active"])
+
+        response = self.client.get(reverse("product-detail", kwargs={"id": self.product.id}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["availability_status"], "unavailable")
+        self.assertFalse(response.data["is_available_for_purchase"])
+
+    def test_add_to_cart_rejects_inactive_products(self):
+        self.product.is_active = False
+        self.product.save(update_fields=["is_active"])
+
+        response = self.client.post(
+            reverse("add_to_cart"),
+            {"product_id": self.product.id, "quantity": 1},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"], "This product is no longer available.")

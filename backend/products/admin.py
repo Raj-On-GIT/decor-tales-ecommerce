@@ -165,6 +165,13 @@ class ProductAdmin(admin.ModelAdmin):
         return obj.get_total_stock()
     get_total_stock.short_description = 'Total Stock'
 
+    def delete_model(self, request, obj):
+        obj.delete()
+
+    def delete_queryset(self, request, queryset):
+        for product in queryset:
+            product.delete()
+
 @admin.register(Size)
 class SizeAdmin(admin.ModelAdmin):
     list_display = ['name']

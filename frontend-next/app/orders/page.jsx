@@ -3,9 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Ubuntu } from "next/font/google";
 import { useAuth } from "@/context/AuthContext";
 import { getMyOrders } from "@/lib/api";
 import ProductListItem from "@/components/ProductListItem";
+
+const orderNumberFont = Ubuntu({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+});
 
 function formatOrderDate(value) {
   return new Date(value).toLocaleString("en-IN", {
@@ -60,6 +66,18 @@ function getCustomizationTag(item) {
 
   const canBeCustomized = Boolean(item?.allow_custom_text || item?.allow_custom_image);
   return canBeCustomized ? "standard" : null;
+}
+
+function getProductStateMessage(product) {
+  if (product?.status === "unavailable") {
+    return "No longer available for purchase.";
+  }
+
+  if (product?.status === "missing") {
+    return "Original product removed.";
+  }
+
+  return null;
 }
 
 export default function OrdersPage() {
@@ -144,7 +162,9 @@ export default function OrdersPage() {
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3">
-                      <p className="font-serif text-2xl font-semibold text-gray-900">
+                      <p
+                        className={`${orderNumberFont.className} text-2xl font-medium tracking-[0.02em] tabular-nums text-gray-900`}
+                      >
                         Order #{order.order_number}
                       </p>
                       <span
@@ -164,11 +184,12 @@ export default function OrdersPage() {
                       <div className="mt-5 grid gap-3">
                         {order.items.slice(0, 1).map((item, index) => {
                           const customizationTag = getCustomizationTag(item);
+                          const productStateMessage = getProductStateMessage(item.product);
 
                           return (
                           <ProductListItem
-                            key={`${order.id}-${item.product.id}-${index}`}
-                            href={`/products/${item.product.id}`}
+                            key={`${order.id}-${item.product.id || "missing"}-${index}`}
+                            href={item.product?.can_view ? `/products/${item.product.id}` : null}
                             image={item.product.image}
                             title={item.product.title}
                             category={item.product.category}
@@ -176,11 +197,18 @@ export default function OrdersPage() {
                             variant={item.variant}
                             quantity={item.quantity}
                             secondaryContent={
-                              customizationTag ? (
-                                <p className="text-[11px] uppercase tracking-[0.16em] text-gray-400">
-                                  {customizationTag === "customized" ? "Customized" : "Standard"}
-                                </p>
-                              ) : null
+                              <>
+                                {customizationTag ? (
+                                  <p className="text-[11px] uppercase tracking-[0.16em] text-gray-400">
+                                    {customizationTag === "customized" ? "Customized" : "Standard"}
+                                  </p>
+                                ) : null}
+                                {productStateMessage ? (
+                                  <p className="text-xs font-medium text-amber-700">
+                                    {productStateMessage}
+                                  </p>
+                                ) : null}
+                              </>
                             }
                             className="rounded-[1.25rem] bg-[#fafcf7] p-3"
                             rowClassName="items-center"

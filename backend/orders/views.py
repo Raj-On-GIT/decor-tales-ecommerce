@@ -35,6 +35,10 @@ def get_product_price(product):
     return product.slashed_price or product.mrp
 
 
+def is_product_available_for_purchase(product):
+    return bool(product and product.is_active)
+
+
 def serialize_category_trail(product):
     return {
         "category": (
@@ -78,6 +82,83 @@ def serialize_pricing(product, variant=None, effective_price=None):
         "mrp": str(original_price) if original_price is not None else None,
         "slashed_price": str(sale_price) if sale_price is not None else None,
         "discount_percent": discount_percent,
+    }
+
+
+def get_order_item_variant_snapshot(item):
+    variant = item.variant
+    return {
+        "id": variant.id if variant else None,
+        "size_name": (
+            variant.size.name if variant and variant.size else item.variant_size_name or None
+        ),
+        "color_name": (
+            variant.color.name if variant and variant.color else item.variant_color_name or None
+        ),
+        "mrp": str(variant.mrp) if variant and variant.mrp is not None else None,
+        "slashed_price": (
+            str(variant.slashed_price)
+            if variant and variant.slashed_price is not None
+            else None
+        ),
+        "discount_percent": variant.discount_percent if variant else None,
+        "sku": variant.sku if variant else item.variant_sku or None,
+    }
+
+
+def serialize_order_item_product(item, request):
+    product = item.product
+    product_exists = product is not None
+    product_status = (
+        "available"
+        if product_exists and product.is_active
+        else "unavailable"
+        if product_exists
+        else "missing"
+    )
+
+    image_url = None
+    if product_exists and product.image:
+        image_url = request.build_absolute_uri(build_media_url(product.image))
+    elif item.product_image:
+        image_url = request.build_absolute_uri(build_media_url(item.product_image))
+
+    category = None
+    if item.product_category_name or (product_exists and product.category):
+        category = {
+            "name": item.product_category_name or product.category.name,
+            "slug": item.product_category_slug or product.category.slug,
+        }
+
+    sub_category = None
+    if item.product_sub_category_name or (product_exists and product.sub_category):
+        sub_category = {
+            "name": item.product_sub_category_name or product.sub_category.name,
+            "slug": item.product_sub_category_slug or product.sub_category.slug,
+        }
+
+    pricing = (
+        serialize_pricing(product, item.variant, item.price)
+        if product_exists
+        else {
+            "price": str(item.price or Decimal("0.00")),
+            "mrp": None,
+            "slashed_price": str(item.price or Decimal("0.00")),
+            "discount_percent": None,
+        }
+    )
+
+    return {
+        "id": product.id if product_exists else None,
+        "title": item.product_title or (product.title if product_exists else "Product no longer available"),
+        "slug": item.product_slug or (product.slug if product_exists else ""),
+        "image": image_url,
+        "category": category,
+        "sub_category": sub_category,
+        "status": product_status,
+        "exists": product_exists,
+        "can_view": product_exists,
+        **pricing,
     }
 
 
@@ -394,6 +475,8 @@ def add_to_cart(request):
             )
 
         product = serializer.validated_data["product"]
+        if not is_product_available_for_purchase(product):
+            return Response({"error": "This product is no longer available."}, status=400)
         cart, _ = Cart.objects.get_or_create(user=request.user)
         variant = serializer.validated_data["variant"]
         custom_text = serializer.validated_data["custom_text"]
@@ -523,6 +606,9 @@ def get_cart(request):
                         "stock_type": item.product.stock_type,
                         "allow_custom_text": item.product.allow_custom_text,
                         "allow_custom_image": item.product.allow_custom_image,
+                        "status": "available" if item.product.is_active else "unavailable",
+                        "can_view": True,
+                        "is_available_for_purchase": item.product.is_active,
                         **serialize_category_trail(item.product),
                         **serialize_pricing(item.product, item.variant, Decimal(str(price))),
                     },
@@ -707,6 +793,12 @@ def create_order(request):
             product = item.product
             variant = item.variant
 
+            if not is_product_available_for_purchase(product):
+                return Response(
+                    {"error": f"{product.title} is no longer available."},
+                    status=400,
+                )
+
             if product.stock_type == "variants":
                 available_stock = variant.stock if variant else 0
                 price = variant.slashed_price or variant.mrp
@@ -777,6 +869,19 @@ def create_order(request):
                 custom_text=item.custom_text,
                 custom_image=item.custom_image if not item.custom_images.exists() else None,
             )
+            order_item.capture_product_snapshot(product=product, variant=variant)
+            order_item.save(update_fields=[
+                "product_title",
+                "product_slug",
+                "product_image",
+                "product_category_name",
+                "product_category_slug",
+                "product_sub_category_name",
+                "product_sub_category_slug",
+                "variant_size_name",
+                "variant_color_name",
+                "variant_sku",
+            ])
 
             for image in item.custom_images.all():
                 OrderItemImage.objects.create(order_item=order_item, image=image.image)
@@ -839,33 +944,8 @@ def get_my_orders(request):
                 "items_count": order.items.count(),
                 "items": [
                     {
-                        "product": {
-                            "id": item.product.id,
-                            "title": item.product.title,
-                            "slug": item.product.slug,
-                            "image": (
-                                request.build_absolute_uri(build_media_url(item.product.image))
-                                if item.product.image
-                                else None
-                            ),
-                            **serialize_category_trail(item.product),
-                            **serialize_pricing(item.product, item.variant, item.price),
-                        },
-                        "variant": (
-                            {
-                                "size_name": item.variant.size.name if item.variant and item.variant.size else None,
-                                "color_name": item.variant.color.name if item.variant and item.variant.color else None,
-                                "mrp": str(item.variant.mrp) if item.variant and item.variant.mrp is not None else None,
-                                "slashed_price": (
-                                    str(item.variant.slashed_price)
-                                    if item.variant and item.variant.slashed_price is not None
-                                    else None
-                                ),
-                                "discount_percent": item.variant.discount_percent if item.variant else None,
-                            }
-                            if item.variant
-                            else None
-                        ),
+                        "product": serialize_order_item_product(item, request),
+                        "variant": get_order_item_variant_snapshot(item),
                         "quantity": item.quantity,
                     }
                     for item in order.items.select_related(
@@ -891,33 +971,8 @@ def get_order_detail(request, order_id):
 
     items = [
         {
-            "product": {
-                "id": item.product.id,
-                "title": item.product.title,
-                "image": (
-                    request.build_absolute_uri(build_media_url(item.product.image))
-                    if item.product.image
-                    else None
-                ),
-                "slug": item.product.slug,
-                **serialize_category_trail(item.product),
-                **serialize_pricing(item.product, item.variant, item.price),
-            },
-            "variant": (
-                {
-                    "size_name": item.variant.size.name if item.variant and item.variant.size else None,
-                    "color_name": item.variant.color.name if item.variant and item.variant.color else None,
-                    "mrp": str(item.variant.mrp) if item.variant and item.variant.mrp is not None else None,
-                    "slashed_price": (
-                        str(item.variant.slashed_price)
-                        if item.variant and item.variant.slashed_price is not None
-                        else None
-                    ),
-                    "discount_percent": item.variant.discount_percent if item.variant else None,
-                }
-                if item.variant
-                else None
-            ),
+            "product": serialize_order_item_product(item, request),
+            "variant": get_order_item_variant_snapshot(item),
             "quantity": item.quantity,
             "price": str(item.price),
             "total": str(item.price * item.quantity),

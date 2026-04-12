@@ -237,6 +237,14 @@ class Product(models.Model):
     def __str__(self):
         return self.title
 
+    def delete(self, using=None, keep_parents=False):
+        if self.orderitem_set.exists() or self.stockreservation_set.exists():
+            if self.is_active:
+                self.is_active = False
+                self.save(update_fields=["is_active"])
+            return
+        return super().delete(using=using, keep_parents=keep_parents)
+
 class ProductVariant(models.Model):
     product = models.ForeignKey(
         Product,

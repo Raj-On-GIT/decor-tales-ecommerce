@@ -458,7 +458,9 @@ export function StoreProvider({ children }) {
     return Boolean(getCartAction(item));
   }
 
-  const total = cart.reduce((sum, x) => sum + x.qty * Number(x.price || 0), 0);
+  const total = cart
+    .filter((x) => x.is_available_for_purchase !== false)
+    .reduce((sum, x) => sum + x.qty * Number(x.price || 0), 0);
 
   useEffect(() => {
     if (authLoading || isAuthenticated || !cartReady) {

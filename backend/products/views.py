@@ -54,7 +54,7 @@ class CategoryListView(generics.ListAPIView):
 
 class ProductDetailView(generics.RetrieveAPIView):
     serializer_class = ProductSerializer
-    queryset = Product.objects.filter(is_active=True) \
+    queryset = Product.objects.all() \
         .select_related("category", "sub_category") \
         .prefetch_related("images", "variants")
 
@@ -63,13 +63,14 @@ class ProductDetailView(generics.RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         response = super().retrieve(request, *args, **kwargs)
         # Record view event asynchronously-safe (simple inline write)
-        try:
-            ProductActivity.objects.create(
-                product_id=kwargs["id"],
-                event_type=ProductActivity.EVENT_VIEW,
-            )
-        except Exception:
-            pass  # Never let tracking break the product page
+        if response.data.get("is_active"):
+            try:
+                ProductActivity.objects.create(
+                    product_id=kwargs["id"],
+                    event_type=ProductActivity.EVENT_VIEW,
+                )
+            except Exception:
+                pass  # Never let tracking break the product page
         return response
 
 

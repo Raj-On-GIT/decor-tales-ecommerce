@@ -170,6 +170,8 @@ class AddToCartSerializer(serializers.Serializer):
         product = Product.objects.filter(id=attrs["product_id"]).first()
         if not product:
             raise serializers.ValidationError({"product_id": "Invalid product."})
+        if not product.is_active:
+            raise serializers.ValidationError({"product_id": "This product is no longer available."})
 
         variant = None
         variant_id = attrs.get("variant_id")
