@@ -27,6 +27,12 @@ export default function LoginPage() {
   const [googleNonce, setGoogleNonce] = useState(null);
   const [googleNonceToken, setGoogleNonceToken] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(true);
+  const [isGoogleRedirecting, setIsGoogleRedirecting] = useState(false);
+  const isFormLocked = loading || isGoogleRedirecting;
+
+  useEffect(() => {
+    router.prefetch("/");
+  }, [router]);
 
   useEffect(() => {
     let active = true;
@@ -67,7 +73,7 @@ export default function LoginPage() {
 
     try {
       setError("");
-      setGoogleLoading(true);
+      setIsGoogleRedirecting(true);
 
       const data = await loginWithGoogle(
         credentialResponse.credential,
@@ -79,9 +85,8 @@ export default function LoginPage() {
       router.refresh();
       router.replace("/");
     } catch (err) {
+      setIsGoogleRedirecting(false);
       setError(err?.message || err?.error || "Google login failed");
-    } finally {
-      setGoogleLoading(false);
     }
   };
 
@@ -147,9 +152,11 @@ export default function LoginPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, email: e.target.value })
                 }
+                disabled={isFormLocked}
                 placeholder="Email Address"
                 className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg
-                         focus:outline-none focus:border-gray-900 transition"
+                         focus:outline-none focus:border-gray-900 transition
+                         disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
               />
             </div>
@@ -165,15 +172,18 @@ export default function LoginPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, password: e.target.value })
                 }
+                disabled={isFormLocked}
                 placeholder="Password"
                 className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-lg
-                         focus:outline-none focus:border-gray-900 transition"
+                         focus:outline-none focus:border-gray-900 transition
+                         disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
               />
               <button
                 type="button"
+                disabled={isFormLocked}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -182,7 +192,11 @@ export default function LoginPage() {
             <div className="text-left px-2">
               <Link
                 href="/forgot-password"
-                className="text-sm text-gray-600 hover:text-gray-900"
+                className={`text-sm ${
+                  isFormLocked
+                    ? "pointer-events-none text-gray-400"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
               >
                 Forgot password?
               </Link>
@@ -200,7 +214,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isFormLocked}
               className="
               w-full
               bg-[#2f5d56] hover:bg-[#244944]
@@ -211,7 +225,7 @@ export default function LoginPage() {
               flex items-center justify-center gap-2
             "
             >
-              {loading && (
+              {loading && !isGoogleRedirecting && (
                 <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
               )}
               {loading ? "Logging In..." : "Sign In"}
@@ -224,7 +238,21 @@ export default function LoginPage() {
             </div>
 
             <div className="w-full mt-4 flex justify-center">
-              {googleNonce && googleNonceToken ? (
+              {isGoogleRedirecting ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="w-full rounded-lg border border-[#d9e5e2] bg-white px-4 py-3"
+                >
+                  <div className="flex items-center justify-center gap-3 text-sm font-medium text-[#244944]">
+                    <span className="h-4 w-4 rounded-full border-2 border-[#2f5d56]/20 border-t-[#2f5d56] animate-spin" />
+                    Completing Google sign in...
+                  </div>
+                  <p className="mt-2 text-center text-xs text-gray-500">
+                    Redirecting to the homepage
+                  </p>
+                </motion.div>
+              ) : googleNonce && googleNonceToken ? (
                 <div className="flex justify-center w-full">
                   <GoogleLogin
                     nonce={googleNonce}

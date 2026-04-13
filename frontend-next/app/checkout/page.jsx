@@ -300,7 +300,7 @@ export default function CheckoutPage() {
 
   if (authLoading || (isAuthenticated && initialLoading)) {
     return (
-      <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-8 sm:px-6 sm:py-12">
+      <section className="min-h-screen overflow-x-clip bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto flex min-h-[60vh] max-w-screen-xl items-center justify-center rounded-[2rem] border border-white/70 bg-white/70 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
           <PageLoader text="Loading checkout..." />
         </div>
@@ -310,7 +310,7 @@ export default function CheckoutPage() {
 
   if (!cart.length) {
     return (
-      <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-8 sm:px-6 sm:py-12">
+      <section className="min-h-screen overflow-x-clip bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto flex min-h-[60vh] max-w-screen-xl items-center justify-center">
           <div className="rounded-[2rem] border border-white/70 bg-white/90 px-8 py-12 text-center shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur">
             <p className="text-lg font-medium text-gray-800">Your cart is empty.</p>
@@ -324,8 +324,8 @@ export default function CheckoutPage() {
   }
 
   return (
-    <section className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-8 sm:px-6 sm:py-12">
-      <div className="mx-auto max-w-screen-xl">
+    <section className="min-h-screen overflow-x-clip bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mx-auto max-w-screen-xl min-w-0">
         <div className="mb-6 rounded-[1.75rem] border border-white/70 bg-white/70 px-5 py-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:mb-8 sm:rounded-[2rem] sm:px-8 sm:py-7">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -352,11 +352,11 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <div className="grid gap-5 lg:gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+        <div className="grid min-w-0 gap-5 lg:gap-6 xl:grid-cols-[0.85fr_1.15fr]">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-[2rem] sm:p-8"
+            className="min-w-0 rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-[2rem] sm:p-8"
           >
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -440,7 +440,7 @@ export default function CheckoutPage() {
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-[1.75rem] border border-white/80 bg-[#fffdf8]/95 p-5 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-[2rem] sm:p-8 xl:sticky xl:top-24"
+            className="min-w-0 rounded-[1.75rem] border border-white/80 bg-[#fffdf8]/95 p-5 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-[2rem] sm:p-8 xl:sticky xl:top-24"
           >
             <div className="mb-6 flex flex-col gap-2 sm:mb-8 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
               <div>
