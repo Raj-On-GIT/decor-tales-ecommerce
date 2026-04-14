@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Footer() {
   return (
     <footer className="bg-[#002424] text-white pt-10 pb-5">
@@ -13,24 +15,24 @@ export default function Footer() {
           <h4 className="mb-4 font-bold">Shop</h4>
           <ul className="space-y-2 text-sm text-white/80">
             <li>
-              <a href="/catalog" className="transition hover:text-white">
+              <Link href="/catalog" className="transition hover:text-white">
                 All Products
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="/latest" className="transition hover:text-white">
+              <Link href="/latest" className="transition hover:text-white">
                 Latest Collection
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="/trending" className="transition hover:text-white">
+              <Link href="/trending" className="transition hover:text-white">
                 Trending Now
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="/catalog" className="transition hover:text-white">
+              <Link href="/catalog" className="transition hover:text-white">
                 Browse by Category
-              </a>
+              </Link>
             </li>
           </ul>
         </div>
@@ -39,24 +41,24 @@ export default function Footer() {
           <h4 className="mb-4 font-bold">Support</h4>
           <ul className="space-y-2 text-sm text-white/80">
             <li>
-              <a href="/shipping" className="transition hover:text-white">
+              <Link href="/shipping" className="transition hover:text-white">
                 Shipping & Delivery
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="/returns" className="transition hover:text-white">
+              <Link href="/returns" className="transition hover:text-white">
                 Returns Policy
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="/track" className="transition hover:text-white">
+              <Link href="/track" className="transition hover:text-white">
                 Track Order
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="/contact" className="transition hover:text-white">
+              <Link href="/contact" className="transition hover:text-white">
                 Contact Us
-              </a>
+              </Link>
             </li>
           </ul>
         </div>
