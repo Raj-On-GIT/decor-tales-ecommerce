@@ -17,6 +17,7 @@ export default async function CatalogPage({ searchParams }) {
 
     return (
       <section className="max-w-screen-xl mx-auto px-6 py-16">
+
         <div className="mb-12">
           <h2 className="text-4xl font-serif font-bold text-black">
             Browse by Category
@@ -27,6 +28,7 @@ export default async function CatalogPage({ searchParams }) {
         </div>
 
         <BrowseByCategoryClient categories={categoriesWithContent} reveal />
+        
       </section>
     );
   }
