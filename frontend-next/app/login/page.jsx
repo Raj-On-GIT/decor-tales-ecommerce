@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Shield } from "lucide-react";
-import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "@/context/AuthContext";
 import {
   getGoogleAuthNonce,
   login as loginRequest,
   loginWithGoogle,
 } from "@/lib/auth";
+import GoogleAuthButton from "@/components/GoogleAuthButton";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -63,6 +63,8 @@ export default function LoginPage() {
     };
   }, []);
 
+  // Called by GoogleAuthButton with the raw CredentialResponse from GIS.
+  // Preserves the exact same payload and auth flow as before.
   const handleGoogleSuccess = async (credentialResponse) => {
     if (!credentialResponse.credential || !googleNonceToken) {
       setError(
@@ -126,21 +128,22 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="
-        relative
-        w-full max-w-5xl
-        backdrop-blur-xl
-        bg-white/70
-        border border-white/40
-        rounded-xl
-        shadow-[0_20px_60px_rgba(0,0,0,0.15)]
-        overflow-hidden
-        grid grid-cols-1 md:grid-cols-2
-      "
+          relative
+          w-full max-w-5xl
+          backdrop-blur-xl
+          bg-white/70
+          border border-white/40
+          rounded-xl
+          shadow-[0_20px_60px_rgba(0,0,0,0.15)]
+          overflow-hidden
+          grid grid-cols-1 md:grid-cols-2
+        "
       >
         <div className="p-5 md:p-12 flex flex-col justify-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">Sign In</h1>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email */}
             <div className="relative">
               <Mail
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -155,12 +158,13 @@ export default function LoginPage() {
                 disabled={isFormLocked}
                 placeholder="Email Address"
                 className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg
-                         focus:outline-none focus:border-gray-900 transition
-                         disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                           focus:outline-none focus:border-gray-900 transition
+                           disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
               />
             </div>
 
+            {/* Password */}
             <div className="relative">
               <Lock
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -175,8 +179,8 @@ export default function LoginPage() {
                 disabled={isFormLocked}
                 placeholder="Password"
                 className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-lg
-                         focus:outline-none focus:border-gray-900 transition
-                         disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                           focus:outline-none focus:border-gray-900 transition
+                           disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
               />
               <button
@@ -189,6 +193,7 @@ export default function LoginPage() {
               </button>
             </div>
 
+            {/* Forgot password */}
             <div className="text-left px-2">
               <Link
                 href="/forgot-password"
@@ -202,6 +207,7 @@ export default function LoginPage() {
               </Link>
             </div>
 
+            {/* Error message */}
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
@@ -212,18 +218,19 @@ export default function LoginPage() {
               </motion.div>
             )}
 
+            {/* Submit */}
             <button
               type="submit"
               disabled={isFormLocked}
               className="
-              w-full
-              bg-[#2f5d56] hover:bg-[#244944]
-              text-white font-semibold
-              py-3 rounded-lg
-              transition
-              disabled:opacity-80 disabled:cursor-not-allowed
-              flex items-center justify-center gap-2
-            "
+                w-full
+                bg-[#2f5d56] hover:bg-[#244944]
+                text-white font-semibold
+                py-3 rounded-lg
+                transition
+                disabled:opacity-80 disabled:cursor-not-allowed
+                flex items-center justify-center gap-2
+              "
             >
               {loading && !isGoogleRedirecting && (
                 <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -231,65 +238,49 @@ export default function LoginPage() {
               {loading ? "Logging In..." : "Sign In"}
             </button>
 
+            {/* Divider */}
             <div className="flex items-center gap-3 my-2">
               <div className="flex-1 h-px bg-gray-200" />
               <span className="text-gray-500 text-sm">Or</span>
               <div className="flex-1 h-px bg-gray-200" />
             </div>
 
-            <div className="w-full mt-4 flex justify-center">
-              {isGoogleRedirecting ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="w-full rounded-lg border border-[#d9e5e2] bg-white px-4 py-3"
-                >
-                  <div className="flex items-center justify-center gap-3 text-sm font-medium text-[#244944]">
-                    <span className="h-4 w-4 rounded-full border-2 border-[#2f5d56]/20 border-t-[#2f5d56] animate-spin" />
-                    Completing Google sign in...
-                  </div>
-                  <p className="mt-2 text-center text-xs text-gray-500">
-                    Redirecting to the homepage
-                  </p>
-                </motion.div>
-              ) : googleNonce && googleNonceToken ? (
-                <div className="flex justify-center w-full">
-                  <GoogleLogin
-                    nonce={googleNonce}
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => setError("Google login failed")}
-                    text="continue_with"
-                    shape="rectangular"
-                    theme="outline"
-                  />
+            {/* Google button area */}
+            {isGoogleRedirecting ? (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full rounded-lg border border-[#d9e5e2] bg-white px-4 py-3"
+              >
+                <div className="flex items-center justify-center gap-3 text-sm font-medium text-[#244944]">
+                  <span className="h-4 w-4 rounded-full border-2 border-[#2f5d56]/20 border-t-[#2f5d56] animate-spin" />
+                  Completing Google sign in...
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  className="
-                    w-full
-                    border border-gray-200
-                    text-gray-500 font-medium
-                    py-3 rounded-none
-                    flex items-center justify-center gap-3
-                    bg-gray-50
-                    cursor-not-allowed
-                  "
-                >
-                  {googleLoading
-                    ? "Loading Google sign-in..."
-                    : "Google login unavailable"}
-                </button>
-              )}
-            </div>
+                <p className="mt-2 text-center text-xs text-gray-500">
+                  Redirecting to the homepage
+                </p>
+              </motion.div>
+            ) : (
+              <div className="pt-3">
+                <GoogleAuthButton
+                  text="Continue with Google"
+                  nonce={googleNonce}
+                  onSuccess={handleGoogleSuccess}
+                  onError={(msg) => setError(msg || "Google login failed")}
+                  disabled={isFormLocked}
+                  loading={googleLoading}
+                />
+              </div>
+            )}
           </form>
+
           <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">
             <Shield size={14} className="text-gray-400" />
             <span>Your information is securely encrypted</span>
           </div>
         </div>
 
+        {/* Right panel — unchanged */}
         <div className="hidden md:flex relative items-center justify-center p-12 overflow-hidden">
           <div
             className="absolute inset-0 
@@ -323,14 +314,14 @@ export default function LoginPage() {
             <Link
               href="/"
               className="mt-6 px-6 py-2 rounded-full
-             bg-white/10 backdrop-blur-sm
-             border border-white/20
-             text-white text-sm font-medium
-             flex items-center gap-2
-             transition-all duration-300
-             hover:bg-white hover:text-[#2f5d56]
-             hover:scale-105 hover:-translate-y-0.5
-             group"
+               bg-white/10 backdrop-blur-sm
+               border border-white/20
+               text-white text-sm font-medium
+               flex items-center gap-2
+               transition-all duration-300
+               hover:bg-white hover:text-[#2f5d56]
+               hover:scale-105 hover:-translate-y-0.5
+               group"
             >
               <ArrowLeft
                 size={16}

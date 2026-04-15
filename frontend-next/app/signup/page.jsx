@@ -14,7 +14,7 @@ import {
   Phone,
   Shield,
 } from "lucide-react";
-import { GoogleLogin } from "@react-oauth/google";
+import GoogleAuthButton from "@/components/GoogleAuthButton";
 import { useAuth } from "@/context/AuthContext";
 import {
   getGoogleAuthNonce,
@@ -152,7 +152,7 @@ export default function SignupPage() {
                  rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.15)]
                  overflow-hidden grid grid-cols-1 md:grid-cols-2"
       >
-        <div className="p-8 md:p-10 flex flex-col justify-center">
+        <div className="p-5 md:p-12 flex flex-col justify-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-5">
             Create Account
           </h1>
@@ -359,13 +359,13 @@ export default function SignupPage() {
                 </motion.div>
               ) : googleNonce && googleNonceToken ? (
                 <div className="flex justify-center w-full">
-                  <GoogleLogin
+                  <GoogleAuthButton
+                    text="Sign up with Google"
                     nonce={googleNonce}
                     onSuccess={handleGoogleSuccess}
-                    onError={() => setError("Google signup failed")}
-                    text="continue_with"
-                    shape="rectangular"
-                    theme="outline"
+                    onError={(msg) => setError(msg || "Google sign-up failed")}
+                    disabled={isFormLocked}
+                    loading={googleLoading}
                   />
                 </div>
               ) : (
