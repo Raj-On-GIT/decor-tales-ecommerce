@@ -120,23 +120,25 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#e8f3f1] via-white to-[#f6efe2] px-5 sm:px-10">
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-[#2f5d56]/30 rounded-full blur-[120px]" />
-      <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-[#ffb347]/20 rounded-full blur-[120px]" />
+      <div className="absolute -top-24 -left-24 h-[320px] w-[320px] rounded-full bg-[#2f5d56]/18 blur-[72px]" />
+      <div className="absolute -bottom-24 -right-24 h-[320px] w-[320px] rounded-full bg-[#ffb347]/14 blur-[72px]" />
 
       <motion.div
-        initial={{ opacity: 0, y: 40, scale: 0.98 }}
+        initial={{ opacity: 0, y: 18, scale: 0.995 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
         className="
           relative
           w-full max-w-5xl
-          backdrop-blur-xl
-          bg-white/70
+          bg-white/90
+          md:bg-white/78
+          md:backdrop-blur-sm
           border border-white/40
           rounded-xl
           shadow-[0_20px_60px_rgba(0,0,0,0.15)]
           overflow-hidden
           grid grid-cols-1 md:grid-cols-2
+          will-change-transform
         "
       >
         <div className="p-5 md:p-12 flex flex-col justify-center">
@@ -261,7 +263,7 @@ export default function LoginPage() {
                 </p>
               </motion.div>
             ) : (
-              <div className="pt-3">
+              <div className="pt-3 rounded-lg transition">
                 <GoogleAuthButton
                   text="Continue with Google"
                   nonce={googleNonce}
@@ -284,16 +286,14 @@ export default function LoginPage() {
         <div className="hidden md:flex relative items-center justify-center p-12 overflow-hidden">
           <div
             className="absolute inset-0 
-                bg-[length:200%_200%] 
                 bg-gradient-to-br 
                 from-[#2f5d56] 
                 via-[#3c7a70] 
-                to-[#1f3f3b] 
-                animate-gradient-slow"
+                to-[#1f3f3b]"
           />
 
           <div
-            className="absolute inset-0 bg-cover bg-center opacity-70 blur-xl scale-110"
+            className="absolute inset-0 scale-105 bg-cover bg-center opacity-38 blur-[2px]"
             style={{ backgroundImage: "url('/login-bg.jpg')" }}
           />
 

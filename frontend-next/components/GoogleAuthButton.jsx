@@ -116,7 +116,9 @@ export default function GoogleAuthButton({
       } catch {
         if (!cancelled) {
           setIsReady(false);
-          onError?.("Failed to load Google Sign-In. Please refresh and try again.");
+          onError?.(
+            "Failed to load Google Sign-In. Please refresh and try again.",
+          );
         }
       }
     }
@@ -145,7 +147,7 @@ export default function GoogleAuthButton({
   return (
     <div className="w-full">
       <div
-        className={`relative overflow-hidden rounded-lg transition ${
+        className={`group relative overflow-hidden rounded-lg transition ${
           disabled ? "pointer-events-none opacity-60" : ""
         }`}
       >
@@ -154,6 +156,7 @@ export default function GoogleAuthButton({
             flex min-h-[48px] w-full items-center justify-center gap-3
             rounded-lg border border-gray-200 bg-white px-4 py-3
             text-sm font-medium text-gray-700 transition
+            group-hover:bg-gray-200 group-hover:border-gray-300
           "
         >
           <GoogleIcon />

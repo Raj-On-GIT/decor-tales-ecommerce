@@ -121,5 +121,11 @@ body {
 
 .animate-gradient-slow {
   background-size: 200% 200%;
-  animation: gradientShift 10s ease infinite;
+  animation: gradientShift 18s ease infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-gradient-slow {
+    animation: none;
+  }
 }
