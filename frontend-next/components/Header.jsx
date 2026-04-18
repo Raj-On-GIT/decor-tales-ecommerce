@@ -91,7 +91,7 @@ export default function Header() {
     toast.info("You’ve been signed out! See you soon 👋", 2500);
 
   };
-  const trackOrderHref = isAuthenticated ? "/orders" : "/login";
+  const trackOrderHref = "/track";
 // F0FFDF
   return (
     <>
