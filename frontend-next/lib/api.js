@@ -1,4 +1,5 @@
 import { fetchWithAuth as authFetchWithAuth } from "./auth";
+import { apiFetch } from "./auth";
 import { API_BASE, BACKEND, RAZORPAY_KEY } from "./config";
 
 export async function getProducts(filters = {}) {
@@ -582,6 +583,35 @@ export async function getOrderDetail(orderId) {
   }
 
   return response.json();
+}
+
+export async function trackOrder({ orderId = "", waybill = "", email = "", phone = "" }) {
+  const params = new URLSearchParams();
+
+  if (orderId) {
+    params.set("order_id", orderId);
+  }
+
+  if (waybill) {
+    params.set("waybill", waybill);
+  }
+
+  if (email) {
+    params.set("email", email);
+  }
+
+  if (phone) {
+    params.set("phone", phone);
+  }
+
+  const response = await apiFetch(`${API_BASE}/api/orders/delhivery/track/?${params.toString()}`);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Unable to fetch tracking details.");
+  }
+
+  return data;
 }
 
 export async function getProfile() {

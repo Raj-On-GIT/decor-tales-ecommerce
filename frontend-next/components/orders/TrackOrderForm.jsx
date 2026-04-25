@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { trackOrder } from "@/lib/api";
 import TrackingResultCard from "./TrackingResultCard";
 import EmptyState from "./EmptyState";
 
@@ -28,48 +29,77 @@ const TRACKING_OPTIONS = [
   },
 ];
 
-const mockResult = {
-  orderLabel: "Order #DT-2026-10482",
-  status: "In Transit",
-  summary:
-    "Your order has left the regional hub and is moving toward the final delivery center.",
-  estimatedDelivery: "Tuesday, 22 April",
-  currentLocation: "Bengaluru Line Haul Center",
-  lastUpdated: "18 April 2026, 11:20 AM",
-  trackingNumber: "AWB 7845 2290 118",
-  steps: [
-    {
-      label: "Order Placed",
-      location: "Decor Tales Storefront",
-      timestamp: "16 April 2026, 09:18 AM",
-      state: "complete",
-    },
-    {
-      label: "Picked Up",
-      location: "Mumbai Fulfillment Center",
-      timestamp: "16 April 2026, 07:40 PM",
-      state: "complete",
-    },
-    {
-      label: "In Transit",
-      location: "Bengaluru Line Haul Center",
-      timestamp: "18 April 2026, 11:20 AM",
-      state: "current",
-    },
-    {
-      label: "Out for Delivery",
-      location: "Assigned after arrival at destination hub",
-      timestamp: "Pending",
-      state: "upcoming",
-    },
-    {
-      label: "Delivered",
-      location: "Delivery address",
-      timestamp: "Pending",
-      state: "upcoming",
-    },
-  ],
-};
+function isEmail(value) {
+  return /\S+@\S+\.\S+/.test(String(value || "").trim());
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "Pending";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function getStepState(index, currentIndex) {
+  if (currentIndex === -1) {
+    return "upcoming";
+  }
+
+  if (index < currentIndex) {
+    return "complete";
+  }
+
+  if (index === currentIndex) {
+    return "current";
+  }
+
+  return "upcoming";
+}
+
+function buildTrackingSummary(status, destination) {
+  if (!status) {
+    return "Tracking updates are available for this shipment.";
+  }
+
+  if (destination) {
+    return `${status} updates are currently available for the shipment moving toward ${destination}.`;
+  }
+
+  return `${status} updates are currently available for this shipment.`;
+}
+
+function mapTrackingResult(data) {
+  const timeline = Array.isArray(data.timeline) ? data.timeline : [];
+  const currentStatusCode = data.status?.code || "";
+  const currentIndex = timeline.findIndex((step) => step.status_code === currentStatusCode);
+
+  return {
+    orderLabel: `Order #${data.order_number}`,
+    status: data.status?.label || "Tracking Active",
+    summary: buildTrackingSummary(data.status?.label, data.shipment?.destination),
+    estimatedDelivery: formatDateTime(
+      data.shipment?.expected_delivery_date || data.shipment?.promised_delivery_date,
+    ),
+    currentLocation: data.status?.location || data.shipment?.destination || "Not available",
+    lastUpdated: formatDateTime(data.status?.timestamp),
+    trackingNumber: data.waybill || "Not available",
+    steps: timeline.map((step, index) => ({
+      label: step.status || "Update",
+      location: step.location || "Location unavailable",
+      timestamp: formatDateTime(step.timestamp),
+      state: getStepState(index, currentIndex),
+    })),
+  };
+}
 
 function Field({
   id,
@@ -138,7 +168,9 @@ export default function TrackOrderForm() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [contact, setContact] = useState("");
   const [showValidation, setShowValidation] = useState(false);
-  const [demoState, setDemoState] = useState("hidden");
+  const [requestState, setRequestState] = useState("idle");
+  const [trackingResult, setTrackingResult] = useState(null);
+  const [requestError, setRequestError] = useState("");
 
   const activeOption = useMemo(
     () => TRACKING_OPTIONS.find((option) => option.id === activeTab) || TRACKING_OPTIONS[0],
@@ -150,7 +182,9 @@ export default function TrackOrderForm() {
 
   function resetFeedback() {
     setShowValidation(false);
-    setDemoState("hidden");
+    setRequestState("idle");
+    setTrackingResult(null);
+    setRequestError("");
   }
 
   function handleTabChange(nextTab) {
@@ -158,7 +192,7 @@ export default function TrackOrderForm() {
     resetFeedback();
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (isButtonDisabled) {
@@ -167,7 +201,28 @@ export default function TrackOrderForm() {
     }
 
     setShowValidation(false);
-    setDemoState("result");
+    setRequestState("loading");
+    setTrackingResult(null);
+    setRequestError("");
+
+    const normalizedContact = contact.trim();
+    const payload = {
+      orderId: activeTab === "order" ? primaryValue.trim() : "",
+      waybill: activeTab === "tracking" ? primaryValue.trim() : "",
+      email: isEmail(normalizedContact) ? normalizedContact : "",
+      phone: isEmail(normalizedContact) ? "" : normalizedContact,
+    };
+
+    try {
+      const data = await trackOrder(payload);
+      const mappedResult = mapTrackingResult(data);
+      setTrackingResult(mappedResult);
+      setRequestState(mappedResult.steps.length > 0 ? "success" : "empty");
+    } catch (error) {
+      console.error("Track order failed:", error);
+      setRequestError(error.message || "Unable to fetch tracking details.");
+      setRequestState("error");
+    }
   }
 
   return (
@@ -258,72 +313,30 @@ export default function TrackOrderForm() {
 
             <button
               type="submit"
-              disabled={isButtonDisabled}
+              disabled={isButtonDisabled || requestState === "loading"}
               className="inline-flex items-center justify-center rounded-2xl bg-[#002424] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#0b5b54] disabled:cursor-not-allowed disabled:bg-gray-300"
             >
-              {activeOption.cta}
+              {requestState === "loading" ? "Tracking..." : activeOption.cta}
             </button>
           </div>
         </form>
       </section>
 
-      <section className="rounded-[2rem] border border-white/70 bg-white/75 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)] sm:p-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-400">
-              Demo controls
-            </p>
-            <p className="mt-2 text-sm text-gray-500">
-              Result cards stay hidden by default. Use these controls to preview future backend states.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setDemoState("result")}
-              className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
-            >
-              Show sample result
-            </button>
-            <button
-              type="button"
-              onClick={() => setDemoState("loading")}
-              className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
-            >
-              Preview loading
-            </button>
-            <button
-              type="button"
-              onClick={() => setDemoState("empty")}
-              className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
-            >
-              No data state
-            </button>
-            <button
-              type="button"
-              onClick={() => setDemoState("error")}
-              className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
-            >
-              Invalid state
-            </button>
-            <button
-              type="button"
-              onClick={() => setDemoState("hidden")}
-              className="rounded-full border border-transparent px-4 py-2 text-sm font-medium text-gray-500 transition hover:text-gray-700"
-            >
-              Hide all
-            </button>
-          </div>
+      {requestState === "loading" ? <LoadingSkeleton /> : null}
+      {requestState === "success" && trackingResult ? (
+        <TrackingResultCard result={trackingResult} />
+      ) : null}
+      {requestState === "empty" ? <EmptyState variant="empty" /> : null}
+      {requestState === "error" ? (
+        <div className="space-y-4">
+          <EmptyState variant="error" />
+          {requestError ? (
+            <p className="text-center text-sm text-gray-500">{requestError}</p>
+          ) : null}
         </div>
-      </section>
+      ) : null}
 
-      {demoState === "loading" ? <LoadingSkeleton /> : null}
-      {demoState === "result" ? <TrackingResultCard result={mockResult} /> : null}
-      {demoState === "empty" ? <EmptyState variant="empty" /> : null}
-      {demoState === "error" ? <EmptyState variant="error" /> : null}
-
-      {demoState === "hidden" ? (
+      {requestState === "idle" ? (
         <div className="rounded-[1.75rem] border border-dashed border-gray-200 bg-white/60 p-8 text-center text-sm text-gray-500">
           Tracking results will appear here once the tracking service is connected.
         </div>

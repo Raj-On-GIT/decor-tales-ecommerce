@@ -375,6 +375,9 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "").strip()
 PAYMENT_RESERVATION_MINUTES = int(os.getenv("PAYMENT_RESERVATION_MINUTES", "15"))
 ALLOW_LEGACY_DIRECT_ORDER = get_env_bool("ALLOW_LEGACY_DIRECT_ORDER", default=False)
+DELHIVERY_BASE_URL = os.getenv("DELHIVERY_BASE_URL", "").strip()
+DELHIVERY_API_KEY = os.getenv("DELHIVERY_API_KEY", "").strip()
+DELHIVERY_PICKUP_LOCATION = os.getenv("DELHIVERY_PICKUP_LOCATION", "").strip()
 
 local_cookie_context = is_local_host(
     os.getenv("FRONTEND_URL", "https://decor-tales-ecommerce.vercel.app")

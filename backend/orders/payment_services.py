@@ -280,6 +280,8 @@ def create_pending_order_from_cart(*, user, address_id, coupon_code=""):
             discount_amount=snapshot["discount_amount"],
             total_amount=snapshot["total_amount"],
             coupon_code=snapshot["applied_coupon"].code if snapshot["applied_coupon"] else "",
+            shipping_email=(user.email or "").strip(),
+            shipping_full_name=snapshot["address"].full_name,
             shipping_address=", ".join(
                 filter(
                     None,
@@ -290,6 +292,8 @@ def create_pending_order_from_cart(*, user, address_id, coupon_code=""):
                 )
             ),
             city=snapshot["address"].city,
+            shipping_state=snapshot["address"].state,
+            shipping_country=snapshot["address"].country,
             postal_code=snapshot["address"].postal_code,
             phone=snapshot["address"].phone,
             status="pending",

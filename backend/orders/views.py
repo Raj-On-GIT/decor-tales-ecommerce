@@ -3,12 +3,14 @@ import logging
 import mimetypes
 
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import default_storage
 from django.http import FileResponse, Http404
 from django.db import transaction
 from django.db.models import F, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.urls import reverse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -27,6 +29,7 @@ from .models import (
 from .serializers import AddToCartSerializer
 from products.models import Product, ProductVariant
 from products.media_utils import build_media_url, normalize_media_name
+from utils.delhivery_service import DelhiveryService, DelhiveryServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +85,309 @@ def serialize_pricing(product, variant=None, effective_price=None):
         "mrp": str(original_price) if original_price is not None else None,
         "slashed_price": str(sale_price) if sale_price is not None else None,
         "discount_percent": discount_percent,
+    }
+
+
+def validate_indian_pincode(value):
+    pincode = str(value or "").strip()
+    if not pincode:
+        raise ValueError("Pincode is required.")
+    if not pincode.isdigit() or len(pincode) != 6:
+        raise ValueError("Pincode must be a 6-digit number.")
+    return pincode
+
+
+def validate_delhivery_mot(value):
+    mot = str(value or "").strip().upper()
+    allowed_values = {"S", "E", "N"}
+
+    if not mot:
+        raise ValueError("mot is required.")
+    if mot not in allowed_values:
+        raise ValueError("mot must be one of S, E, or N.")
+
+    return mot
+
+
+def validate_optional_text(value):
+    return str(value or "").strip()
+
+
+def validate_expected_pickup_date(value):
+    normalized = str(value or "").strip()
+    if not normalized:
+        return ""
+
+    if parse_datetime(normalized) is None:
+        raise ValueError(
+            "expected_pickup_date must be in YYYY-MM-DD HH:mm format."
+        )
+
+    return normalized
+
+
+def validate_order_id(value):
+    try:
+        order_id = int(str(value or "").strip())
+    except (TypeError, ValueError) as exc:
+        raise ValueError("order_id must be a valid integer.") from exc
+
+    if order_id <= 0:
+        raise ValueError("order_id must be a valid integer.")
+
+    return order_id
+
+
+def validate_order_number(value):
+    order_number = str(value or "").strip()
+    if not order_number:
+        raise ValueError("order_id is required.")
+    if len(order_number) > 50:
+        raise ValueError("Invalid tracking details.")
+    return order_number
+
+
+def normalize_email(value):
+    return str(value or "").strip().lower()
+
+
+def normalize_phone(value):
+    raw_value = str(value or "").strip()
+    digits_only = "".join(character for character in raw_value if character.isdigit())
+
+    if not digits_only:
+        raise ValueError("Invalid tracking details.")
+
+    return digits_only
+
+
+def contact_matches_order(*, order, email="", phone=""):
+    if email:
+        return normalize_email(order.shipping_email) == email
+
+    try:
+        return normalize_phone(order.phone) == phone
+    except ValueError:
+        return False
+
+
+def validate_tracking_lookup_inputs(*, waybill, order_number, email, phone):
+    normalized_waybill = str(waybill or "").strip()
+    normalized_order_number = str(order_number or "").strip()
+    normalized_email = normalize_email(email)
+    normalized_phone = "".join(character for character in str(phone or "").strip() if character.isdigit())
+
+    if bool(normalized_waybill) == bool(normalized_order_number):
+        raise ValueError("Provide exactly one of waybill or order_id.")
+
+    if bool(normalized_email) == bool(normalized_phone):
+        raise ValueError("Provide exactly one of email or phone.")
+
+    if normalized_waybill:
+        if len(normalized_waybill) > 120:
+            raise ValueError("Invalid tracking details.")
+    else:
+        normalized_order_number = validate_order_number(normalized_order_number)
+
+    if normalized_email:
+        return {
+            "waybill": normalized_waybill,
+            "order_number": normalized_order_number,
+            "email": normalized_email,
+            "phone": "",
+        }
+
+    return {
+        "waybill": normalized_waybill,
+        "order_number": normalized_order_number,
+        "email": "",
+        "phone": normalize_phone(phone),
+    }
+
+
+def summarize_pincode_serviceability(payload, *, pincode):
+    delivery_codes = payload.get("delivery_codes", [])
+    postal_code = {}
+
+    if delivery_codes and isinstance(delivery_codes[0], dict):
+        postal_code = delivery_codes[0].get("postal_code") or {}
+
+    return {
+        "pincode": pincode,
+        "serviceable": bool(delivery_codes),
+        "cod_available": postal_code.get("cod") == "Y",
+        "prepaid_available": postal_code.get("pre_paid") == "Y",
+        "pickup_available": postal_code.get("pickup") == "Y",
+        "is_oda": postal_code.get("is_oda") == "Y",
+        "remarks": postal_code.get("remarks") or "",
+        "raw": payload,
+    }
+
+
+def summarize_expected_tat(
+    payload,
+    *,
+    origin_pin,
+    destination_pin,
+    mot,
+    pdt="",
+    expected_pickup_date="",
+):
+    data = payload.get("data") or {}
+
+    return {
+        "origin_pin": origin_pin,
+        "destination_pin": destination_pin,
+        "mot": mot,
+        "pdt": pdt,
+        "expected_pickup_date": expected_pickup_date,
+        "success": bool(payload.get("success")),
+        "message": payload.get("msg") or "",
+        "tat": data.get("tat"),
+        "raw": payload,
+    }
+
+
+def build_delhivery_products_description(order):
+    titles = []
+    for item in order.items.all():
+        title = (item.product_title or "").strip()
+        if not title and item.product:
+            title = (item.product.title or "").strip()
+        if title:
+            titles.append(title)
+
+    if not titles:
+        return f"Order {order.order_number}"
+
+    unique_titles = list(dict.fromkeys(titles))
+    return ", ".join(unique_titles)[:250]
+
+
+def build_delhivery_shipment_payload(order):
+    pickup_location = getattr(settings, "DELHIVERY_PICKUP_LOCATION", "").strip()
+    if not pickup_location:
+        raise ImproperlyConfigured("DELHIVERY_PICKUP_LOCATION must be configured.")
+
+    missing_fields = []
+    if not (order.shipping_full_name or "").strip():
+        missing_fields.append("shipping_full_name")
+    if not (order.shipping_address or "").strip():
+        missing_fields.append("shipping_address")
+    if not (order.postal_code or "").strip():
+        missing_fields.append("postal_code")
+    if not (order.city or "").strip():
+        missing_fields.append("city")
+    if not (order.shipping_state or "").strip():
+        missing_fields.append("shipping_state")
+    if not (order.shipping_country or "").strip():
+        missing_fields.append("shipping_country")
+    if not (order.phone or "").strip():
+        missing_fields.append("phone")
+
+    if missing_fields:
+        raise ValueError(
+            "Order is missing required shipment fields: "
+            + ", ".join(missing_fields)
+            + "."
+        )
+
+    return {
+        "shipments": [
+            {
+                "name": order.shipping_full_name.strip(),
+                "add": order.shipping_address.strip(),
+                "pin": str(order.postal_code).strip(),
+                "city": order.city.strip(),
+                "state": order.shipping_state.strip(),
+                "country": order.shipping_country.strip(),
+                "phone": str(order.phone).strip(),
+                "order": order.order_number,
+                "payment_mode": "Prepaid",
+                "products_desc": build_delhivery_products_description(order),
+                # A static fallback keeps the payload aligned with the verified
+                # Postman sample until shipment-specific weights are modeled.
+                "weight": "1",
+                "shipping_mode": "Surface",
+                "total_amount": str(order.total_amount),
+                "pickup_location": pickup_location,
+            }
+        ]
+    }
+
+
+def summarize_delhivery_shipment(order, payload):
+    packages = payload.get("packages") or []
+    package = packages[0] if packages and isinstance(packages[0], dict) else {}
+
+    return {
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "waybill": order.delhivery_waybill,
+        "reference": order.delhivery_reference,
+        "shipment_status": order.delhivery_shipment_status,
+        "client_name": order.delhivery_client_name,
+        "payment_mode": order.delhivery_payment_mode,
+        "serviceable": package.get("serviceable"),
+        "remarks": package.get("remarks") or [],
+        "raw": payload,
+    }
+
+
+def get_generic_tracking_error_response():
+    return Response(
+        {"error": "Tracking details could not be verified."},
+        status=400,
+    )
+
+
+def summarize_tracking_response(order, payload):
+    shipment_data = payload.get("ShipmentData") or []
+    shipment_wrapper = shipment_data[0] if shipment_data and isinstance(shipment_data[0], dict) else {}
+    shipment = shipment_wrapper.get("Shipment") or {}
+    status_data = shipment.get("Status") or {}
+    scans = shipment.get("Scans") or []
+
+    timeline = []
+    for item in scans:
+        scan_detail = item.get("ScanDetail") or {}
+        timeline.append(
+            {
+                "status": scan_detail.get("Scan") or "",
+                "instructions": scan_detail.get("Instructions") or "",
+                "location": scan_detail.get("ScannedLocation") or "",
+                "status_code": scan_detail.get("StatusCode") or "",
+                "status_type": scan_detail.get("ScanType") or "",
+                "timestamp": scan_detail.get("ScanDateTime") or scan_detail.get("StatusDateTime"),
+            }
+        )
+
+    return {
+        "order_number": order.order_number,
+        "waybill": order.delhivery_waybill,
+        "reference_number": shipment.get("ReferenceNo") or "",
+        "status": {
+            "label": status_data.get("Status") or "",
+            "code": status_data.get("StatusCode") or "",
+            "type": status_data.get("StatusType") or "",
+            "instructions": status_data.get("Instructions") or "",
+            "location": status_data.get("StatusLocation") or "",
+            "timestamp": status_data.get("StatusDateTime"),
+        },
+        "shipment": {
+            "pickup_date": shipment.get("PickUpDate"),
+            "expected_delivery_date": shipment.get("ExpectedDeliveryDate"),
+            "promised_delivery_date": shipment.get("PromisedDeliveryDate"),
+            "destination": shipment.get("Destination") or "",
+            "origin": shipment.get("Origin"),
+            "order_type": shipment.get("OrderType") or "",
+            "invoice_amount": shipment.get("InvoiceAmount"),
+            "cod_amount": shipment.get("CODAmount"),
+            "sender_name": shipment.get("SenderName") or "",
+            "consignee": shipment.get("Consignee") or {},
+        },
+        "timeline": timeline,
+        "raw": payload,
     }
 
 
@@ -962,8 +1268,12 @@ def create_order(request):
             discount_amount=discount_amount,
             total_amount=total_amount,
             coupon_code=applied_coupon.code if applied_coupon else "",
+            shipping_email=(request.user.email or "").strip(),
+            shipping_full_name=address.full_name,
             shipping_address=f"{address.address_line_1}, {address.address_line_2}",
             city=address.city,
+            shipping_state=address.state,
+            shipping_country=address.country,
             postal_code=address.postal_code,
             phone=address.phone,
             status="pending",
@@ -1042,6 +1352,191 @@ def create_order(request):
 
     except Exception as e:
         return Response({"error": str(e)}, status=400)
+
+
+@api_view(["GET"])
+def get_delhivery_pincode_serviceability(request):
+    try:
+        pincode = validate_indian_pincode(request.query_params.get("pincode"))
+        payload = DelhiveryService().get_pincode_serviceability(pincode=pincode)
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=400)
+    except ImproperlyConfigured as exc:
+        return Response({"error": str(exc)}, status=500)
+    except DelhiveryServiceError as exc:
+        return Response({"error": str(exc)}, status=502)
+
+    return Response(summarize_pincode_serviceability(payload, pincode=pincode))
+
+
+@api_view(["GET"])
+def get_delhivery_expected_tat(request):
+    try:
+        origin_pin = validate_indian_pincode(request.query_params.get("origin_pin"))
+        destination_pin = validate_indian_pincode(
+            request.query_params.get("destination_pin")
+        )
+        mot = validate_delhivery_mot(request.query_params.get("mot"))
+        pdt = validate_optional_text(request.query_params.get("pdt"))
+        expected_pickup_date = validate_expected_pickup_date(
+            request.query_params.get("expected_pickup_date")
+        )
+        payload = DelhiveryService().get_expected_tat(
+            origin_pin=origin_pin,
+            destination_pin=destination_pin,
+            mot=mot,
+            pdt=pdt,
+            expected_pickup_date=expected_pickup_date,
+        )
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=400)
+    except ImproperlyConfigured as exc:
+        return Response({"error": str(exc)}, status=500)
+    except DelhiveryServiceError as exc:
+        return Response({"error": str(exc)}, status=502)
+
+    return Response(
+        summarize_expected_tat(
+            payload,
+            origin_pin=origin_pin,
+            destination_pin=destination_pin,
+            mot=mot,
+            pdt=pdt,
+            expected_pickup_date=expected_pickup_date,
+        )
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_delhivery_shipment(request):
+    if not request.user.is_staff:
+        return Response({"error": "Forbidden."}, status=403)
+
+    if set(request.data.keys()) - {"order_id"}:
+        return Response(
+            {"error": "Only order_id is allowed in the request body."},
+            status=400,
+        )
+
+    try:
+        order_id = validate_order_id(request.data.get("order_id"))
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=400)
+
+    try:
+        with transaction.atomic():
+            order = (
+                Order.objects.select_for_update()
+                .select_related("user")
+                .prefetch_related("items", "items__product")
+                .get(id=order_id)
+            )
+
+            if order.delhivery_waybill:
+                return Response(
+                    {"error": "Shipment already created for this order."},
+                    status=400,
+                )
+
+            shipment_payload = build_delhivery_shipment_payload(order)
+            payload = DelhiveryService().create_shipment(data=shipment_payload)
+
+            if not payload.get("success"):
+                raise DelhiveryServiceError("Delhivery shipment creation failed.")
+
+            packages = payload.get("packages") or []
+            package = packages[0] if packages and isinstance(packages[0], dict) else {}
+            waybill = str(package.get("waybill") or "").strip()
+
+            if not waybill:
+                raise DelhiveryServiceError(
+                    "Delhivery shipment response did not include a waybill."
+                )
+
+            order.delhivery_waybill = waybill
+            order.delhivery_reference = str(payload.get("upload_wbn") or "").strip()
+            order.delhivery_client_name = str(package.get("client") or "").strip()
+            order.delhivery_shipment_status = str(package.get("status") or "").strip()
+            order.delhivery_payment_mode = str(package.get("payment") or "").strip()
+            order.delhivery_raw_response = payload
+            order.delhivery_created_at = timezone.now()
+            order.save(
+                update_fields=[
+                    "delhivery_waybill",
+                    "delhivery_reference",
+                    "delhivery_client_name",
+                    "delhivery_shipment_status",
+                    "delhivery_payment_mode",
+                    "delhivery_raw_response",
+                    "delhivery_created_at",
+                    "updated_at",
+                ]
+            )
+    except Order.DoesNotExist:
+        return Response({"error": "Order not found."}, status=404)
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=400)
+    except ImproperlyConfigured as exc:
+        return Response({"error": str(exc)}, status=500)
+    except DelhiveryServiceError as exc:
+        return Response({"error": str(exc)}, status=502)
+
+    return Response(
+        {
+            "message": "Shipment created.",
+            "shipment": summarize_delhivery_shipment(order, payload),
+        },
+        status=201,
+    )
+
+
+@api_view(["GET"])
+def track_delhivery_shipment(request):
+    try:
+        tracking_inputs = validate_tracking_lookup_inputs(
+            waybill=request.query_params.get("waybill"),
+            order_number=request.query_params.get("order_id"),
+            email=request.query_params.get("email"),
+            phone=request.query_params.get("phone"),
+        )
+    except ValueError:
+        return get_generic_tracking_error_response()
+
+    lookup_filters = Q()
+    if tracking_inputs["waybill"]:
+        lookup_filters &= Q(delhivery_waybill=tracking_inputs["waybill"])
+    else:
+        lookup_filters &= Q(order_number=tracking_inputs["order_number"])
+
+    candidate_orders = Order.objects.filter(lookup_filters).exclude(delhivery_waybill="")
+    order = next(
+        (
+            candidate
+            for candidate in candidate_orders
+            if contact_matches_order(
+                order=candidate,
+                email=tracking_inputs["email"],
+                phone=tracking_inputs["phone"],
+            )
+        ),
+        None,
+    )
+
+    if not order or not order.delhivery_waybill:
+        return get_generic_tracking_error_response()
+
+    try:
+        payload = DelhiveryService().track_shipment(
+            waybill=order.delhivery_waybill,
+            ref_ids=order.order_number,
+        )
+    except ImproperlyConfigured as exc:
+        return Response({"error": str(exc)}, status=500)
+    except DelhiveryServiceError:
+        return Response({"error": "Unable to fetch tracking updates."}, status=502)
+
+    return Response(summarize_tracking_response(order, payload))
 
 
 @api_view(["GET"])

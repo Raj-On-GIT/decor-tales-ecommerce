@@ -167,10 +167,22 @@ class Order(models.Model):
     refund_processed = models.BooleanField(default=False)
     
     # Shipping details
+    shipping_email = models.EmailField(blank=True)
+    shipping_full_name = models.CharField(max_length=150, blank=True)
     shipping_address = models.TextField()
     city = models.CharField(max_length=100)
+    shipping_state = models.CharField(max_length=100, blank=True)
+    shipping_country = models.CharField(max_length=100, blank=True, default="India")
     postal_code = models.CharField(max_length=20)
     phone = models.CharField(max_length=20)
+
+    delhivery_waybill = models.CharField(max_length=120, blank=True)
+    delhivery_reference = models.CharField(max_length=120, blank=True)
+    delhivery_client_name = models.CharField(max_length=255, blank=True)
+    delhivery_shipment_status = models.CharField(max_length=50, blank=True)
+    delhivery_payment_mode = models.CharField(max_length=50, blank=True)
+    delhivery_raw_response = models.JSONField(blank=True, null=True)
+    delhivery_created_at = models.DateTimeField(blank=True, null=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

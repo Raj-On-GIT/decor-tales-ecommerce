@@ -16,6 +16,26 @@ urlpatterns = [
     # =========================
     # ORDERS
     # =========================
+    path(
+        "delhivery/pincode-serviceability/",
+        views.get_delhivery_pincode_serviceability,
+        name="delhivery_pincode_serviceability",
+    ),
+    path(
+        "delhivery/expected-tat/",
+        views.get_delhivery_expected_tat,
+        name="delhivery_expected_tat",
+    ),
+    path(
+        "delhivery/create-shipment/",
+        views.create_delhivery_shipment,
+        name="create_delhivery_shipment",
+    ),
+    path(
+        "delhivery/track/",
+        views.track_delhivery_shipment,
+        name="track_delhivery_shipment",
+    ),
     path("create/", views.create_order, name="create_order"),
     path("my-orders/", views.get_my_orders, name="my_orders"),
     path("<int:order_id>/", views.get_order_detail, name="order_detail"),
