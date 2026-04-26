@@ -10,4 +10,12 @@
       </form>
     </li>
   {% endif %}
+  {% if show_generate_shipping_label_button and generate_shipping_label_url %}
+    <li>
+      <form action="{{ generate_shipping_label_url }}" method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="button">Generate Shipping Label</button>
+      </form>
+    </li>
+  {% endif %}
 {% endblock %}

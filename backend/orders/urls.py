@@ -36,6 +36,11 @@ urlpatterns = [
         views.track_delhivery_shipment,
         name="track_delhivery_shipment",
     ),
+    path(
+        "delhivery/shipping-label/",
+        views.get_delhivery_shipping_label,
+        name="delhivery_shipping_label",
+    ),
     path("create/", views.create_order, name="create_order"),
     path("my-orders/", views.get_my_orders, name="my_orders"),
     path("<int:order_id>/", views.get_order_detail, name="order_detail"),

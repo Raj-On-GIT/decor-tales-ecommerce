@@ -228,6 +228,46 @@ class DelhiveryService:
 
         return payload
 
+    def generate_shipping_label(self, *, waybill, pdf=True, pdf_size="4R", timeout=20):
+        self.require_configuration()
+
+        params = {
+            "wbns": str(waybill).strip(),
+            "pdf": "true" if pdf else "false",
+        }
+
+        if str(pdf_size or "").strip():
+            params["pdf_size"] = str(pdf_size).strip()
+
+        try:
+            response = requests.get(
+                self.build_url("/api/p/packing_slip"),
+                headers={
+                    **self.get_headers(),
+                    "Content-Type": "application/json",
+                },
+                params=params,
+                timeout=timeout,
+            )
+        except requests.RequestException as exc:
+            raise DelhiveryServiceError(
+                "Unable to connect to Delhivery service."
+            ) from exc
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise DelhiveryServiceError(
+                "Delhivery returned a non-JSON response."
+            ) from exc
+
+        if not response.ok:
+            raise DelhiveryServiceError(
+                f"Delhivery request failed with status {response.status_code}."
+            )
+
+        return payload
+
     def describe_configuration(self):
         return {
             "base_url": self.config.base_url,

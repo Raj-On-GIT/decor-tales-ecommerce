@@ -384,6 +384,58 @@ def create_delhivery_shipment_for_order_id(order_id):
     return order, payload
 
 
+def validate_shipping_label_pdf_size(value):
+    normalized = str(value or "").strip().upper()
+    if not normalized:
+        return "4R"
+    if normalized not in {"A4", "4R"}:
+        raise ValueError("pdf_size must be either A4 or 4R.")
+    return normalized
+
+
+def summarize_delhivery_shipping_label(order, payload):
+    packages = payload.get("packages") or []
+    package = packages[0] if packages and isinstance(packages[0], dict) else {}
+
+    return {
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "waybill": order.delhivery_waybill,
+        "packages_found": payload.get("packages_found", 0),
+        "label": {
+            "pdf_download_link": package.get("pdf_download_link") or "",
+            "pdf_encoding": package.get("pdf_encoding") or "",
+            "wbn": package.get("wbn") or "",
+        },
+        "raw": payload,
+    }
+
+
+def generate_delhivery_shipping_label_for_order_id(order_id, *, pdf=True, pdf_size="4R"):
+    order = Order.objects.get(id=order_id)
+
+    if not order.delhivery_waybill:
+        raise ValueError("Shipment has not been created for this order yet.")
+
+    payload = DelhiveryService().generate_shipping_label(
+        waybill=order.delhivery_waybill,
+        pdf=pdf,
+        pdf_size=pdf_size,
+    )
+
+    packages_found = int(payload.get("packages_found") or 0)
+    packages = payload.get("packages") or []
+
+    if packages_found <= 0 or not packages:
+        raise DelhiveryServiceError("Delhivery did not return a shipping label.")
+
+    package = packages[0] if isinstance(packages[0], dict) else {}
+    if not str(package.get("wbn") or "").strip():
+        raise DelhiveryServiceError("Delhivery shipping label response is incomplete.")
+
+    return order, payload
+
+
 def get_generic_tracking_error_response():
     return Response(
         {"error": "Tracking details could not be verified."},
@@ -1541,6 +1593,34 @@ def track_delhivery_shipment(request):
         return Response({"error": "Unable to fetch tracking updates."}, status=502)
 
     return Response(summarize_tracking_response(order, payload))
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_delhivery_shipping_label(request):
+    if not request.user.is_staff:
+        return Response({"error": "Forbidden."}, status=403)
+
+    try:
+        order_id = validate_order_id(request.query_params.get("order_id"))
+        pdf_size = validate_shipping_label_pdf_size(
+            request.query_params.get("pdf_size")
+        )
+        order, payload = generate_delhivery_shipping_label_for_order_id(
+            order_id,
+            pdf=True,
+            pdf_size=pdf_size,
+        )
+    except Order.DoesNotExist:
+        return Response({"error": "Order not found."}, status=404)
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=400)
+    except ImproperlyConfigured as exc:
+        return Response({"error": str(exc)}, status=500)
+    except DelhiveryServiceError as exc:
+        return Response({"error": str(exc)}, status=502)
+
+    return Response(summarize_delhivery_shipping_label(order, payload))
 
 
 @api_view(["GET"])

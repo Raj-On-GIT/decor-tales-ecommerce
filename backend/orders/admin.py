@@ -18,7 +18,11 @@ from .models import (
     CartItem,
     CartItemImage,
 )
-from .views import create_delhivery_shipment_for_order_id
+from .views import (
+    create_delhivery_shipment_for_order_id,
+    generate_delhivery_shipping_label_for_order_id,
+    summarize_delhivery_shipping_label,
+)
 from utils.delhivery_service import DelhiveryServiceError
 
 
@@ -186,6 +190,12 @@ class OrderAdmin(admin.ModelAdmin):
 
         return not obj.delhivery_waybill and obj.status not in {"failed", "cancelled"}
 
+    def can_generate_delhivery_shipping_label(self, obj):
+        if not obj:
+            return False
+
+        return bool(obj.delhivery_waybill) and obj.status not in {"failed", "cancelled"}
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -193,6 +203,11 @@ class OrderAdmin(admin.ModelAdmin):
                 "<path:object_id>/create-shipment/",
                 self.admin_site.admin_view(self.create_shipment_view),
                 name="orders_order_create_shipment",
+            ),
+            path(
+                "<path:object_id>/generate-shipping-label/",
+                self.admin_site.admin_view(self.generate_shipping_label_view),
+                name="orders_order_generate_shipping_label",
             ),
         ]
         return custom_urls + urls
@@ -206,6 +221,12 @@ class OrderAdmin(admin.ModelAdmin):
                 extra_context["show_create_shipment_button"] = True
                 extra_context["create_shipment_url"] = reverse(
                     "admin:orders_order_create_shipment",
+                    args=[obj.pk],
+                )
+            if obj and self.can_generate_delhivery_shipping_label(obj):
+                extra_context["show_generate_shipping_label_button"] = True
+                extra_context["generate_shipping_label_url"] = reverse(
+                    "admin:orders_order_generate_shipping_label",
                     args=[obj.pk],
                 )
 
@@ -254,6 +275,62 @@ class OrderAdmin(admin.ModelAdmin):
             request,
             f"Shipment created for order {order.order_number}. Waybill: {order.delhivery_waybill}.",
             level=messages.SUCCESS,
+        )
+        return redirect("admin:orders_order_change", order.pk)
+
+    def generate_shipping_label_view(self, request, object_id):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+
+        if not self.has_change_permission(request, obj):
+            self.message_user(
+                request,
+                "You do not have permission to update this order.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        if not self.can_generate_delhivery_shipping_label(obj):
+            self.message_user(
+                request,
+                "Shipping label generation is only available for active orders with an existing waybill.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        try:
+            order, payload = generate_delhivery_shipping_label_for_order_id(
+                obj.pk,
+                pdf=True,
+                pdf_size="4R",
+            )
+        except Order.DoesNotExist:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+        except (ValueError, ImproperlyConfigured, DelhiveryServiceError) as exc:
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return redirect("admin:orders_order_change", obj.pk)
+
+        label = summarize_delhivery_shipping_label(order, payload)["label"]
+        pdf_download_link = str(label.get("pdf_download_link") or "").strip()
+
+        if pdf_download_link:
+            self.message_user(
+                request,
+                f"Shipping label generated for order {order.order_number}.",
+                level=messages.SUCCESS,
+            )
+            return redirect(pdf_download_link)
+
+        self.message_user(
+            request,
+            f"Shipping label generated for order {order.order_number}, but no download link was returned.",
+            level=messages.WARNING,
         )
         return redirect("admin:orders_order_change", order.pk)
 

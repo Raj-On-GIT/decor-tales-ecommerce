@@ -1339,6 +1339,102 @@ class LegacyDirectOrderAddressValidationTests(TestCase):
 @override_settings(
     DELHIVERY_BASE_URL="https://track.delhivery.test",
     DELHIVERY_API_KEY="test-api-key",
+    SECURE_SSL_REDIRECT=False,
+)
+class DelhiveryShippingLabelApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.staff_user = User.objects.create_user(
+            username="label-staff",
+            email="label-staff@example.com",
+            password="testpass123",
+            is_staff=True,
+        )
+        self.user = User.objects.create_user(
+            username="label-user",
+            email="label-user@example.com",
+            password="testpass123",
+        )
+        self.category = Category.objects.create(name="Label Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Label Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Label Frame",
+            mrp=Decimal("800.00"),
+            slashed_price=Decimal("700.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("700.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("700.00"),
+            status="paid",
+            shipping_email="label@example.com",
+            shipping_full_name="Label Customer",
+            shipping_address="123 Label Street",
+            city="Delhi",
+            shipping_state="Delhi",
+            shipping_country="India",
+            postal_code="110001",
+            phone="9999999999",
+            delhivery_waybill="85172510000022",
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("700.00"),
+            product_title=self.product.title,
+        )
+
+    def test_shipping_label_api_requires_staff_user(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(
+            reverse("delhivery_shipping_label"),
+            {"order_id": self.order.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    @patch("orders.views.DelhiveryService.generate_shipping_label")
+    def test_staff_can_fetch_shipping_label(self, mock_generate_shipping_label):
+        self.client.force_authenticate(user=self.staff_user)
+        mock_generate_shipping_label.return_value = {
+            "packages": [
+                {
+                    "pdf_download_link": "https://labels.example.com/api-label.pdf",
+                    "pdf_encoding": "encoded-pdf",
+                    "wbn": "85172510000022",
+                }
+            ],
+            "packages_found": 1,
+        }
+
+        response = self.client.get(
+            reverse("delhivery_shipping_label"),
+            {"order_id": self.order.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["waybill"], "85172510000022")
+        self.assertEqual(response.data["packages_found"], 1)
+        self.assertEqual(
+            response.data["label"]["pdf_download_link"],
+            "https://labels.example.com/api-label.pdf",
+        )
+
+
+@override_settings(
+    DELHIVERY_BASE_URL="https://track.delhivery.test",
+    DELHIVERY_API_KEY="test-api-key",
     DELHIVERY_PICKUP_LOCATION="Main Warehouse",
     STORAGES={
         "default": {
@@ -1469,3 +1565,55 @@ class OrderAdminDelhiveryShipmentTests(TestCase):
             response,
             "Shipment creation is only available for active orders without an existing waybill.",
         )
+
+    def test_change_page_shows_generate_shipping_label_button_when_waybill_exists(self):
+        self.order.delhivery_waybill = "WB123456789"
+        self.order.save(update_fields=["delhivery_waybill"])
+
+        response = self.client.get(
+            reverse("admin:orders_order_change", args=[self.order.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Generate Shipping Label")
+        self.assertContains(
+            response,
+            reverse("admin:orders_order_generate_shipping_label", args=[self.order.pk]),
+        )
+
+    @patch("orders.views.DelhiveryService.generate_shipping_label")
+    def test_admin_can_generate_shipping_label(self, mock_generate_shipping_label):
+        self.order.delhivery_waybill = "WB987654321"
+        self.order.save(update_fields=["delhivery_waybill"])
+
+        mock_generate_shipping_label.return_value = {
+            "packages": [
+                {
+                    "pdf_download_link": "https://labels.example.com/test-label.pdf",
+                    "pdf_encoding": "encoded-pdf",
+                    "wbn": "WB987654321",
+                }
+            ],
+            "packages_found": 1,
+        }
+
+        response = self.client.post(
+            reverse("admin:orders_order_generate_shipping_label", args=[self.order.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            "https://labels.example.com/test-label.pdf",
+        )
+
+    def test_change_page_hides_generate_shipping_label_button_without_waybill(self):
+        response = self.client.get(
+            reverse("admin:orders_order_change", args=[self.order.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Generate Shipping Label")
