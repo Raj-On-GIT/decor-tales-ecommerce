@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django import forms
+from django.db.models import IntegerField, Sum, Value
+from django.db.models.functions import Coalesce
 from .models import Banner, Category, SubCategory, Product, ProductVariant, ProductImage, Size, Color
 
 class ProductImageInline(admin.TabularInline):
@@ -124,10 +126,21 @@ class ProductAdminForm(forms.ModelForm):
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
     list_display = ['title', 'mrp', 'slashed_price', 'stock_type', 'get_total_stock', 'is_active']
-
+    list_select_related = ["category", "sub_category"]
+    list_per_page = 50
     list_filter = ['stock_type', 'is_active', 'category']
     inlines = [ProductVariantInline, ProductImageInline]
     prepopulated_fields = {'slug': ('title',)}
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.annotate(
+            variant_stock_total=Coalesce(
+                Sum("variants__stock"),
+                Value(0),
+                output_field=IntegerField(),
+            )
+        )
     
     def get_fieldsets(self, request, obj=None):
         fieldsets = (
@@ -162,7 +175,9 @@ class ProductAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
     def get_total_stock(self, obj):
-        return obj.get_total_stock()
+        if obj.stock_type == "main":
+            return obj.stock
+        return getattr(obj, "variant_stock_total", 0)
     get_total_stock.short_description = 'Total Stock'
 
     def delete_model(self, request, obj):
