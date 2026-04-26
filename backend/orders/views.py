@@ -334,6 +334,56 @@ def summarize_delhivery_shipment(order, payload):
     }
 
 
+def create_delhivery_shipment_for_order_id(order_id):
+    with transaction.atomic():
+        order = (
+            Order.objects.select_for_update()
+            .select_related("user")
+            .prefetch_related("items", "items__product")
+            .get(id=order_id)
+        )
+
+        if order.delhivery_waybill:
+            raise ValueError("Shipment already created for this order.")
+
+        shipment_payload = build_delhivery_shipment_payload(order)
+        payload = DelhiveryService().create_shipment(data=shipment_payload)
+
+        if not payload.get("success"):
+            raise DelhiveryServiceError("Delhivery shipment creation failed.")
+
+        packages = payload.get("packages") or []
+        package = packages[0] if packages and isinstance(packages[0], dict) else {}
+        waybill = str(package.get("waybill") or "").strip()
+
+        if not waybill:
+            raise DelhiveryServiceError(
+                "Delhivery shipment response did not include a waybill."
+            )
+
+        order.delhivery_waybill = waybill
+        order.delhivery_reference = str(payload.get("upload_wbn") or "").strip()
+        order.delhivery_client_name = str(package.get("client") or "").strip()
+        order.delhivery_shipment_status = str(package.get("status") or "").strip()
+        order.delhivery_payment_mode = str(package.get("payment") or "").strip()
+        order.delhivery_raw_response = payload
+        order.delhivery_created_at = timezone.now()
+        order.save(
+            update_fields=[
+                "delhivery_waybill",
+                "delhivery_reference",
+                "delhivery_client_name",
+                "delhivery_shipment_status",
+                "delhivery_payment_mode",
+                "delhivery_raw_response",
+                "delhivery_created_at",
+                "updated_at",
+            ]
+        )
+
+    return order, payload
+
+
 def get_generic_tracking_error_response():
     return Response(
         {"error": "Tracking details could not be verified."},
@@ -1177,7 +1227,7 @@ def get_available_coupons(request):
 @transaction.atomic
 def create_order(request):
     try:
-        from .payment_services import release_expired_reservations
+        from .payment_services import release_expired_reservations, validate_checkout_address
 
         if not getattr(settings, "ALLOW_LEGACY_DIRECT_ORDER", False):
             return Response(
@@ -1201,6 +1251,7 @@ def create_order(request):
         from accounts.models import Address
 
         address = get_object_or_404(Address, id=address_id, user=request.user)
+        validate_checkout_address(address)
 
         cart_items = CartItem.objects.select_related(
             "product",
@@ -1425,54 +1476,7 @@ def create_delhivery_shipment(request):
         return Response({"error": str(exc)}, status=400)
 
     try:
-        with transaction.atomic():
-            order = (
-                Order.objects.select_for_update()
-                .select_related("user")
-                .prefetch_related("items", "items__product")
-                .get(id=order_id)
-            )
-
-            if order.delhivery_waybill:
-                return Response(
-                    {"error": "Shipment already created for this order."},
-                    status=400,
-                )
-
-            shipment_payload = build_delhivery_shipment_payload(order)
-            payload = DelhiveryService().create_shipment(data=shipment_payload)
-
-            if not payload.get("success"):
-                raise DelhiveryServiceError("Delhivery shipment creation failed.")
-
-            packages = payload.get("packages") or []
-            package = packages[0] if packages and isinstance(packages[0], dict) else {}
-            waybill = str(package.get("waybill") or "").strip()
-
-            if not waybill:
-                raise DelhiveryServiceError(
-                    "Delhivery shipment response did not include a waybill."
-                )
-
-            order.delhivery_waybill = waybill
-            order.delhivery_reference = str(payload.get("upload_wbn") or "").strip()
-            order.delhivery_client_name = str(package.get("client") or "").strip()
-            order.delhivery_shipment_status = str(package.get("status") or "").strip()
-            order.delhivery_payment_mode = str(package.get("payment") or "").strip()
-            order.delhivery_raw_response = payload
-            order.delhivery_created_at = timezone.now()
-            order.save(
-                update_fields=[
-                    "delhivery_waybill",
-                    "delhivery_reference",
-                    "delhivery_client_name",
-                    "delhivery_shipment_status",
-                    "delhivery_payment_mode",
-                    "delhivery_raw_response",
-                    "delhivery_created_at",
-                    "updated_at",
-                ]
-            )
+        order, payload = create_delhivery_shipment_for_order_id(order_id)
     except Order.DoesNotExist:
         return Response({"error": "Order not found."}, status=404)
     except ValueError as exc:

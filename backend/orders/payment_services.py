@@ -42,6 +42,38 @@ class PaymentError(Exception):
     pass
 
 
+def validate_checkout_address(address):
+    required_fields = {
+        "full_name": getattr(address, "full_name", ""),
+        "phone": getattr(address, "phone", ""),
+        "address_line_1": getattr(address, "address_line_1", ""),
+        "city": getattr(address, "city", ""),
+        "state": getattr(address, "state", ""),
+        "postal_code": getattr(address, "postal_code", ""),
+        "country": getattr(address, "country", ""),
+    }
+    missing_fields = [
+        field_name
+        for field_name, value in required_fields.items()
+        if not str(value or "").strip()
+    ]
+
+    if missing_fields:
+        raise PaymentError(
+            "Selected address is missing required shipping fields: "
+            + ", ".join(missing_fields)
+            + "."
+        )
+
+    digits_only_phone = "".join(character for character in str(address.phone) if character.isdigit())
+    if len(digits_only_phone) != 10:
+        raise PaymentError("Selected address must include a valid 10-digit phone number.")
+
+    postal_code = str(address.postal_code).strip()
+    if not postal_code.isdigit() or len(postal_code) != 6:
+        raise PaymentError("Selected address must include a valid 6-digit postal code.")
+
+
 def get_razorpay_credentials():
     key_id = os.getenv("RAZORPAY_KEY_ID", "").strip()
     key_secret = os.getenv("RAZORPAY_KEY_SECRET", "").strip()
@@ -245,6 +277,7 @@ def build_checkout_snapshot(user, address_id, coupon_code=""):
     except Address.DoesNotExist as exc:
         raise PaymentError("Selected address was not found.") from exc
 
+    validate_checkout_address(address)
     snapshot["address"] = address
     return snapshot
 

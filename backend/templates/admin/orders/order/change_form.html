@@ -1,0 +1,13 @@
+{% extends "admin/change_form.html" %}
+
+{% block object-tools-items %}
+  {{ block.super }}
+  {% if show_create_shipment_button and create_shipment_url %}
+    <li>
+      <form action="{{ create_shipment_url }}" method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="button">Create Shipment</button>
+      </form>
+    </li>
+  {% endif %}
+{% endblock %}

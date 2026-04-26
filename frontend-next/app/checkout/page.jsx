@@ -74,6 +74,36 @@ function getProductStateMessage(item) {
   return null;
 }
 
+function getAddressMissingFields(address) {
+  if (!address || typeof address !== "object") {
+    return ["full_name", "phone", "address_line_1", "city", "state", "postal_code"];
+  }
+
+  const requiredFields = [
+    "full_name",
+    "phone",
+    "address_line_1",
+    "city",
+    "state",
+    "postal_code",
+  ];
+
+  return requiredFields.filter((field) => !String(address[field] || "").trim());
+}
+
+function formatAddressMissingFields(fields) {
+  const labels = {
+    full_name: "full name",
+    phone: "phone number",
+    address_line_1: "address line 1",
+    city: "city",
+    state: "state",
+    postal_code: "postal code",
+  };
+
+  return fields.map((field) => labels[field] || field).join(", ");
+}
+
 export default function CheckoutPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { replaceCart, setCartLock } = useStore();
@@ -149,6 +179,9 @@ export default function CheckoutPage() {
   const selectedCouponDiscount = Number(selectedCoupon?.discount_amount || 0);
   const payableTotal = Math.max(0, total - selectedCouponDiscount);
   const hasUnavailableItems = cart.some((item) => item.is_available_for_purchase === false);
+  const selectedAddressRecord = addresses.find((address) => address.id === selectedAddress) || null;
+  const selectedAddressMissingFields = getAddressMissingFields(selectedAddressRecord);
+  const hasIncompleteSelectedAddress = selectedAddressMissingFields.length > 0;
 
   async function handlePlaceOrder() {
     if (hasUnavailableItems) {
@@ -158,6 +191,13 @@ export default function CheckoutPage() {
 
     if (!selectedAddress) {
       error("Please select a shipping address");
+      return;
+    }
+
+    if (hasIncompleteSelectedAddress) {
+      error(
+        `Selected address is incomplete. Add ${formatAddressMissingFields(selectedAddressMissingFields)} before placing the order.`,
+      );
       return;
     }
 
@@ -397,7 +437,7 @@ export default function CheckoutPage() {
               {addresses.map((addr) => (
                 <label
                   key={addr.id}
-                  className={`block cursor-pointer rounded-[1.5rem] border p-4 transition-all duration-200 ${
+                  className={`block rounded-[1.5rem] border p-4 transition-all duration-200 ${
                     selectedAddress === addr.id
                       ? "border-[#002424] bg-[#f7fbf4] shadow-sm"
                       : "border-transparent bg-gray-50 hover:border-gray-200 hover:bg-white"
@@ -430,6 +470,13 @@ export default function CheckoutPage() {
                         <br />
                         Phone: {addr.phone}
                       </div>
+
+                      {getAddressMissingFields(addr).length > 0 ? (
+                        <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                          Complete this address before checkout:{" "}
+                          {formatAddressMissingFields(getAddressMissingFields(addr))}.
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </label>
@@ -720,7 +767,13 @@ export default function CheckoutPage() {
 
             <button
               onClick={handlePlaceOrder}
-              disabled={paymentInitializing || !selectedAddress || !cart.length || hasUnavailableItems}
+              disabled={
+                paymentInitializing ||
+                !selectedAddress ||
+                !cart.length ||
+                hasUnavailableItems ||
+                hasIncompleteSelectedAddress
+              }
               className="mt-6 w-full rounded-2xl bg-black py-4 text-lg font-medium tracking-wide text-white transition-all hover:opacity-90 disabled:opacity-50"
             >
               {paymentInitializing ? "Starting Secure Payment..." : "Pay Now"}

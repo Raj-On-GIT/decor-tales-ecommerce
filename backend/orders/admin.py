@@ -1,10 +1,25 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django import forms
+from django.http import HttpResponseNotAllowed
+from django.shortcuts import redirect
+from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.db import models
+from django.core.exceptions import ImproperlyConfigured
 
-from .models import Coupon, CouponUsage, Order, OrderItem, OrderItemImage, Cart, CartItem, CartItemImage
+from .models import (
+    Coupon,
+    CouponUsage,
+    Order,
+    OrderItem,
+    OrderItemImage,
+    Cart,
+    CartItem,
+    CartItemImage,
+)
+from .views import create_delhivery_shipment_for_order_id
+from utils.delhivery_service import DelhiveryServiceError
 
 
 @admin.register(Coupon)
@@ -136,6 +151,7 @@ class OrderItemInline(admin.StackedInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
+    change_form_template = "admin/orders/order/change_form.html"
     list_display = (
         "order_number",
         "customer_name",
@@ -163,6 +179,83 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ("status", "created_at", "city")
     readonly_fields = ("created_at", "updated_at")
     inlines = [OrderItemInline]
+
+    def can_create_delhivery_shipment(self, obj):
+        if not obj:
+            return False
+
+        return not obj.delhivery_waybill and obj.status not in {"failed", "cancelled"}
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:object_id>/create-shipment/",
+                self.admin_site.admin_view(self.create_shipment_view),
+                name="orders_order_create_shipment",
+            ),
+        ]
+        return custom_urls + urls
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+
+        if object_id:
+            obj = self.get_object(request, object_id)
+            if obj and self.can_create_delhivery_shipment(obj):
+                extra_context["show_create_shipment_button"] = True
+                extra_context["create_shipment_url"] = reverse(
+                    "admin:orders_order_create_shipment",
+                    args=[obj.pk],
+                )
+
+        return super().changeform_view(
+            request,
+            object_id=object_id,
+            form_url=form_url,
+            extra_context=extra_context,
+        )
+
+    def create_shipment_view(self, request, object_id):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+
+        if not self.has_change_permission(request, obj):
+            self.message_user(
+                request,
+                "You do not have permission to update this order.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        if not self.can_create_delhivery_shipment(obj):
+            self.message_user(
+                request,
+                "Shipment creation is only available for active orders without an existing waybill.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        try:
+            order, _ = create_delhivery_shipment_for_order_id(obj.pk)
+        except Order.DoesNotExist:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+        except (ValueError, ImproperlyConfigured, DelhiveryServiceError) as exc:
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return redirect("admin:orders_order_change", obj.pk)
+
+        self.message_user(
+            request,
+            f"Shipment created for order {order.order_number}. Waybill: {order.delhivery_waybill}.",
+            level=messages.SUCCESS,
+        )
+        return redirect("admin:orders_order_change", order.pk)
 
     @admin.display(description="Customer Name")
     def customer_name(self, obj):

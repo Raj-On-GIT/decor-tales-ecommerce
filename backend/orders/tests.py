@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase
+from django.test.utils import override_settings
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
@@ -558,6 +559,7 @@ class SecureOrderMediaTests(TestCase):
         self.assertIn("/api/orders/media/order_customizations/", response.data["order"]["items"][0]["custom_image"])
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class PaymentFlowSafetyTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -644,6 +646,23 @@ class PaymentFlowSafetyTests(TestCase):
         )
         self.assertEqual(second_response.status_code, 400)
         self.assertIn("enough stock", second_response.data["error"])
+
+    def test_checkout_rejects_address_missing_required_shipping_fields(self):
+        self.address.full_name = ""
+        self.address.state = ""
+        self.address.save(update_fields=["full_name", "state"])
+
+        response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["error"],
+            "Selected address is missing required shipping fields: full_name, state.",
+        )
 
     @patch("orders.payment_services.verify_razorpay_webhook_signature", return_value=True)
     @patch("orders.payment_services.get_razorpay_client")
@@ -1260,3 +1279,193 @@ class ProductAvailabilityHistoryTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"], "This product is no longer available.")
+
+
+@override_settings(ALLOW_LEGACY_DIRECT_ORDER=True, SECURE_SSL_REDIRECT=False)
+class LegacyDirectOrderAddressValidationTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="legacy-order-user",
+            email="legacy@example.com",
+            password="testpass123",
+        )
+        self.client.force_authenticate(user=self.user)
+
+        self.category = Category.objects.create(name="Legacy Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Legacy Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Legacy Checkout Frame",
+            mrp=Decimal("600.00"),
+            slashed_price=Decimal("500.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.cart = Cart.objects.create(user=self.user)
+        CartItem.objects.create(cart=self.cart, product=self.product, quantity=1)
+
+        from accounts.models import Address
+
+        self.address = Address.objects.create(
+            user=self.user,
+            full_name="",
+            phone="9999999999",
+            address_line_1="Legacy Street 1",
+            address_line_2="",
+            city="Delhi",
+            state="",
+            postal_code="110001",
+            is_default=True,
+        )
+
+    def test_direct_order_rejects_incomplete_saved_address(self):
+        response = self.client.post(
+            reverse("create_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["error"],
+            "Selected address is missing required shipping fields: full_name, state.",
+        )
+
+
+@override_settings(
+    DELHIVERY_BASE_URL="https://track.delhivery.test",
+    DELHIVERY_API_KEY="test-api-key",
+    DELHIVERY_PICKUP_LOCATION="Main Warehouse",
+    STORAGES={
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    },
+)
+class OrderAdminDelhiveryShipmentTests(TestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_superuser(
+            username="shipment-admin",
+            email="shipment-admin@example.com",
+            password="testpass123",
+        )
+        self.customer = User.objects.create_user(
+            username="shipment-customer",
+            email="shipment-customer@example.com",
+            password="testpass123",
+        )
+        self.client.force_login(self.admin_user)
+
+        self.category = Category.objects.create(name="Admin Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Admin Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Admin Frame",
+            mrp=Decimal("1200.00"),
+            slashed_price=Decimal("999.00"),
+            stock=10,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.order = Order.objects.create(
+            user=self.customer,
+            subtotal_amount=Decimal("999.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("999.00"),
+            status="paid",
+            shipping_email="shipment@example.com",
+            shipping_full_name="Admin Test Customer",
+            shipping_address="123 Test Street",
+            city="Delhi",
+            shipping_state="Delhi",
+            shipping_country="India",
+            postal_code="110001",
+            phone="9999999999",
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("999.00"),
+            product_title=self.product.title,
+        )
+
+    def test_change_page_shows_create_shipment_button_for_eligible_order(self):
+        response = self.client.get(
+            reverse("admin:orders_order_change", args=[self.order.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Create Shipment")
+        self.assertContains(
+            response,
+            reverse("admin:orders_order_create_shipment", args=[self.order.pk]),
+        )
+
+    def test_change_page_hides_create_shipment_button_when_waybill_exists(self):
+        self.order.delhivery_waybill = "WB123456789"
+        self.order.save(update_fields=["delhivery_waybill"])
+
+        response = self.client.get(
+            reverse("admin:orders_order_change", args=[self.order.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Create Shipment")
+
+    @patch("orders.views.DelhiveryService.create_shipment")
+    def test_admin_can_create_shipment_from_order_page(self, mock_create_shipment):
+        mock_create_shipment.return_value = {
+            "success": True,
+            "upload_wbn": "REF123",
+            "packages": [
+                {
+                    "waybill": "WB987654321",
+                    "client": "Test Client",
+                    "status": "Manifested",
+                    "payment": "Prepaid",
+                    "serviceable": True,
+                    "remarks": [],
+                }
+            ],
+        }
+
+        response = self.client.post(
+            reverse("admin:orders_order_create_shipment", args=[self.order.pk]),
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.delhivery_waybill, "WB987654321")
+        self.assertContains(response, "Shipment created for order")
+
+    def test_admin_route_blocks_cancelled_orders(self):
+        self.order.status = "cancelled"
+        self.order.save(update_fields=["status"])
+
+        response = self.client.post(
+            reverse("admin:orders_order_create_shipment", args=[self.order.pk]),
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.delhivery_waybill, "")
+        self.assertContains(
+            response,
+            "Shipment creation is only available for active orders without an existing waybill.",
+        )
