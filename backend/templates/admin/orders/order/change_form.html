@@ -18,4 +18,12 @@
       </form>
     </li>
   {% endif %}
+  {% if show_refresh_tracking_button and refresh_tracking_url %}
+    <li>
+      <form action="{{ refresh_tracking_url }}" method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="button">Refresh Tracking</button>
+      </form>
+    </li>
+  {% endif %}
 {% endblock %}

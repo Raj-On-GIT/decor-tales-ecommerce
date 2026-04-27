@@ -21,6 +21,7 @@ from .models import (
 from .views import (
     create_delhivery_shipment_for_order_id,
     generate_delhivery_shipping_label_for_order_id,
+    refresh_delhivery_tracking_for_order_id,
     summarize_delhivery_shipping_label,
 )
 from utils.delhivery_service import DelhiveryServiceError
@@ -181,8 +182,107 @@ class OrderAdmin(admin.ModelAdmin):
         "shipping_address",
     )
     list_filter = ("status", "created_at", "city")
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "delhivery_tracking_status_label",
+        "delhivery_tracking_status_code",
+        "delhivery_tracking_status_type",
+        "delhivery_last_scan_at",
+        "delhivery_last_scan_location",
+        "delhivery_tracking_synced_at",
+    )
     inlines = [OrderItemInline]
+    fieldsets = (
+        (
+            "Order",
+            {
+                "fields": (
+                    "user",
+                    "order_number",
+                    "status",
+                    "coupon_code",
+                    "subtotal_amount",
+                    "discount_amount",
+                    "total_amount",
+                )
+            },
+        ),
+        (
+            "Payment",
+            {
+                "fields": (
+                    "payment_provider",
+                    "razorpay_order_id",
+                    "razorpay_payment_id",
+                    "razorpay_signature",
+                    "payment_verified_at",
+                    "payment_processed",
+                    "refund_processed",
+                )
+            },
+        ),
+        (
+            "Shipping Details",
+            {
+                "fields": (
+                    "shipping_email",
+                    "shipping_full_name",
+                    "shipping_address",
+                    "city",
+                    "shipping_state",
+                    "shipping_country",
+                    "postal_code",
+                    "phone",
+                )
+            },
+        ),
+        (
+            "Delhivery Shipment",
+            {
+                "fields": (
+                    "delhivery_waybill",
+                    "delhivery_reference",
+                    "delhivery_client_name",
+                    "delhivery_shipment_status",
+                    "delhivery_payment_mode",
+                    "delhivery_created_at",
+                )
+            },
+        ),
+        (
+            "Delhivery Tracking",
+            {
+                "fields": (
+                    "delhivery_tracking_status_label",
+                    "delhivery_tracking_status_code",
+                    "delhivery_tracking_status_type",
+                    "delhivery_last_scan_at",
+                    "delhivery_last_scan_location",
+                    "delhivery_tracking_synced_at",
+                )
+            },
+        ),
+        (
+            "Delhivery Raw Data",
+            {
+                "classes": ("collapse",),
+                "fields": (
+                    "delhivery_raw_response",
+                    "delhivery_tracking_raw_response",
+                ),
+            },
+        ),
+        (
+            "Audit",
+            {
+                "fields": (
+                    "created_at",
+                    "updated_at",
+                )
+            },
+        ),
+    )
 
     def can_create_delhivery_shipment(self, obj):
         if not obj:
@@ -196,6 +296,12 @@ class OrderAdmin(admin.ModelAdmin):
 
         return bool(obj.delhivery_waybill) and obj.status not in {"failed", "cancelled"}
 
+    def can_refresh_delhivery_tracking(self, obj):
+        if not obj:
+            return False
+
+        return bool(obj.delhivery_waybill)
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -208,6 +314,11 @@ class OrderAdmin(admin.ModelAdmin):
                 "<path:object_id>/generate-shipping-label/",
                 self.admin_site.admin_view(self.generate_shipping_label_view),
                 name="orders_order_generate_shipping_label",
+            ),
+            path(
+                "<path:object_id>/refresh-tracking/",
+                self.admin_site.admin_view(self.refresh_tracking_view),
+                name="orders_order_refresh_tracking",
             ),
         ]
         return custom_urls + urls
@@ -227,6 +338,12 @@ class OrderAdmin(admin.ModelAdmin):
                 extra_context["show_generate_shipping_label_button"] = True
                 extra_context["generate_shipping_label_url"] = reverse(
                     "admin:orders_order_generate_shipping_label",
+                    args=[obj.pk],
+                )
+            if obj and self.can_refresh_delhivery_tracking(obj):
+                extra_context["show_refresh_tracking_button"] = True
+                extra_context["refresh_tracking_url"] = reverse(
+                    "admin:orders_order_refresh_tracking",
                     args=[obj.pk],
                 )
 
@@ -331,6 +448,49 @@ class OrderAdmin(admin.ModelAdmin):
             request,
             f"Shipping label generated for order {order.order_number}, but no download link was returned.",
             level=messages.WARNING,
+        )
+        return redirect("admin:orders_order_change", order.pk)
+
+    def refresh_tracking_view(self, request, object_id):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+
+        if not self.has_change_permission(request, obj):
+            self.message_user(
+                request,
+                "You do not have permission to update this order.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        if not self.can_refresh_delhivery_tracking(obj):
+            self.message_user(
+                request,
+                "Tracking refresh is only available for orders with an existing waybill.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        try:
+            order, summary = refresh_delhivery_tracking_for_order_id(obj.pk)
+        except Order.DoesNotExist:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+        except (ValueError, ImproperlyConfigured, DelhiveryServiceError) as exc:
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return redirect("admin:orders_order_change", obj.pk)
+
+        status_label = str((summary.get("status") or {}).get("label") or "").strip()
+        status_suffix = f" Latest status: {status_label}." if status_label else ""
+        self.message_user(
+            request,
+            f"Tracking refreshed for order {order.order_number}.{status_suffix}",
+            level=messages.SUCCESS,
         )
         return redirect("admin:orders_order_change", order.pk)
 

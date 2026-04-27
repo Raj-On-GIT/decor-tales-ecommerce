@@ -493,6 +493,59 @@ def summarize_tracking_response(order, payload):
     }
 
 
+def refresh_delhivery_tracking_for_order_id(order_id):
+    order = Order.objects.get(id=order_id)
+
+    if not order.delhivery_waybill:
+        raise ValueError("Shipment has not been created for this order yet.")
+
+    payload = DelhiveryService().track_shipment(
+        waybill=order.delhivery_waybill,
+        ref_ids=order.order_number,
+    )
+    summary = summarize_tracking_response(order, payload)
+
+    status = summary.get("status") or {}
+    update_fields = [
+        "delhivery_tracking_raw_response",
+        "delhivery_tracking_synced_at",
+        "updated_at",
+    ]
+
+    order.delhivery_tracking_raw_response = payload
+    order.delhivery_tracking_synced_at = timezone.now()
+
+    status_code = str(status.get("code") or "").strip()
+    if status_code:
+        order.delhivery_tracking_status_code = status_code
+        update_fields.append("delhivery_tracking_status_code")
+
+    status_label = str(status.get("label") or "").strip()
+    if status_label:
+        order.delhivery_tracking_status_label = status_label
+        update_fields.append("delhivery_tracking_status_label")
+
+    status_type = str(status.get("type") or "").strip()
+    if status_type:
+        order.delhivery_tracking_status_type = status_type
+        update_fields.append("delhivery_tracking_status_type")
+
+    status_location = str(status.get("location") or "").strip()
+    if status_location:
+        order.delhivery_last_scan_location = status_location
+        update_fields.append("delhivery_last_scan_location")
+
+    status_timestamp = status.get("timestamp")
+    if status_timestamp:
+        parsed_timestamp = parse_datetime(str(status_timestamp).strip())
+        if parsed_timestamp is not None:
+            order.delhivery_last_scan_at = parsed_timestamp
+            update_fields.append("delhivery_last_scan_at")
+
+    order.save(update_fields=list(dict.fromkeys(update_fields)))
+    return order, summary
+
+
 def get_order_item_variant_snapshot(item):
     variant = item.variant
 
@@ -1621,6 +1674,32 @@ def get_delhivery_shipping_label(request):
         return Response({"error": str(exc)}, status=502)
 
     return Response(summarize_delhivery_shipping_label(order, payload))
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def refresh_delhivery_tracking(request):
+    if not request.user.is_staff:
+        return Response({"error": "Forbidden."}, status=403)
+
+    try:
+        order_id = validate_order_id(request.data.get("order_id"))
+        order, summary = refresh_delhivery_tracking_for_order_id(order_id)
+    except Order.DoesNotExist:
+        return Response({"error": "Order not found."}, status=404)
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=400)
+    except ImproperlyConfigured as exc:
+        return Response({"error": str(exc)}, status=500)
+    except DelhiveryServiceError as exc:
+        return Response({"error": str(exc)}, status=502)
+
+    return Response(
+        {
+            **summary,
+            "tracking_synced_at": order.delhivery_tracking_synced_at,
+        }
+    )
 
 
 @api_view(["GET"])

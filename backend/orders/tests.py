@@ -1435,6 +1435,158 @@ class DelhiveryShippingLabelApiTests(TestCase):
 @override_settings(
     DELHIVERY_BASE_URL="https://track.delhivery.test",
     DELHIVERY_API_KEY="test-api-key",
+    SECURE_SSL_REDIRECT=False,
+)
+class DelhiveryTrackingRefreshApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.staff_user = User.objects.create_user(
+            username="tracking-staff",
+            email="tracking-staff@example.com",
+            password="testpass123",
+            is_staff=True,
+        )
+        self.user = User.objects.create_user(
+            username="tracking-user",
+            email="tracking-user@example.com",
+            password="testpass123",
+        )
+        self.category = Category.objects.create(name="Tracking Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Tracking Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Tracking Frame",
+            mrp=Decimal("800.00"),
+            slashed_price=Decimal("700.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("700.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("700.00"),
+            status="paid",
+            shipping_email="tracking@example.com",
+            shipping_full_name="Tracking Customer",
+            shipping_address="123 Tracking Street",
+            city="Delhi",
+            shipping_state="Delhi",
+            shipping_country="India",
+            postal_code="110001",
+            phone="9999999999",
+            delhivery_waybill="85172510000022",
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("700.00"),
+            product_title=self.product.title,
+        )
+
+    def test_refresh_tracking_api_requires_staff_user(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            reverse("refresh_delhivery_tracking"),
+            {"order_id": self.order.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    @patch("orders.views.DelhiveryService.track_shipment")
+    def test_staff_can_refresh_tracking_and_store_fields(self, mock_track_shipment):
+        self.client.force_authenticate(user=self.staff_user)
+        mock_track_shipment.return_value = {
+            "ShipmentData": [
+                {
+                    "Shipment": {
+                        "Status": {
+                            "Status": "In Transit",
+                            "StatusCode": "IT",
+                            "StatusType": "UD",
+                            "StatusLocation": "Delhi Hub",
+                            "StatusDateTime": "2026-04-27T11:30:00+05:30",
+                        },
+                        "Scans": [],
+                    }
+                }
+            ]
+        }
+
+        response = self.client.post(
+            reverse("refresh_delhivery_tracking"),
+            {"order_id": self.order.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.delhivery_tracking_status_code, "IT")
+        self.assertEqual(self.order.delhivery_tracking_status_label, "In Transit")
+        self.assertEqual(self.order.delhivery_tracking_status_type, "UD")
+        self.assertEqual(self.order.delhivery_last_scan_location, "Delhi Hub")
+        self.assertIsNotNone(self.order.delhivery_last_scan_at)
+        self.assertIsNotNone(self.order.delhivery_tracking_synced_at)
+
+    @patch("orders.views.DelhiveryService.track_shipment")
+    def test_refresh_tracking_does_not_overwrite_saved_fields_with_blank_values(
+        self,
+        mock_track_shipment,
+    ):
+        self.client.force_authenticate(user=self.staff_user)
+        self.order.delhivery_tracking_status_code = "OLD"
+        self.order.delhivery_tracking_status_label = "Old Status"
+        self.order.delhivery_tracking_status_type = "OT"
+        self.order.delhivery_last_scan_location = "Old Hub"
+        self.order.save(
+            update_fields=[
+                "delhivery_tracking_status_code",
+                "delhivery_tracking_status_label",
+                "delhivery_tracking_status_type",
+                "delhivery_last_scan_location",
+            ]
+        )
+        mock_track_shipment.return_value = {
+            "ShipmentData": [
+                {
+                    "Shipment": {
+                        "Status": {
+                            "Status": "",
+                            "StatusCode": "",
+                            "StatusType": "",
+                            "StatusLocation": "",
+                            "StatusDateTime": "",
+                        },
+                        "Scans": [],
+                    }
+                }
+            ]
+        }
+
+        response = self.client.post(
+            reverse("refresh_delhivery_tracking"),
+            {"order_id": self.order.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.delhivery_tracking_status_code, "OLD")
+        self.assertEqual(self.order.delhivery_tracking_status_label, "Old Status")
+        self.assertEqual(self.order.delhivery_tracking_status_type, "OT")
+        self.assertEqual(self.order.delhivery_last_scan_location, "Old Hub")
+        self.assertIsNotNone(self.order.delhivery_tracking_synced_at)
+
+
+@override_settings(
+    DELHIVERY_BASE_URL="https://track.delhivery.test",
+    DELHIVERY_API_KEY="test-api-key",
     DELHIVERY_PICKUP_LOCATION="Main Warehouse",
     STORAGES={
         "default": {
@@ -1617,3 +1769,52 @@ class OrderAdminDelhiveryShipmentTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Generate Shipping Label")
+
+    def test_change_page_shows_refresh_tracking_button_when_waybill_exists(self):
+        self.order.delhivery_waybill = "WB123456789"
+        self.order.save(update_fields=["delhivery_waybill"])
+
+        response = self.client.get(
+            reverse("admin:orders_order_change", args=[self.order.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Refresh Tracking")
+        self.assertContains(
+            response,
+            reverse("admin:orders_order_refresh_tracking", args=[self.order.pk]),
+        )
+
+    @patch("orders.views.DelhiveryService.track_shipment")
+    def test_admin_can_refresh_tracking(self, mock_track_shipment):
+        self.order.delhivery_waybill = "WB987654321"
+        self.order.save(update_fields=["delhivery_waybill"])
+        mock_track_shipment.return_value = {
+            "ShipmentData": [
+                {
+                    "Shipment": {
+                        "Status": {
+                            "Status": "Out For Delivery",
+                            "StatusCode": "OFD",
+                            "StatusType": "UD",
+                            "StatusLocation": "Noida",
+                            "StatusDateTime": "2026-04-27T14:00:00+05:30",
+                        },
+                        "Scans": [],
+                    }
+                }
+            ]
+        }
+
+        response = self.client.post(
+            reverse("admin:orders_order_refresh_tracking", args=[self.order.pk]),
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.delhivery_tracking_status_code, "OFD")
+        self.assertEqual(self.order.delhivery_last_scan_location, "Noida")
+        self.assertContains(response, "Tracking refreshed for order")

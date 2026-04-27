@@ -183,7 +183,14 @@ class Order(models.Model):
     delhivery_payment_mode = models.CharField(max_length=50, blank=True)
     delhivery_raw_response = models.JSONField(blank=True, null=True)
     delhivery_created_at = models.DateTimeField(blank=True, null=True)
-    
+    delhivery_tracking_status_code = models.CharField(max_length=50, blank=True)
+    delhivery_tracking_status_label = models.CharField(max_length=255, blank=True)
+    delhivery_tracking_status_type = models.CharField(max_length=50, blank=True)
+    delhivery_last_scan_at = models.DateTimeField(blank=True, null=True)
+    delhivery_last_scan_location = models.CharField(max_length=255, blank=True)
+    delhivery_tracking_raw_response = models.JSONField(blank=True, null=True)
+    delhivery_tracking_synced_at = models.DateTimeField(blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
