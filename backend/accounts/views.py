@@ -2,6 +2,7 @@ import logging
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, parser_classes, throttle_classes
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -29,6 +30,18 @@ import secrets
 from utils.logging_helpers import mask_sensitive
 
 logger = logging.getLogger(__name__)
+
+
+def reject_non_storefront_session_auth(request):
+    successful_authenticator = getattr(request, "successful_authenticator", None)
+
+    if isinstance(successful_authenticator, SessionAuthentication):
+        return Response(
+            {"error": "Storefront authentication is required."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    return None
 
 
 # ============================================================================
@@ -223,6 +236,10 @@ class LoginView(APIView):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_profile(request):
+    storefront_auth_error = reject_non_storefront_session_auth(request)
+    if storefront_auth_error is not None:
+        return storefront_auth_error
+
     serializer = ProfileSerializer(request.user)
     return Response(serializer.data)
 
@@ -230,6 +247,10 @@ def get_profile(request):
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 def update_profile(request):
+    storefront_auth_error = reject_non_storefront_session_auth(request)
+    if storefront_auth_error is not None:
+        return storefront_auth_error
+
     data = {
         "first_name": request.data.get("first_name"),
         "last_name": request.data.get("last_name"),
@@ -263,6 +284,10 @@ def update_profile(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_addresses(request):
+    storefront_auth_error = reject_non_storefront_session_auth(request)
+    if storefront_auth_error is not None:
+        return storefront_auth_error
+
     addresses = Address.objects.filter(user=request.user).order_by("-is_default", "-created_at")
     serializer = AddressSerializer(addresses, many=True)
     return Response(serializer.data)
@@ -271,6 +296,10 @@ def get_addresses(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_address(request):
+    storefront_auth_error = reject_non_storefront_session_auth(request)
+    if storefront_auth_error is not None:
+        return storefront_auth_error
+
     serializer = AddressSerializer(data=request.data, context={"request": request})
     if serializer.is_valid():
         serializer.save()
@@ -281,6 +310,10 @@ def create_address(request):
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def update_address(request, address_id):
+    storefront_auth_error = reject_non_storefront_session_auth(request)
+    if storefront_auth_error is not None:
+        return storefront_auth_error
+
     try:
         address = Address.objects.get(id=address_id, user=request.user)
     except Address.DoesNotExist:
@@ -296,6 +329,10 @@ def update_address(request, address_id):
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def delete_address(request, address_id):
+    storefront_auth_error = reject_non_storefront_session_auth(request)
+    if storefront_auth_error is not None:
+        return storefront_auth_error
+
     try:
         address = Address.objects.get(id=address_id, user=request.user)
     except Address.DoesNotExist:
@@ -349,6 +386,10 @@ def reset_password_view(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def change_password_view(request):
+    storefront_auth_error = reject_non_storefront_session_auth(request)
+    if storefront_auth_error is not None:
+        return storefront_auth_error
+
     serializer = ChangePasswordSerializer(
         data=request.data,
         context={"request": request},

@@ -4,7 +4,7 @@ import tempfile
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.core.cache import cache
 from PIL import Image
@@ -105,6 +105,7 @@ class GoogleAuthTests(TestCase):
         self.assertTrue(User.objects.filter(email="google@example.com").exists())
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class CookieAuthTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -159,6 +160,47 @@ class CookieAuthTests(TestCase):
         self.assertEqual(refresh_response.status_code, 200)
         self.assertIn("access_token", refresh_response.cookies)
         self.assertIn("refresh_token", refresh_response.cookies)
+
+    def test_profile_allows_storefront_jwt_cookie_auth(self):
+        csrf_response = self.client.get(reverse("csrf_token"))
+        csrf_token = csrf_response.cookies["csrftoken"].value
+
+        login_response = self.client.post(
+            reverse("login"),
+            {
+                "username": "cookie@example.com",
+                "password": "testpass123",
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.client.cookies["access_token"] = login_response.cookies["access_token"].value
+        self.client.cookies["refresh_token"] = login_response.cookies["refresh_token"].value
+
+        profile_response = self.client.get(
+            "/api/accounts/profile/",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(profile_response.status_code, 200)
+        self.assertEqual(profile_response.data["email"], "cookie@example.com")
+
+    def test_profile_rejects_django_session_auth(self):
+        self.assertTrue(
+            self.client.login(
+                username="cookie-user",
+                password="testpass123",
+            )
+        )
+
+        response = self.client.get("/api/accounts/profile/")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(
+            response.data["error"],
+            "Storefront authentication is required.",
+        )
 
 
 class AdditionalAuthThrottleTests(TestCase):

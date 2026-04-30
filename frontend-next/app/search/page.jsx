@@ -1,6 +1,5 @@
 import ProductCard from "@/components/ProductCard";
 import BrowseByCategoryClient from "@/components/BrowseByCategoryClient";
-import ViewportReveal from "@/components/ViewportReveal";
 import { MIN_SEARCH_QUERY_LENGTH, searchProducts } from "@/lib/api";
 import { sortProductsInStockFirst } from "@/lib/utils";
 import Link from "next/link";
@@ -110,14 +109,11 @@ export default async function SearchPage({ searchParams }) {
                   {results.meta?.products_total || sortedProducts.length} matching products
                 </p>
               </div>
-              <ViewportReveal
-                stagger
-                className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:gap-6 lg:grid-cols-4"
-              >
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:gap-6 lg:grid-cols-4">
                 {sortedProducts.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
-              </ViewportReveal>
+              </div>
             </div>
           )}
         </div>
