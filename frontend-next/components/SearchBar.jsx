@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { MIN_SEARCH_QUERY_LENGTH, searchProducts } from "@/lib/api";
+import { formatPrice } from "@/lib/formatPrice";
 import { Search, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -277,43 +278,70 @@ export default function SearchBar({ isOpen, onClose }) {
                     <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 bg-black/5 border-b border-gray-200">
                       Products
                     </div>
-                    {results.products.map((product, index) => (
-                      <motion.button
-                        key={product.id}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.04 }}
-                        onClick={() => navigate(`/products/${product.id}`)}
-                        className={getItemClassName(
-                          index,
-                          "flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left transition last:border-0",
-                        )}
-                      >
-                        {product.image ? (
-                          <Image
-                            src={product.image}
-                            alt={product.title}
-                            width={48}
-                            height={48}
-                            unoptimized
-                            className="h-12 w-12 flex-shrink-0 rounded border border-gray-200 object-cover"
-                          />
-                        ) : (
-                          <div className="h-12 w-12 flex-shrink-0 rounded border border-gray-200 bg-white/70" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium text-gray-900">
-                            {product.title}
+                    {results.products.map((product, index) => {
+                      const primaryVariant = product.variants
+                        ?.filter((variant) => variant.stock > 0)
+                        ?.sort(
+                          (left, right) =>
+                            (left.slashed_price || left.mrp) - (right.slashed_price || right.mrp),
+                        )?.[0];
+                      const currentPrice =
+                        product.slashed_price ||
+                        product.mrp ||
+                        primaryVariant?.slashed_price ||
+                        primaryVariant?.mrp;
+                      const originalPrice =
+                        product.slashed_price
+                          ? product.mrp
+                          : primaryVariant?.slashed_price
+                            ? primaryVariant?.mrp
+                            : null;
+
+                      return (
+                        <motion.button
+                          key={product.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.04 }}
+                          onClick={() => navigate(`/products/${product.id}`)}
+                          className={getItemClassName(
+                            index,
+                            "flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left transition last:border-0",
+                          )}
+                        >
+                          {product.image ? (
+                            <Image
+                              src={product.image}
+                              alt={product.title}
+                              width={48}
+                              height={48}
+                              unoptimized
+                              className="h-12 w-12 flex-shrink-0 rounded border border-gray-200 object-cover"
+                            />
+                          ) : (
+                            <div className="h-12 w-12 flex-shrink-0 rounded border border-gray-200 bg-white/70" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium text-gray-900">
+                              {product.title}
+                            </div>
+                            <div className="mt-0.5 text-xs text-gray-500">
+                              {product.category?.name}
+                            </div>
                           </div>
-                          <div className="mt-0.5 text-xs text-gray-500">
-                            {product.category?.name}
+                          <div className="flex flex-col items-end gap-0.5 text-right">
+                            {originalPrice ? (
+                              <span className="text-xs text-gray-500 line-through">
+                                Rs {formatPrice(originalPrice)}
+                              </span>
+                            ) : null}
+                            <span className="flex-shrink-0 text-sm font-semibold text-gray-900">
+                              Rs {formatPrice(currentPrice)}
+                            </span>
                           </div>
-                        </div>
-                        <div className="flex-shrink-0 text-sm font-semibold text-gray-900">
-                          Rs. {product.mrp || product.variants?.[0]?.mrp}
-                        </div>
-                      </motion.button>
-                    ))}
+                        </motion.button>
+                      );
+                    })}
                   </div>
                 )}
 
