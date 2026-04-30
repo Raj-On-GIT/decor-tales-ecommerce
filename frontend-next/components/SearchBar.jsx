@@ -1,55 +1,72 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { searchProducts } from "@/lib/api";
+import { MIN_SEARCH_QUERY_LENGTH, searchProducts } from "@/lib/api";
 import { Search, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 
-export default function SearchBar({ isOpen, onClose, isMobile = false }) {
+export default function SearchBar({ isOpen, onClose }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   const inputRef = useRef(null);
   const containerRef = useRef(null);
   const latestQueryRef = useRef("");
   const router = useRouter();
+
   const handleClose = useCallback(() => {
     setQuery("");
     setResults(null);
+    setLoading(false);
+    setError("");
+    setHighlightedIndex(-1);
     onClose();
   }, [onClose]);
 
-  // Focus input
   useEffect(() => {
     if (!isOpen) return;
+
     const timer = setTimeout(() => {
       inputRef.current?.focus();
     }, 200);
-    return () => clearTimeout(timer);
-  }, [handleClose, isOpen]);
 
-  // Debounced search with race protection
+    return () => clearTimeout(timer);
+  }, [isOpen]);
+
   useEffect(() => {
-    if (!query || query.length < 3) {
+    const normalizedQuery = query.trim();
+
+    if (!normalizedQuery || normalizedQuery.length < MIN_SEARCH_QUERY_LENGTH) {
       setResults(null);
+      setLoading(false);
+      setError("");
+      setHighlightedIndex(-1);
       return;
     }
 
-    latestQueryRef.current = query;
+    latestQueryRef.current = normalizedQuery;
     setLoading(true);
+    setError("");
 
     const timer = setTimeout(async () => {
       try {
-        const data = await searchProducts(query);
-        if (latestQueryRef.current === query) {
+        const data = await searchProducts(normalizedQuery);
+        if (latestQueryRef.current === normalizedQuery) {
           setResults(data);
         }
-      } catch (error) {
-        console.error("Search error:", error);
+      } catch (fetchError) {
+        console.error("Search error:", fetchError);
+        if (latestQueryRef.current === normalizedQuery) {
+          setResults(null);
+          setError("Search is unavailable right now.");
+        }
       } finally {
-        if (latestQueryRef.current === query) {
+        if (latestQueryRef.current === normalizedQuery) {
           setLoading(false);
         }
       }
@@ -58,13 +75,16 @@ export default function SearchBar({ isOpen, onClose, isMobile = false }) {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Close on outside click
+  useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [query, results]);
+
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClickOutside = (e) => {
+    const handleClickOutside = (event) => {
       if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target)) {
+      if (!containerRef.current.contains(event.target)) {
         handleClose();
       }
     };
@@ -74,60 +94,129 @@ export default function SearchBar({ isOpen, onClose, isMobile = false }) {
       document.removeEventListener("mousedown", handleClickOutside);
   }, [handleClose, isOpen]);
 
-  // Close on escape
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleEscape = (e) => {
-      if (e.key === "Escape") handleClose();
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        handleClose();
+      }
     };
 
     document.addEventListener("keydown", handleEscape);
-    return () =>
-      document.removeEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
   }, [handleClose, isOpen]);
 
-  const navigate = (path) => {
-    handleClose();
-    router.push(path);
-  };
+  const navigate = useCallback(
+    (path) => {
+      handleClose();
+      router.push(path);
+    },
+    [handleClose, router],
+  );
 
-  const handleSubcategoryClick = (subcategory) => {
-    const categorySlug =
-      typeof subcategory.category === "object"
-        ? subcategory.category?.slug
-        : null;
+  const navigateToFullResults = useCallback(() => {
+    const normalizedQuery = query.trim();
 
-    const path = categorySlug
-      ? `/catalog/${categorySlug}/${subcategory.slug}`
-      : `/catalog/all/${subcategory.slug}`;
+    if (normalizedQuery.length < MIN_SEARCH_QUERY_LENGTH) {
+      return;
+    }
 
-    navigate(path);
-  };
+    navigate(`/search?q=${encodeURIComponent(normalizedQuery)}`);
+  }, [navigate, query]);
+
+  const handleSubcategoryClick = useCallback(
+    (subcategory) => {
+      const categorySlug =
+        typeof subcategory.category === "object"
+          ? subcategory.category?.slug
+          : null;
+
+      const path = categorySlug
+        ? `/catalog/${categorySlug}/${subcategory.slug}`
+        : "/catalog";
+
+      navigate(path);
+    },
+    [navigate],
+  );
 
   const totalResults = results
     ? (results.products?.length || 0) +
       (results.categories?.length || 0) +
       (results.subcategories?.length || 0)
     : 0;
+  const totalMatches = results
+    ? (results.meta?.products_total || 0) +
+      (results.meta?.categories_total || 0) +
+      (results.meta?.subcategories_total || 0)
+    : 0;
+  const flattenedResults = [
+    ...(results?.products || []).map((product) => ({
+      key: `product-${product.id}`,
+      action: () => navigate(`/products/${product.id}`),
+    })),
+    ...(results?.categories || []).map((category) => ({
+      key: `category-${category.id}`,
+      action: () => navigate(`/catalog/${category.slug}`),
+    })),
+    ...(results?.subcategories || []).map((subcategory) => ({
+      key: `subcategory-${subcategory.id}`,
+      action: () => handleSubcategoryClick(subcategory),
+    })),
+    ...(query.trim().length >= MIN_SEARCH_QUERY_LENGTH && totalMatches > 0
+      ? [{ key: "view-all", action: navigateToFullResults }]
+      : []),
+  ];
+
+  const getItemClassName = (index, baseClassName) =>
+    `${baseClassName} ${
+      highlightedIndex === index ? "bg-white/80" : "hover:bg-white/60"
+    }`;
+
+  const handleKeyDown = (event) => {
+    if (event.key === "ArrowDown") {
+      if (!flattenedResults.length) return;
+
+      event.preventDefault();
+      setHighlightedIndex((currentIndex) =>
+        currentIndex < flattenedResults.length - 1 ? currentIndex + 1 : 0,
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      if (!flattenedResults.length) return;
+
+      event.preventDefault();
+      setHighlightedIndex((currentIndex) =>
+        currentIndex > 0 ? currentIndex - 1 : flattenedResults.length - 1,
+      );
+      return;
+    }
+
+    if (event.key === "Enter") {
+      if (highlightedIndex >= 0 && flattenedResults[highlightedIndex]) {
+        event.preventDefault();
+        flattenedResults[highlightedIndex].action();
+        return;
+      }
+
+      if (query.trim().length >= MIN_SEARCH_QUERY_LENGTH) {
+        event.preventDefault();
+        navigateToFullResults();
+      }
+    }
+  };
 
   return (
-    <div
-      ref={containerRef}
-      className={`relative flex items-center ${
-        isMobile ? "w-full md:w-auto" : ""
-      }`}
-    >
-
-      {/* Animated input container */}
+    <div ref={containerRef} className="relative flex w-full items-center md:w-auto">
       <motion.div
         initial={{ width: 0, opacity: 0 }}
-        animate={{ width: isMobile ? "100%" : "280px", opacity: 1 }}
+        animate={{ width: "100%", opacity: 1 }}
         exit={{ width: 0, opacity: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className={`flex items-center gap-2 overflow-hidden border-b-2 border-gray-900 pb-1 origin-right ${
-          isMobile ? "w-full" : ""
-        }`}
+        className="flex w-full items-center gap-2 overflow-hidden border-b-2 border-gray-900 pb-1 origin-right md:w-[280px]"
       >
         <motion.div
           initial={{ opacity: 0, x: 10 }}
@@ -142,13 +231,12 @@ export default function SearchBar({ isOpen, onClose, isMobile = false }) {
           type="text"
           placeholder="Search..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={handleKeyDown}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.25 }}
-          className="flex-1 bg-transparent border-none outline-none
-                     text-gray-900 placeholder:text-gray-400
-                     text-sm font-medium w-full"
+          className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-gray-900 placeholder:text-gray-400 w-full"
         />
 
         <motion.button
@@ -156,127 +244,159 @@ export default function SearchBar({ isOpen, onClose, isMobile = false }) {
           animate={{ opacity: 1, rotate: 0 }}
           transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
           onClick={handleClose}
-          className="text-gray-400 hover:text-gray-700 flex-shrink-0 ml-1"
+          className="ml-1 text-gray-400 hover:text-gray-700 flex-shrink-0"
         >
           <X size={16} />
         </motion.button>
       </motion.div>
 
-      {/* Results dropdown */}
       <AnimatePresence>
-        {query.length >= 3 && (
+        {query.trim().length >= MIN_SEARCH_QUERY_LENGTH && (
           <motion.div
             initial={{ opacity: 0, y: -8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className={`absolute top-full right-0 mt-3 w-96 max-w-[calc(100vw-2rem)]
-                       bg-[#F0FFDF] border border-gray-200 rounded-lg shadow-xl
-                       max-h-96 overflow-y-auto z-50 ${
-                         isMobile ? "left-0 right-auto w-full max-w-none" : ""
-                       }`}
+            className="absolute top-full left-0 right-0 z-50 mt-3 max-h-96 overflow-y-auto rounded-lg border border-gray-200 bg-[#F0FFDF] shadow-xl md:left-auto md:right-0 md:w-96"
           >
             {loading ? (
-            <div className="p-6 flex items-center justify-center gap-3 text-gray-500 text-sm">
-              <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin"></div>
-              <span>Searching...</span>
-            </div>
-          ) : totalResults === 0 ? (
-              <div className="p-6 text-center text-gray-500 text-sm">
+              <div className="flex items-center justify-center gap-3 p-6 text-sm text-gray-500">
+                <div className="h-4 w-4 rounded-full border-2 border-gray-300 border-t-gray-800 animate-spin"></div>
+                <span>Searching...</span>
+              </div>
+            ) : error ? (
+              <div className="p-6 text-center text-sm text-red-600">{error}</div>
+            ) : totalResults === 0 ? (
+              <div className="p-6 text-center text-sm text-gray-500">
                 No results for &quot;{query}&quot;
               </div>
             ) : (
               <>
-                {/* Products */}
                 {results.products?.length > 0 && (
                   <div>
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-black/5 border-b border-gray-200">
+                    <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 bg-black/5 border-b border-gray-200">
                       Products
                     </div>
-                    {results.products.map((product, i) => (
+                    {results.products.map((product, index) => (
                       <motion.button
                         key={product.id}
                         initial={{ opacity: 0, x: -8 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.04 }}
+                        transition={{ delay: index * 0.04 }}
                         onClick={() => navigate(`/products/${product.id}`)}
-                        className="w-full px-4 py-3 flex items-center gap-3 
-                                   hover:bg-white/60 transition text-left border-b border-gray-100 last:border-0"
+                        className={getItemClassName(
+                          index,
+                          "flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left transition last:border-0",
+                        )}
                       >
-                        <img
-                          src={product.image}
-                          alt={product.title}
-                          className="w-12 h-12 object-cover rounded border border-gray-200 flex-shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-gray-900 text-sm truncate">
+                        {product.image ? (
+                          <Image
+                            src={product.image}
+                            alt={product.title}
+                            width={48}
+                            height={48}
+                            unoptimized
+                            className="h-12 w-12 flex-shrink-0 rounded border border-gray-200 object-cover"
+                          />
+                        ) : (
+                          <div className="h-12 w-12 flex-shrink-0 rounded border border-gray-200 bg-white/70" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium text-gray-900">
                             {product.title}
                           </div>
-                          <div className="text-xs text-gray-500 mt-0.5">
+                          <div className="mt-0.5 text-xs text-gray-500">
                             {product.category?.name}
                           </div>
                         </div>
-                        <div className="font-semibold text-gray-900 text-sm flex-shrink-0">
-                          ₹{product.mrp || product.variants?.[0]?.mrp}
+                        <div className="flex-shrink-0 text-sm font-semibold text-gray-900">
+                          Rs. {product.mrp || product.variants?.[0]?.mrp}
                         </div>
                       </motion.button>
                     ))}
                   </div>
                 )}
 
-                {/* Categories */}
                 {results.categories?.length > 0 && (
                   <div>
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-black/5 border-b border-gray-200">
+                    <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 bg-black/5 border-b border-gray-200">
                       Categories
                     </div>
-                    {results.categories.map((category, i) => (
-                      <motion.button
-                        key={category.id}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.04 }}
-                        onClick={() => navigate(`/catalog/${category.slug}`)}
-                        className="w-full px-4 py-2.5 text-left hover:bg-white/60 transition border-b border-gray-100 last:border-0"
-                      >
-                        <div className="font-medium text-gray-900 text-sm">
-                          {category.name}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {category.productCount} products
-                        </div>
-                      </motion.button>
-                    ))}
+                    {results.categories.map((category, index) => {
+                      const itemIndex = (results.products?.length || 0) + index;
+
+                      return (
+                        <motion.button
+                          key={category.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.04 }}
+                          onClick={() => navigate(`/catalog/${category.slug}`)}
+                          className={getItemClassName(
+                            itemIndex,
+                            "w-full border-b border-gray-100 px-4 py-2.5 text-left transition last:border-0",
+                          )}
+                        >
+                          <div className="text-sm font-medium text-gray-900">
+                            {category.name}
+                          </div>
+                          <div className="mt-0.5 text-xs text-gray-500">
+                            {category.productCount} products
+                          </div>
+                        </motion.button>
+                      );
+                    })}
                   </div>
                 )}
 
-                {/* Subcategories */}
                 {results.subcategories?.length > 0 && (
                   <div>
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-black/5 border-b border-gray-200">
+                    <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 bg-black/5 border-b border-gray-200">
                       Subcategories
                     </div>
-                    {results.subcategories.map((subcategory, i) => (
-                      <motion.button
-                        key={subcategory.id}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.04 }}
-                        onClick={() => handleSubcategoryClick(subcategory)}
-                        className="w-full px-4 py-2.5 text-left hover:bg-white/60 transition border-b border-gray-100 last:border-0"
-                      >
-                        <div className="font-medium text-gray-900 text-sm">
-                          {subcategory.name}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {typeof subcategory.category === "object" &&
-                          subcategory.category?.name
-                            ? `in ${subcategory.category.name}`
-                            : "View products"}
-                        </div>
-                      </motion.button>
-                    ))}
+                    {results.subcategories.map((subcategory, index) => {
+                      const itemIndex =
+                        (results.products?.length || 0) +
+                        (results.categories?.length || 0) +
+                        index;
+
+                      return (
+                        <motion.button
+                          key={subcategory.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.04 }}
+                          onClick={() => handleSubcategoryClick(subcategory)}
+                          className={getItemClassName(
+                            itemIndex,
+                            "w-full border-b border-gray-100 px-4 py-2.5 text-left transition last:border-0",
+                          )}
+                        >
+                          <div className="text-sm font-medium text-gray-900">
+                            {subcategory.name}
+                          </div>
+                          <div className="mt-0.5 text-xs text-gray-500">
+                            {subcategory.category?.name
+                              ? `in ${subcategory.category.name}`
+                              : "View products"}
+                          </div>
+                        </motion.button>
+                      );
+                    })}
                   </div>
+                )}
+
+                {totalMatches > 0 && (
+                  <button
+                    type="button"
+                    onClick={navigateToFullResults}
+                    className={getItemClassName(
+                      flattenedResults.length - 1,
+                      "w-full border-t border-gray-200 px-4 py-3 text-left text-sm font-semibold text-gray-900 transition",
+                    )}
+                  >
+                    View all {totalMatches} results
+                  </button>
                 )}
               </>
             )}

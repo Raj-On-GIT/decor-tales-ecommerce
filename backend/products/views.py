@@ -229,38 +229,169 @@ class SearchView(APIView):
     Search across products, categories, and subcategories
     GET /api/search/?q=query
     """
+    DEFAULT_PRODUCT_LIMIT = 10
+    DEFAULT_CATEGORY_LIMIT = 5
+    DEFAULT_SUBCATEGORY_LIMIT = 5
+
+    def _parse_limit(self, raw_value, default):
+        if raw_value is None or raw_value == "":
+            return default
+
+        if isinstance(raw_value, str) and raw_value.lower() == "all":
+            return None
+
+        try:
+            parsed_value = int(raw_value)
+        except (TypeError, ValueError):
+            return default
+
+        return max(parsed_value, 0)
+
     def get(self, request):
-        query = request.GET.get('q', '').strip()
-        
+        query = request.GET.get("q", "").strip()
+
         if not query or len(query) < 2:
             return Response({
-                'products': [],
-                'categories': [],
-                'subcategories': []
+                "products": [],
+                "categories": [],
+                "subcategories": [],
+                "query": query,
+                "meta": {
+                    "products_total": 0,
+                    "categories_total": 0,
+                    "subcategories_total": 0,
+                    "products_has_more": False,
+                    "categories_has_more": False,
+                    "subcategories_has_more": False,
+                },
             })
-        
-        # Search products by title, description, category, subcategory
-        products = Product.objects.filter(
-            Q(title__icontains=query) |
-            Q(description__icontains=query) |
-            Q(category__name__icontains=query) |
-            Q(sub_category__name__icontains=query),
-            is_active=True
-        ).select_related('category', 'sub_category').distinct().order_by("-created_at", "-id")[:10]
-        
-        # Search categories
-        categories = Category.objects.filter(
-            name__icontains=query
-        ).order_by("name", "id")[:5]
-        
-        # Search subcategories
-        subcategories = SubCategory.objects.filter(
-            name__icontains=query
-        ).select_related('category').order_by("name", "id")[:5]
-        
+
+        product_limit = self._parse_limit(
+            request.GET.get("products_limit"),
+            self.DEFAULT_PRODUCT_LIMIT,
+        )
+        category_limit = self._parse_limit(
+            request.GET.get("categories_limit"),
+            self.DEFAULT_CATEGORY_LIMIT,
+        )
+        subcategory_limit = self._parse_limit(
+            request.GET.get("subcategories_limit"),
+            self.DEFAULT_SUBCATEGORY_LIMIT,
+        )
+
+        product_queryset = (
+            Product.objects.filter(
+                Q(title__icontains=query)
+                | Q(description__icontains=query)
+                | Q(category__name__icontains=query)
+                | Q(sub_category__name__icontains=query),
+                is_active=True,
+            )
+            .select_related("category", "sub_category")
+            .prefetch_related("images", "variants")
+            .annotate(
+                relevance=Case(
+                    When(title__iexact=query, then=Value(0)),
+                    When(title__istartswith=query, then=Value(1)),
+                    When(category__name__iexact=query, then=Value(2)),
+                    When(sub_category__name__iexact=query, then=Value(3)),
+                    When(title__icontains=query, then=Value(4)),
+                    When(category__name__icontains=query, then=Value(5)),
+                    When(sub_category__name__icontains=query, then=Value(6)),
+                    When(description__icontains=query, then=Value(7)),
+                    default=Value(8),
+                    output_field=IntegerField(),
+                )
+            )
+            .distinct()
+            .order_by("relevance", "-created_at", "-id")
+        )
+
+        category_queryset = (
+            Category.objects.filter(name__icontains=query)
+            .annotate(
+                relevance=Case(
+                    When(name__iexact=query, then=Value(0)),
+                    When(name__istartswith=query, then=Value(1)),
+                    default=Value(2),
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by("relevance", "name", "id")
+        )
+
+        subcategory_queryset = (
+            SubCategory.objects.filter(name__icontains=query)
+            .select_related("category")
+            .annotate(
+                productCount=Count("products", filter=Q(products__is_active=True)),
+                relevance=Case(
+                    When(name__iexact=query, then=Value(0)),
+                    When(name__istartswith=query, then=Value(1)),
+                    default=Value(2),
+                    output_field=IntegerField(),
+                ),
+            )
+            .filter(productCount__gt=0)
+            .order_by("relevance", "name", "id")
+        )
+
+        products_total = product_queryset.count()
+        categories_total = category_queryset.count()
+        subcategories_total = subcategory_queryset.count()
+
+        products = (
+            product_queryset
+            if product_limit is None
+            else product_queryset[:product_limit]
+        )
+        categories = (
+            category_queryset
+            if category_limit is None
+            else category_queryset[:category_limit]
+        )
+        subcategories = (
+            subcategory_queryset
+            if subcategory_limit is None
+            else subcategory_queryset[:subcategory_limit]
+        )
+
+        products_count = products_total if product_limit is None else len(products)
+        categories_count = categories_total if category_limit is None else len(categories)
+        subcategories_count = (
+            subcategories_total if subcategory_limit is None else len(subcategories)
+        )
+
         return Response({
-            'products': ProductSerializer(products, many=True, context={'request': request}).data,
-            'categories': CategorySerializer(categories, many=True, context={'request': request}).data,
-            'subcategories': SubCategorySerializer(subcategories, many=True, context={'request': request}).data,
-            'query': query
+            "products": ProductSerializer(
+                products,
+                many=True,
+                context={"request": request},
+            ).data,
+            "categories": CategorySerializer(
+                categories,
+                many=True,
+                context={"request": request},
+            ).data,
+            "subcategories": SubCategorySerializer(
+                subcategories,
+                many=True,
+                context={"request": request},
+            ).data,
+            "query": query,
+            "meta": {
+                "products_total": products_total,
+                "categories_total": categories_total,
+                "subcategories_total": subcategories_total,
+                "products_has_more": (
+                    product_limit is not None and products_total > products_count
+                ),
+                "categories_has_more": (
+                    category_limit is not None and categories_total > categories_count
+                ),
+                "subcategories_has_more": (
+                    subcategory_limit is not None
+                    and subcategories_total > subcategories_count
+                ),
+            },
         })

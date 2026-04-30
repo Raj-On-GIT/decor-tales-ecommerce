@@ -72,11 +72,6 @@ export default function Header() {
     return () => window.removeEventListener("user-login", handleLogin);
   }, []);
 
-  useEffect(() => {
-    if (isCheckoutPage) {
-      setIsCartOpen(false);
-    }
-  }, [isCheckoutPage]);
   /**
    * Handle logout
    * Calls logout() from AuthContext which:
@@ -165,7 +160,6 @@ export default function Header() {
                   key="searchbar"
                   isOpen={isSearchOpen}
                   onClose={() => setIsSearchOpen(false)}
-                  isMobile={true}
                 />
               ) : (
                 <motion.button

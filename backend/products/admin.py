@@ -1,7 +1,11 @@
 from django.contrib import admin
+from django.contrib import messages
 from django import forms
 from django.db.models import IntegerField, Sum, Value
 from django.db.models.functions import Coalesce
+from django.http import HttpResponseNotAllowed
+from django.shortcuts import redirect
+from django.urls import path, reverse
 from .models import Banner, Category, SubCategory, Product, ProductVariant, ProductImage, Size, Color
 
 class ProductImageInline(admin.TabularInline):
@@ -131,6 +135,7 @@ class ProductAdmin(admin.ModelAdmin):
     list_filter = ['stock_type', 'is_active', 'category']
     inlines = [ProductVariantInline, ProductImageInline]
     prepopulated_fields = {'slug': ('title',)}
+    actions = ["archive_selected_products"]
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
@@ -158,7 +163,20 @@ class ProductAdmin(admin.ModelAdmin):
                 'fields': ('stock_type', 'stock', 'mrp', 'slashed_price', 'discount_percent')
             }),
         )
+        if obj:
+            fieldsets += (
+                ("Deletion", {
+                    "fields": ("deletion_status",),
+                    "description": "Products can be permanently deleted only when they are not referenced in carts, orders, or stock reservations.",
+                }),
+            )
         return fieldsets
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        if obj:
+            readonly_fields.append("deletion_status")
+        return readonly_fields
     
     class Media:
         css = {'all': ('admin/css/admin_custom.css',)}
@@ -180,12 +198,147 @@ class ProductAdmin(admin.ModelAdmin):
         return getattr(obj, "variant_stock_total", 0)
     get_total_stock.short_description = 'Total Stock'
 
+    def deletion_status(self, obj):
+        blockers = obj.get_delete_blockers()
+        if not blockers:
+            return "Eligible for permanent delete."
+
+        blocker_text = ", ".join(blockers)
+        return f"Archive only. Permanent delete blocked by: {blocker_text}."
+    deletion_status.short_description = "Deletion status"
+
     def delete_model(self, request, obj):
         obj.delete()
 
     def delete_queryset(self, request, queryset):
         for product in queryset:
             product.delete()
+
+    @admin.action(description="Archive selected products")
+    def archive_selected_products(self, request, queryset):
+        archived_count = 0
+        already_archived_count = 0
+
+        for product in queryset:
+            if product.is_active:
+                product.archive()
+                archived_count += 1
+            else:
+                already_archived_count += 1
+
+        if archived_count:
+            self.message_user(
+                request,
+                f"Archived {archived_count} product(s).",
+                level=messages.SUCCESS,
+            )
+
+        if already_archived_count:
+            self.message_user(
+                request,
+                f"{already_archived_count} product(s) were already archived.",
+                level=messages.INFO,
+            )
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+        return actions
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:object_id>/archive/",
+                self.admin_site.admin_view(self.archive_product_view),
+                name="products_product_archive",
+            ),
+            path(
+                "<path:object_id>/permanently-delete/",
+                self.admin_site.admin_view(self.permanently_delete_product_view),
+                name="products_product_permanently_delete",
+            ),
+        ]
+        return custom_urls + urls
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+
+        if object_id:
+            product = self.get_object(request, object_id)
+            if product:
+                extra_context["archive_product_url"] = reverse(
+                    "admin:products_product_archive",
+                    args=[product.pk],
+                )
+                extra_context["show_permanent_delete_button"] = product.can_hard_delete()
+                if product.can_hard_delete():
+                    extra_context["permanent_delete_product_url"] = reverse(
+                        "admin:products_product_delete",
+                        args=[product.pk],
+                    )
+                extra_context["show_delete"] = False
+
+        return super().changeform_view(
+            request,
+            object_id=object_id,
+            form_url=form_url,
+            extra_context=extra_context,
+        )
+
+    def archive_product_view(self, request, object_id):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        product = self.get_object(request, object_id)
+        if not product:
+            self.message_user(request, "Product not found.", level=messages.ERROR)
+            return redirect("admin:products_product_changelist")
+
+        was_active = product.is_active
+        product.archive()
+
+        if was_active:
+            self.message_user(
+                request,
+                f'"{product.title}" has been archived.',
+                level=messages.SUCCESS,
+            )
+        else:
+            self.message_user(
+                request,
+                f'"{product.title}" is already archived.',
+                level=messages.INFO,
+            )
+
+        return redirect("admin:products_product_change", product.pk)
+
+    def permanently_delete_product_view(self, request, object_id):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        product = self.get_object(request, object_id)
+        if not product:
+            self.message_user(request, "Product not found.", level=messages.ERROR)
+            return redirect("admin:products_product_changelist")
+
+        blockers = product.get_delete_blockers()
+        if blockers:
+            self.message_user(
+                request,
+                f'Cannot permanently delete "{product.title}". Blocked by: {", ".join(blockers)}.',
+                level=messages.ERROR,
+            )
+            return redirect("admin:products_product_change", product.pk)
+
+        product_title = product.title
+        product.delete()
+        self.message_user(
+            request,
+            f'"{product_title}" has been permanently deleted.',
+            level=messages.SUCCESS,
+        )
+        return redirect("admin:products_product_changelist")
 
 @admin.register(Size)
 class SizeAdmin(admin.ModelAdmin):

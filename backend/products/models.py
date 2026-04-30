@@ -237,11 +237,31 @@ class Product(models.Model):
     def __str__(self):
         return self.title
 
+    def get_delete_blockers(self):
+        blockers = []
+
+        if self.orderitem_set.exists():
+            blockers.append("order history")
+
+        if self.cartitem_set.exists():
+            blockers.append("shopping carts")
+
+        if self.stockreservation_set.exists():
+            blockers.append("stock reservations")
+
+        return blockers
+
+    def can_hard_delete(self):
+        return not self.get_delete_blockers()
+
+    def archive(self):
+        if self.is_active:
+            self.is_active = False
+            self.save(update_fields=["is_active"])
+
     def delete(self, using=None, keep_parents=False):
-        if self.orderitem_set.exists() or self.stockreservation_set.exists():
-            if self.is_active:
-                self.is_active = False
-                self.save(update_fields=["is_active"])
+        if not self.can_hard_delete():
+            self.archive()
             return
         return super().delete(using=using, keep_parents=keep_parents)
 

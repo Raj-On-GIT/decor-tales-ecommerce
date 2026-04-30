@@ -221,28 +221,75 @@ function getMockCategories() {
 
 export { BACKEND };
 
-export async function searchProducts(query) {
-  if (!query || query.length < 2) {
-    return { products: [], categories: [], subcategories: [], query: "" };
+export const MIN_SEARCH_QUERY_LENGTH = 2;
+
+export async function searchProducts(query, options = {}) {
+  if (!query || query.length < MIN_SEARCH_QUERY_LENGTH) {
+    return {
+      products: [],
+      categories: [],
+      subcategories: [],
+      query: "",
+      meta: {
+        products_total: 0,
+        categories_total: 0,
+        subcategories_total: 0,
+        products_has_more: false,
+        categories_has_more: false,
+        subcategories_has_more: false,
+      },
+    };
   }
 
-  const res = await fetch(
-    `${API_BASE}/api/search/?q=${encodeURIComponent(query)}`,
-  );
+  if (!API_BASE) {
+    throw new Error("API_BASE is undefined. Check your .env.local file.");
+  }
+
+  const {
+    productsLimit = 10,
+    categoriesLimit = 5,
+    subcategoriesLimit = 5,
+  } = options;
+  const params = new URLSearchParams({ q: query });
+
+  if (productsLimit != null) {
+    params.set("products_limit", String(productsLimit));
+  }
+
+  if (categoriesLimit != null) {
+    params.set("categories_limit", String(categoriesLimit));
+  }
+
+  if (subcategoriesLimit != null) {
+    params.set("subcategories_limit", String(subcategoriesLimit));
+  }
+
+  const res = await fetch(`${API_BASE}/api/search/?${params.toString()}`, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error(`Search request failed with status ${res.status}`);
+  }
+
   const data = await res.json();
 
   // Transform image URLs for products (same as getProducts)
   if (data.products) {
     data.products = data.products.map((product) => ({
       ...product,
-      image: product.image?.startsWith("http")
-        ? product.image
-        : `${BACKEND}${product.image}`,
+      image: product.image
+        ? product.image.startsWith("http")
+          ? product.image
+          : `${BACKEND}${product.image}`
+        : null,
       images: product.images?.map((img) => ({
         ...img,
-        image: img.image?.startsWith("http")
-          ? img.image
-          : `${BACKEND}${img.image}`,
+        image: img.image
+          ? img.image.startsWith("http")
+            ? img.image
+            : `${BACKEND}${img.image}`
+          : null,
       })),
     }));
   }
