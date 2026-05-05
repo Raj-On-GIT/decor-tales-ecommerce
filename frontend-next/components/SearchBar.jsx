@@ -258,7 +258,7 @@ export default function SearchBar({ isOpen, onClose }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="absolute top-full left-0 right-0 z-50 mt-3 max-h-96 overflow-y-auto rounded-lg border border-gray-200 bg-[#F0FFDF] shadow-xl md:left-auto md:right-0 md:w-96"
+            className="absolute top-full left-0 right-0 z-50 mt-3 max-h-96 overflow-y-auto rounded-lg border border-gray-200 bg-[#F0FFF0] shadow-xl md:left-auto md:right-0 md:w-96"
           >
             {loading ? (
               <div className="flex items-center justify-center gap-3 p-6 text-sm text-gray-500">

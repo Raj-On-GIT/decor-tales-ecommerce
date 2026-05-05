@@ -4,21 +4,23 @@ import {
   Mail,
   MessageCircle,
   Phone,
+  MapPin,
 } from "lucide-react";
+
 
 const contactMethods = [
   {
     icon: Phone,
     label: "Phone",
-    value: "8851781355",
-    href: "tel:8851781355",
+    value: "+91 88517 81355",
+    href: "tel:+918851781355",
     note: "Primary contact number",
   },
   {
     icon: Phone,
     label: "Phone",
-    value: "7217663365",
-    href: "tel:7217663365",
+    value: "+91 72176 63365",
+    href: "tel:+917217663365",
     note: "Alternate contact number",
   },
   {
@@ -34,7 +36,7 @@ const socialLinks = [
   {
     icon: Instagram,
     label: "Instagram",
-    value: "To be added",
+    value: "@decortales30",
   },
   {
     icon: Facebook,
@@ -46,6 +48,11 @@ const socialLinks = [
     label: "WhatsApp",
     value: "To be added",
   },
+  {
+    icon: MapPin,
+    label: "Location",
+    value: "To be added",
+  }
 ];
 
 export const metadata = {
@@ -61,14 +68,12 @@ export default function ContactPage() {
       <div className="absolute -right-20 bottom-10 h-64 w-64 rounded-full bg-[#c58b52]/10 blur-3xl" />
 
       <div className="relative mx-auto max-w-5xl px-5 py-5 sm:px-8 sm:py-10 lg:px-10">
-        <div className="max-w-3xl">
+        <div className="">
           <h1 className="mt-4 font-serif text-4xl leading-tight text-[#102726] sm:text-5xl">
             Contact Us
           </h1>
-          <p className="mt-5 max-w-2xl text-sm leading-7 text-[#45615f] sm:text-base">
-            A clean contact page with editable sections for future updates. Add
-            office address, working hours, or support notes here later if
-            needed.
+          <p className="mt-5 text-sm text-[#45615f] sm:text-base">
+            Please find the below contact details relevant to your inquiries. We are here to assist you with any questions, support, or feedback you may have. You can contact us through phone, email, or follow us on our social media channels for any updates.
           </p>
         </div>
 
@@ -128,10 +133,7 @@ export default function ContactPage() {
               ))}
             </div>
 
-            <div className="mt-8 rounded-2xl border border-dashed border-white/15 bg-black/10 p-4 text-sm leading-7 text-white/70">
-              Replace the placeholder social handles directly in this JSX file
-              when the accounts are finalized.
-            </div>
+            
           </div>
         </div>
       </div>

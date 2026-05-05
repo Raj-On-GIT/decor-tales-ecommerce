@@ -1,4 +1,5 @@
 from decimal import Decimal
+import hmac
 import logging
 import mimetypes
 
@@ -13,7 +14,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.urls import reverse
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .models import (
@@ -493,27 +494,22 @@ def summarize_tracking_response(order, payload):
     }
 
 
-def refresh_delhivery_tracking_for_order_id(order_id):
-    order = Order.objects.get(id=order_id)
-
-    if not order.delhivery_waybill:
-        raise ValueError("Shipment has not been created for this order yet.")
-
-    payload = DelhiveryService().track_shipment(
-        waybill=order.delhivery_waybill,
-        ref_ids=order.order_number,
-    )
-    summary = summarize_tracking_response(order, payload)
-
-    status = summary.get("status") or {}
+def apply_delhivery_tracking_snapshot(
+    order,
+    *,
+    raw_payload,
+    status,
+    synced_at=None,
+):
+    status = status or {}
     update_fields = [
         "delhivery_tracking_raw_response",
         "delhivery_tracking_synced_at",
         "updated_at",
     ]
 
-    order.delhivery_tracking_raw_response = payload
-    order.delhivery_tracking_synced_at = timezone.now()
+    order.delhivery_tracking_raw_response = raw_payload
+    order.delhivery_tracking_synced_at = synced_at or timezone.now()
 
     status_code = str(status.get("code") or "").strip()
     if status_code:
@@ -543,7 +539,71 @@ def refresh_delhivery_tracking_for_order_id(order_id):
             update_fields.append("delhivery_last_scan_at")
 
     order.save(update_fields=list(dict.fromkeys(update_fields)))
+    return order
+
+
+def refresh_delhivery_tracking_for_order_id(order_id):
+    order = Order.objects.get(id=order_id)
+
+    if not order.delhivery_waybill:
+        raise ValueError("Shipment has not been created for this order yet.")
+
+    payload = DelhiveryService().track_shipment(
+        waybill=order.delhivery_waybill,
+        ref_ids=order.order_number,
+    )
+    summary = summarize_tracking_response(order, payload)
+
+    apply_delhivery_tracking_snapshot(
+        order,
+        raw_payload=payload,
+        status=summary.get("status"),
+    )
     return order, summary
+
+
+def get_delhivery_webhook_secret():
+    return getattr(settings, "DELHIVERY_WEBHOOK_SECRET", "").strip()
+
+
+def process_delhivery_scan_push_payload(payload):
+    shipment = payload.get("Shipment") or {}
+    status_data = shipment.get("Status") or {}
+
+    awb = str(shipment.get("AWB") or "").strip()
+    if not awb:
+        raise ValueError("Missing AWB in webhook payload.")
+
+    reference_number = str(shipment.get("ReferenceNo") or "").strip()
+    order = Order.objects.filter(delhivery_waybill=awb).first()
+    if not order:
+        logger.warning("delhivery_scan_push_unmatched_awb awb=%s reference=%s", awb, reference_number)
+        return None, "order_not_found"
+
+    if reference_number and str(order.order_number).strip() != reference_number:
+        logger.warning(
+            "delhivery_scan_push_reference_mismatch order_id=%s awb=%s expected_reference=%s received_reference=%s",
+            order.id,
+            awb,
+            order.order_number,
+            reference_number,
+        )
+
+    status = {
+        "label": status_data.get("Status") or "",
+        "code": status_data.get("StatusCode") or "",
+        "type": status_data.get("StatusType") or "",
+        "instructions": status_data.get("Instructions") or "",
+        "location": status_data.get("StatusLocation") or "",
+        "timestamp": status_data.get("StatusDateTime"),
+    }
+
+    apply_delhivery_tracking_snapshot(
+        order,
+        raw_payload=payload,
+        status=status,
+    )
+    return order, "updated"
 
 
 def get_order_item_variant_snapshot(item):
@@ -1699,6 +1759,45 @@ def refresh_delhivery_tracking(request):
             **summary,
             "tracking_synced_at": order.delhivery_tracking_synced_at,
         }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def delhivery_scan_push_webhook(request):
+    configured_secret = get_delhivery_webhook_secret()
+    if not configured_secret:
+        logger.error("delhivery_scan_push_missing_secret")
+        return Response({"error": "Webhook secret is not configured."}, status=500)
+
+    received_secret = str(
+        request.headers.get("X-Delhivery-Webhook-Secret", "") or ""
+    ).strip()
+    if not received_secret or not hmac.compare_digest(received_secret, configured_secret):
+        logger.warning("delhivery_scan_push_unauthorized")
+        return Response({"error": "Forbidden."}, status=403)
+
+    payload = request.data
+    if not isinstance(payload, dict):
+        return Response({"error": "Invalid payload."}, status=400)
+
+    try:
+        order, result = process_delhivery_scan_push_payload(payload)
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=400)
+
+    if order is None:
+        return Response({"ok": True, "ignored": result}, status=200)
+
+    return Response(
+        {
+            "ok": True,
+            "result": result,
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "waybill": order.delhivery_waybill,
+        },
+        status=200,
     )
 
 

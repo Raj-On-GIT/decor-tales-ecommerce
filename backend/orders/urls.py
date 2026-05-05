@@ -46,6 +46,11 @@ urlpatterns = [
         views.refresh_delhivery_tracking,
         name="refresh_delhivery_tracking",
     ),
+    path(
+        "delhivery/webhook/scan-push/",
+        views.delhivery_scan_push_webhook,
+        name="delhivery_scan_push_webhook",
+    ),
     path("create/", views.create_order, name="create_order"),
     path("my-orders/", views.get_my_orders, name="my_orders"),
     path("<int:order_id>/", views.get_order_detail, name="order_detail"),

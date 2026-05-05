@@ -1585,6 +1585,160 @@ class DelhiveryTrackingRefreshApiTests(TestCase):
 
 
 @override_settings(
+    DELHIVERY_WEBHOOK_SECRET="dt-webhook-prod-test-secret",
+    SECURE_SSL_REDIRECT=False,
+)
+class DelhiveryScanPushWebhookTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="webhook-user",
+            email="webhook@example.com",
+            password="testpass123",
+        )
+        self.category = Category.objects.create(name="Webhook Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Webhook Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Webhook Frame",
+            mrp=Decimal("800.00"),
+            slashed_price=Decimal("700.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("700.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("700.00"),
+            status="paid",
+            shipping_email="webhook@example.com",
+            shipping_full_name="Webhook Customer",
+            shipping_address="123 Webhook Street",
+            city="Delhi",
+            shipping_state="Delhi",
+            shipping_country="India",
+            postal_code="110001",
+            phone="9999999999",
+            delhivery_waybill="85172510000022",
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("700.00"),
+            product_title=self.product.title,
+        )
+
+    def test_webhook_requires_valid_secret_header(self):
+        response = self.client.post(
+            reverse("delhivery_scan_push_webhook"),
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_webhook_updates_latest_tracking_snapshot(self):
+        response = self.client.post(
+            reverse("delhivery_scan_push_webhook"),
+            {
+                "Shipment": {
+                    "Status": {
+                        "Status": "Manifested",
+                        "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                        "StatusType": "UD",
+                        "StatusLocation": "Chandigarh_Raiprkln_C (Chandigarh)",
+                        "Instructions": "Manifest uploaded",
+                    },
+                    "PickUpDate": "2026-05-05 10:30:00",
+                    "NSLCode": "X-UCI",
+                    "Sortcode": "IXC/MDP",
+                    "ReferenceNo": str(self.order.order_number),
+                    "AWB": "85172510000022",
+                }
+            },
+            format="json",
+            HTTP_X_DELHIVERY_WEBHOOK_SECRET="dt-webhook-prod-test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.delhivery_tracking_status_label, "Manifested")
+        self.assertEqual(self.order.delhivery_tracking_status_type, "UD")
+        self.assertEqual(
+            self.order.delhivery_last_scan_location,
+            "Chandigarh_Raiprkln_C (Chandigarh)",
+        )
+        self.assertIsNotNone(self.order.delhivery_tracking_synced_at)
+
+    def test_webhook_acknowledges_unknown_awb_without_404(self):
+        response = self.client.post(
+            reverse("delhivery_scan_push_webhook"),
+            {
+                "Shipment": {
+                    "Status": {
+                        "Status": "Manifested",
+                        "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                    },
+                    "ReferenceNo": "28",
+                    "AWB": "UNKNOWNAWB123",
+                }
+            },
+            format="json",
+            HTTP_X_DELHIVERY_WEBHOOK_SECRET="dt-webhook-prod-test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["ok"], True)
+        self.assertEqual(response.data["ignored"], "order_not_found")
+
+    def test_webhook_does_not_overwrite_saved_tracking_fields_with_blank_values(self):
+        self.order.delhivery_tracking_status_code = "OLD"
+        self.order.delhivery_tracking_status_label = "Old Status"
+        self.order.delhivery_tracking_status_type = "OT"
+        self.order.delhivery_last_scan_location = "Old Hub"
+        self.order.save(
+            update_fields=[
+                "delhivery_tracking_status_code",
+                "delhivery_tracking_status_label",
+                "delhivery_tracking_status_type",
+                "delhivery_last_scan_location",
+            ]
+        )
+
+        response = self.client.post(
+            reverse("delhivery_scan_push_webhook"),
+            {
+                "Shipment": {
+                    "Status": {
+                        "Status": "",
+                        "StatusDateTime": "",
+                        "StatusType": "",
+                        "StatusLocation": "",
+                        "Instructions": "",
+                    },
+                    "ReferenceNo": str(self.order.order_number),
+                    "AWB": "85172510000022",
+                }
+            },
+            format="json",
+            HTTP_X_DELHIVERY_WEBHOOK_SECRET="dt-webhook-prod-test-secret",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.delhivery_tracking_status_code, "OLD")
+        self.assertEqual(self.order.delhivery_tracking_status_label, "Old Status")
+        self.assertEqual(self.order.delhivery_tracking_status_type, "OT")
+        self.assertEqual(self.order.delhivery_last_scan_location, "Old Hub")
+        self.assertIsNotNone(self.order.delhivery_tracking_synced_at)
+
+
+@override_settings(
     DELHIVERY_BASE_URL="https://track.delhivery.test",
     DELHIVERY_API_KEY="test-api-key",
     DELHIVERY_PICKUP_LOCATION="Main Warehouse",
