@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 from django.views.static import serve
 from orders.views import serve_order_media_direct
 from accounts.views import (
@@ -36,8 +37,14 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView,
 )
 
+
+def health_check_view(request):
+    return JsonResponse({"ok": True})
+
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("", health_check_view, name="health_root"),
+    path("health/", health_check_view, name="health_check"),
     
     path('api/auth/csrf/', csrf_token_view, name='csrf_token'),
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
