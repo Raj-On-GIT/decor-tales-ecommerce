@@ -1839,6 +1839,34 @@ def get_my_orders(request):
     return Response({"orders": data, "count": len(data)})
 
 
+def serialize_order_shipment_tracking(order):
+    has_waybill = bool(str(order.delhivery_waybill or "").strip())
+    status_label = str(order.delhivery_tracking_status_label or "").strip()
+    shipment_status = str(order.delhivery_shipment_status or "").strip()
+
+    return {
+        "has_shipment": has_waybill,
+        "waybill": order.delhivery_waybill or "",
+        "reference": order.delhivery_reference or "",
+        "shipment_status": shipment_status,
+        "status": {
+            "label": status_label,
+            "code": order.delhivery_tracking_status_code or "",
+            "type": order.delhivery_tracking_status_type or "",
+            "location": order.delhivery_last_scan_location or "",
+            "timestamp": order.delhivery_last_scan_at,
+        },
+        "tracking_synced_at": order.delhivery_tracking_synced_at,
+        "message": (
+            "Tracking updates will appear once the shipment is handed to the courier."
+            if not has_waybill
+            else "Latest courier updates are shown from the last stored Delhivery sync."
+            if status_label
+            else "Shipment created. Tracking updates will appear once scans start coming in."
+        ),
+    }
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_order_detail(request, order_id):
@@ -1888,6 +1916,7 @@ def get_order_detail(request, order_id):
                 "city": order.city,
                 "postal_code": order.postal_code,
                 "phone": order.phone,
+                "shipment_tracking": serialize_order_shipment_tracking(order),
                 "items": items,
             }
         }

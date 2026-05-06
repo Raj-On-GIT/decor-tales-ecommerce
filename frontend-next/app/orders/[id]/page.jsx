@@ -17,7 +17,7 @@ const orderNumberFont = Merriweather({
 const ORDER_PROGRESS_STEPS = [
   { key: "pending", label: "Pending" },
   { key: "paid", label: "Paid" },
-  { key: "processing", label: "Processing" },
+  { key: "processed", label: "Processed" },
   { key: "shipped", label: "Shipped" },
   { key: "delivered", label: "Delivered" },
 ];
@@ -95,42 +95,260 @@ function getProductStateMessage(product, variant) {
   return null;
 }
 
-function OrderProgress({ status }) {
-  const normalizedStatus = normalizeOrderStatus(status);
+function formatShipmentDateTime(value) {
+  if (!value) {
+    return "Not available yet";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Not available yet";
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(parsed);
+}
+
+function getShipmentBadgeClasses(label = "") {
+  const normalized = label.toLowerCase().trim();
+
+  if (normalized.includes("deliver")) {
+    return "bg-emerald-100 text-emerald-800";
+  }
+
+  if (
+    normalized.includes("transit") ||
+    normalized.includes("manifest") ||
+    normalized.includes("dispatch") ||
+    normalized.includes("ship")
+  ) {
+    return "bg-sky-100 text-sky-700";
+  }
+
+  if (normalized.includes("return") || normalized.includes("cancel") || normalized.includes("fail")) {
+    return "bg-rose-100 text-rose-700";
+  }
+
+  return "bg-amber-100 text-amber-800";
+}
+
+function getTrackingStage(shipmentTracking) {
+  const status = shipmentTracking?.status || {};
+  const statusLabel = String(status.label || shipmentTracking?.shipment_status || "")
+    .toLowerCase()
+    .trim();
+
+  if (!statusLabel) {
+    return null;
+  }
+
+  if (statusLabel.includes("deliver")) {
+    return "delivered";
+  }
+
+  if (
+    statusLabel.includes("out for delivery") ||
+    statusLabel.includes("transit") ||
+    statusLabel.includes("manifest") ||
+    statusLabel.includes("dispatch") ||
+    statusLabel.includes("ship")
+  ) {
+    return "shipped";
+  }
+
+  return null;
+}
+
+function getEffectiveProgressStatus(order) {
+  const normalizedOrderStatus = normalizeOrderStatus(order?.status);
+  const shipmentTracking = order?.shipment_tracking;
+  const trackingStage = getTrackingStage(shipmentTracking);
+
+  if (normalizedOrderStatus === "cancelled" || normalizedOrderStatus === "failed") {
+    return normalizedOrderStatus;
+  }
+
+  if (normalizedOrderStatus === "delivered" || trackingStage === "delivered") {
+    return "delivered";
+  }
+
+  if (trackingStage === "shipped") {
+    return "shipped";
+  }
+
+  if (shipmentTracking?.has_shipment) {
+    return "processed";
+  }
+
+  if (normalizedOrderStatus === "shipped") {
+    return "shipped";
+  }
+
+  if (normalizedOrderStatus === "processing") {
+    return "processed";
+  }
+
+  if (normalizedOrderStatus === "paid") {
+    return "paid";
+  }
+
+  return "pending";
+}
+
+function ShipmentStatusCard({ shipmentTracking }) {
+  if (!shipmentTracking) {
+    return null;
+  }
+
+  const status = shipmentTracking.status || {};
+  const statusLabel =
+    status.label ||
+    shipmentTracking.shipment_status ||
+    (shipmentTracking.has_shipment ? "Tracking pending" : "Awaiting dispatch");
+
+  return (
+    <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8">
+      <div className="flex flex-col gap-4 border-b border-gray-100 pb-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
+              Shipment status
+            </p>
+            <h2
+              className={`${orderNumberFont.className} mt-2 text-3xl font-medium tracking-[0.02em] tabular-nums text-gray-900 sm:text-4xl`}
+            >
+              Delivery tracking
+            </h2>
+          </div>
+          <span
+            className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] ${getShipmentBadgeClasses(statusLabel)}`}
+          >
+            {statusLabel}
+          </span>
+        </div>
+
+        <p className="text-sm leading-6 text-gray-600">{shipmentTracking.message}</p>
+      </div>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-[1.4rem] bg-[#f8faef] px-4 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+            AWB / Tracking ID
+          </p>
+          <p className="mt-2 text-sm font-semibold text-gray-900">
+            {shipmentTracking.waybill || "Will appear after dispatch"}
+          </p>
+        </div>
+
+        <div className="rounded-[1.4rem] bg-[#f8faef] px-4 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+            Last scan location
+          </p>
+          <p className="mt-2 text-sm font-semibold text-gray-900">
+            {status.location || "Awaiting first courier scan"}
+          </p>
+        </div>
+
+        <div className="rounded-[1.4rem] bg-[#f8faef] px-4 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+            Last courier update
+          </p>
+          <p className="mt-2 text-sm font-semibold text-gray-900">
+            {formatShipmentDateTime(status.timestamp)}
+          </p>
+        </div>
+
+        <div className="rounded-[1.4rem] bg-[#f8faef] px-4 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+            Last synced
+          </p>
+          <p className="mt-2 text-sm font-semibold text-gray-900">
+            {formatShipmentDateTime(shipmentTracking.tracking_synced_at)}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OrderProgress({ order }) {
+  const normalizedStatus = getEffectiveProgressStatus(order);
   const currentStepIndex = ORDER_PROGRESS_STEPS.findIndex(
     (step) => step.key === normalizedStatus,
   );
 
+  const progressHeadline =
+    normalizedStatus === "delivered"
+      ? "Delivered successfully"
+      : normalizedStatus === "shipped"
+        ? "Shipment is in courier movement"
+      : normalizedStatus === "processed"
+        ? "Order processed and AWB generated"
+      : normalizedStatus === "paid"
+        ? "Payment verified"
+      : `Currently ${formatStatus(order?.status || "")}`;
+
   return (
-    <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-[#d7ead6] bg-[linear-gradient(135deg,rgba(240,255,223,0.95),rgba(255,255,255,0.98),rgba(226,247,245,0.92))] p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:p-6">
+    <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[#d7ead6] bg-[linear-gradient(135deg,rgba(244,251,231,0.9),rgba(255,255,255,0.98),rgba(232,246,245,0.92))] px-5 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.05)] sm:px-6 sm:py-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-teal-900/55">
             Order Progress
           </p>
-          <p className="mt-2 text-lg font-semibold text-gray-900">
-            {normalizedStatus === "delivered"
-              ? "Delivered successfully"
-              : normalizedStatus === "paid"
-                ? "Payment verified"
-              : `Currently ${formatStatus(status)}`}
-          </p>
+          <p className="mt-2 text-lg font-semibold text-gray-900">{progressHeadline}</p>
         </div>
         <p className="text-sm text-gray-600">
           {currentStepIndex + 1} of {ORDER_PROGRESS_STEPS.length} completed
         </p>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-4">
+      <div className="mt-6 overflow-x-auto pb-1">
+        <div className="flex min-w-[780px] items-start">
         {ORDER_PROGRESS_STEPS.map((step, index) => {
           const isCompleted = index <= currentStepIndex;
           const isCurrent = index === currentStepIndex;
           const isLast = index === ORDER_PROGRESS_STEPS.length - 1;
 
           return (
-            <div key={step.key} className="relative">
+            <div key={step.key} className="flex min-w-0 flex-1 items-center">
+              <div className="min-w-0">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition ${
+                      isCompleted
+                        ? "border-[#0f766e] bg-[#0f766e] text-white shadow-[0_10px_24px_rgba(15,118,110,0.18)]"
+                        : "border-[#cbd6d2] bg-white/90 text-gray-500"
+                    }`}
+                  >
+                    {index + 1}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p
+                      className={`text-[13px] font-semibold uppercase tracking-[0.2em] ${
+                        isCompleted ? "text-teal-900" : "text-gray-400"
+                      }`}
+                    >
+                      {step.label}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {isCurrent
+                        ? "Current"
+                        : isCompleted
+                          ? "Done"
+                          : "Next"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {!isLast && (
-                <div className="absolute left-[calc(50%+1rem)] right-[-1rem] top-4 hidden h-[3px] rounded-full bg-[#d6e9df] sm:block">
+                <div className="mx-4 mt-5 h-[2px] flex-1 rounded-full bg-[#d6e9df]">
                   <div
                     className={`h-full rounded-full transition-all ${
                       index < currentStepIndex ? "w-full bg-[#0f766e]" : "w-0 bg-[#0f766e]"
@@ -138,38 +356,10 @@ function OrderProgress({ status }) {
                   />
                 </div>
               )}
-
-              <div className="relative flex items-center gap-3 rounded-[1.25rem] border border-white/70 bg-white/75 px-4 py-3 backdrop-blur sm:block sm:min-h-[132px] sm:px-5 sm:py-5">
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition sm:h-10 sm:w-10 ${
-                    isCompleted
-                      ? "border-[#0f766e] bg-[#0f766e] text-white shadow-[0_10px_25px_rgba(15,118,110,0.24)]"
-                      : "border-[#c5d4ce] bg-white text-gray-500"
-                  }`}
-                >
-                  {index + 1}
-                </div>
-
-                <div className="min-w-0">
-                  <p
-                    className={`text-sm font-semibold uppercase tracking-[0.18em] ${
-                      isCompleted ? "text-teal-900" : "text-gray-400"
-                    }`}
-                  >
-                    {step.label}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {isCurrent
-                      ? "Current update"
-                      : isCompleted
-                        ? "Completed"
-                        : "Awaiting"}
-                  </p>
-                </div>
-              </div>
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );
@@ -245,7 +435,7 @@ export default function OrderDetailPage() {
             ) : null}
           </div>
 
-          {!isCancelled && !isFailed ? <OrderProgress status={order.status} /> : null}
+          {!isCancelled && !isFailed ? <OrderProgress order={order} /> : null}
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -352,6 +542,8 @@ export default function OrderDetailPage() {
           </div>
 
           <div className="space-y-6 xl:sticky xl:top-24 xl:h-fit">
+            <ShipmentStatusCard shipmentTracking={order.shipment_tracking} />
+
             <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8">
               <h2 className={`${orderNumberFont.className} text-3xl font-medium tracking-[0.02em] tabular-nums text-gray-900 sm:text-4xl`}>
                 Delivery details

@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
+from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 from rest_framework.test import APIClient
@@ -1256,6 +1257,55 @@ class ProductAvailabilityHistoryTests(TestCase):
         self.assertEqual(product_payload["category"]["name"], "Archive Frames")
         self.assertEqual(product_payload["status"], "available")
         self.assertTrue(product_payload["can_view"])
+
+    def test_order_detail_includes_stored_shipment_tracking_snapshot(self):
+        self.order.delhivery_waybill = "85172510000022"
+        self.order.delhivery_reference = str(self.order.order_number)
+        self.order.delhivery_shipment_status = "Manifested"
+        self.order.delhivery_tracking_status_label = "In Transit"
+        self.order.delhivery_tracking_status_code = "IT"
+        self.order.delhivery_tracking_status_type = "UD"
+        self.order.delhivery_last_scan_location = "Delhi Hub"
+        self.order.delhivery_last_scan_at = timezone.now()
+        self.order.delhivery_tracking_synced_at = timezone.now()
+        self.order.save(
+            update_fields=[
+                "delhivery_waybill",
+                "delhivery_reference",
+                "delhivery_shipment_status",
+                "delhivery_tracking_status_label",
+                "delhivery_tracking_status_code",
+                "delhivery_tracking_status_type",
+                "delhivery_last_scan_location",
+                "delhivery_last_scan_at",
+                "delhivery_tracking_synced_at",
+            ]
+        )
+
+        response = self.client.get(reverse("order_detail", kwargs={"order_id": self.order.id}))
+
+        self.assertEqual(response.status_code, 200)
+        shipment_payload = response.data["order"]["shipment_tracking"]
+        self.assertTrue(shipment_payload["has_shipment"])
+        self.assertEqual(shipment_payload["waybill"], "85172510000022")
+        self.assertEqual(shipment_payload["reference"], str(self.order.order_number))
+        self.assertEqual(shipment_payload["shipment_status"], "Manifested")
+        self.assertEqual(shipment_payload["status"]["label"], "In Transit")
+        self.assertEqual(shipment_payload["status"]["code"], "IT")
+        self.assertEqual(shipment_payload["status"]["type"], "UD")
+        self.assertEqual(shipment_payload["status"]["location"], "Delhi Hub")
+        self.assertIsNotNone(shipment_payload["status"]["timestamp"])
+        self.assertIsNotNone(shipment_payload["tracking_synced_at"])
+
+    def test_order_detail_shipment_tracking_handles_orders_without_waybill(self):
+        response = self.client.get(reverse("order_detail", kwargs={"order_id": self.order.id}))
+
+        self.assertEqual(response.status_code, 200)
+        shipment_payload = response.data["order"]["shipment_tracking"]
+        self.assertFalse(shipment_payload["has_shipment"])
+        self.assertEqual(shipment_payload["waybill"], "")
+        self.assertEqual(shipment_payload["status"]["label"], "")
+        self.assertIn("Tracking updates will appear", shipment_payload["message"])
 
     def test_inactive_product_detail_is_accessible_but_marked_unavailable(self):
         self.product.is_active = False
