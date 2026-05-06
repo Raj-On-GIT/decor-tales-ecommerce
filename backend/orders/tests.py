@@ -1683,39 +1683,50 @@ class DelhiveryScanPushWebhookTests(TestCase):
             product_title=self.product.title,
         )
 
-    def test_webhook_requires_valid_secret_header(self):
-        response = self.client.post(
+    def post_webhook(self, payload):
+        return self.client.post(
             reverse("delhivery_scan_push_webhook"),
-            {},
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, 403)
-
-    def test_webhook_updates_latest_tracking_snapshot(self):
-        response = self.client.post(
-            reverse("delhivery_scan_push_webhook"),
-            {
-                "Shipment": {
-                    "Status": {
-                        "Status": "Manifested",
-                        "StatusDateTime": "2026-05-05T10:30:00+05:30",
-                        "StatusType": "UD",
-                        "StatusLocation": "Chandigarh_Raiprkln_C (Chandigarh)",
-                        "Instructions": "Manifest uploaded",
-                    },
-                    "PickUpDate": "2026-05-05 10:30:00",
-                    "NSLCode": "X-UCI",
-                    "Sortcode": "IXC/MDP",
-                    "ReferenceNo": str(self.order.order_number),
-                    "AWB": "85172510000022",
-                }
-            },
+            payload,
             format="json",
             HTTP_X_DELHIVERY_WEBHOOK_SECRET="dt-webhook-prod-test-secret",
         )
 
+    def test_webhook_requires_valid_secret_header(self):
+        with patch("orders.views.logger.warning") as mock_warning:
+            response = self.client.post(
+                reverse("delhivery_scan_push_webhook"),
+                {},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 403)
+        mock_warning.assert_called_once_with("delhivery_scan_push_unauthorized")
+
+    def test_webhook_updates_latest_tracking_snapshot(self):
+        payload = {
+            "Shipment": {
+                "Status": {
+                    "Status": "Manifested",
+                    "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                    "StatusType": "UD",
+                    "StatusLocation": "Chandigarh_Raiprkln_C (Chandigarh)",
+                    "Instructions": "Manifest uploaded",
+                },
+                "PickUpDate": "2026-05-05 10:30:00",
+                "NSLCode": "X-UCI",
+                "Sortcode": "IXC/MDP",
+                "ReferenceNo": str(self.order.order_number),
+                "AWB": "85172510000022",
+            }
+        }
+        response = self.post_webhook(payload)
+
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["ok"], True)
+        self.assertEqual(response.data["result"], "updated")
+        self.assertEqual(response.data["order_id"], self.order.id)
+        self.assertEqual(response.data["order_number"], self.order.order_number)
+        self.assertEqual(response.data["waybill"], "85172510000022")
         self.order.refresh_from_db()
         self.assertEqual(self.order.delhivery_tracking_status_label, "Manifested")
         self.assertEqual(self.order.delhivery_tracking_status_type, "UD")
@@ -1724,27 +1735,102 @@ class DelhiveryScanPushWebhookTests(TestCase):
             "Chandigarh_Raiprkln_C (Chandigarh)",
         )
         self.assertIsNotNone(self.order.delhivery_tracking_synced_at)
+        self.assertEqual(self.order.delhivery_tracking_raw_response, payload)
 
-    def test_webhook_acknowledges_unknown_awb_without_404(self):
-        response = self.client.post(
-            reverse("delhivery_scan_push_webhook"),
+    def test_webhook_updates_successfully_without_reference_number(self):
+        response = self.post_webhook(
             {
                 "Shipment": {
                     "Status": {
                         "Status": "Manifested",
                         "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                        "StatusType": "UD",
+                        "StatusLocation": "Origin Hub",
+                        "Instructions": "Manifest uploaded",
                     },
-                    "ReferenceNo": "28",
-                    "AWB": "UNKNOWNAWB123",
+                    "PickUpDate": "2026-05-05 10:30:00",
+                    "NSLCode": "X-UCI",
+                    "Sortcode": "IXC/MDP",
+                    "AWB": "85172510000022",
                 }
-            },
-            format="json",
-            HTTP_X_DELHIVERY_WEBHOOK_SECRET="dt-webhook-prod-test-secret",
+            }
         )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["result"], "updated")
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.delhivery_tracking_status_label, "Manifested")
+        self.assertEqual(self.order.delhivery_last_scan_location, "Origin Hub")
+
+    def test_webhook_handles_missing_status_code_without_clearing_existing_value(self):
+        self.order.delhivery_tracking_status_code = "OLD"
+        self.order.save(update_fields=["delhivery_tracking_status_code"])
+
+        response = self.post_webhook(
+            {
+                "Shipment": {
+                    "Status": {
+                        "Status": "Manifested",
+                        "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                        "StatusType": "UD",
+                        "StatusLocation": "Origin Hub",
+                        "Instructions": "Manifest uploaded",
+                    },
+                    "ReferenceNo": str(self.order.order_number),
+                    "AWB": "85172510000022",
+                }
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.delhivery_tracking_status_code, "OLD")
+        self.assertEqual(self.order.delhivery_tracking_status_label, "Manifested")
+
+    def test_webhook_acknowledges_unknown_awb_without_404(self):
+        with patch("orders.views.logger.warning") as mock_warning:
+            response = self.post_webhook(
+                {
+                    "Shipment": {
+                        "Status": {
+                            "Status": "Manifested",
+                            "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                        },
+                        "ReferenceNo": "28",
+                        "AWB": "UNKNOWNAWB123",
+                    }
+                }
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["ok"], True)
         self.assertEqual(response.data["ignored"], "order_not_found")
+        mock_warning.assert_called_once()
+        self.assertIn("delhivery_scan_push_unmatched_awb", mock_warning.call_args[0][0])
+
+    @patch("orders.views.logger.warning")
+    def test_webhook_logs_reference_mismatch_but_updates_by_awb(self, mock_warning):
+        response = self.post_webhook(
+            {
+                "Shipment": {
+                    "Status": {
+                        "Status": "Manifested",
+                        "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                        "StatusType": "UD",
+                        "StatusLocation": "Origin Hub",
+                        "Instructions": "Manifest uploaded",
+                    },
+                    "ReferenceNo": "DIFFERENT-REF-123",
+                    "AWB": "85172510000022",
+                }
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.delhivery_tracking_status_label, "Manifested")
+        mock_warning.assert_called_once()
+        self.assertIn("delhivery_scan_push_reference_mismatch", mock_warning.call_args[0][0])
 
     def test_webhook_does_not_overwrite_saved_tracking_fields_with_blank_values(self):
         self.order.delhivery_tracking_status_code = "OLD"
@@ -1760,8 +1846,7 @@ class DelhiveryScanPushWebhookTests(TestCase):
             ]
         )
 
-        response = self.client.post(
-            reverse("delhivery_scan_push_webhook"),
+        response = self.post_webhook(
             {
                 "Shipment": {
                     "Status": {
@@ -1774,9 +1859,7 @@ class DelhiveryScanPushWebhookTests(TestCase):
                     "ReferenceNo": str(self.order.order_number),
                     "AWB": "85172510000022",
                 }
-            },
-            format="json",
-            HTTP_X_DELHIVERY_WEBHOOK_SECRET="dt-webhook-prod-test-secret",
+            }
         )
 
         self.assertEqual(response.status_code, 200)
@@ -1786,6 +1869,87 @@ class DelhiveryScanPushWebhookTests(TestCase):
         self.assertEqual(self.order.delhivery_tracking_status_type, "OT")
         self.assertEqual(self.order.delhivery_last_scan_location, "Old Hub")
         self.assertIsNotNone(self.order.delhivery_tracking_synced_at)
+
+    def test_repeated_webhook_delivery_remains_idempotent_for_latest_snapshot(self):
+        payload = {
+            "Shipment": {
+                "Status": {
+                    "Status": "Manifested",
+                    "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                    "StatusType": "UD",
+                    "StatusLocation": "Origin Hub",
+                    "Instructions": "Manifest uploaded",
+                },
+                "ReferenceNo": str(self.order.order_number),
+                "AWB": "85172510000022",
+            }
+        }
+
+        first_response = self.post_webhook(payload)
+        second_response = self.post_webhook(payload)
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.delhivery_tracking_status_label, "Manifested")
+        self.assertEqual(self.order.delhivery_last_scan_location, "Origin Hub")
+        self.assertEqual(self.order.delhivery_tracking_raw_response, payload)
+
+    def test_webhook_rejects_non_object_payload_with_monitoring_log(self):
+        with patch("orders.views.logger.warning") as mock_warning:
+            response = self.client.post(
+                reverse("delhivery_scan_push_webhook"),
+                [],
+                format="json",
+                HTTP_X_DELHIVERY_WEBHOOK_SECRET="dt-webhook-prod-test-secret",
+            )
+
+        self.assertEqual(response.status_code, 400)
+        mock_warning.assert_called_once()
+        self.assertIn("delhivery_scan_push_invalid_payload", mock_warning.call_args[0][0])
+
+    def test_webhook_rejects_missing_awb_with_monitoring_log(self):
+        with patch("orders.views.logger.warning") as mock_warning:
+            response = self.post_webhook(
+                {
+                    "Shipment": {
+                        "Status": {
+                            "Status": "Manifested",
+                            "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                        },
+                        "ReferenceNo": str(self.order.order_number),
+                    }
+                }
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"], "Missing AWB in webhook payload.")
+        self.assertGreaterEqual(mock_warning.call_count, 2)
+        logged_events = [call.args[0] for call in mock_warning.call_args_list]
+        self.assertIn("delhivery_scan_push_missing_awb", logged_events)
+        self.assertIn("delhivery_scan_push_invalid_payload error=%s", logged_events)
+
+    def test_webhook_logs_successful_update_for_monitoring(self):
+        with patch("orders.views.logger.info") as mock_info:
+            response = self.post_webhook(
+                {
+                    "Shipment": {
+                        "Status": {
+                            "Status": "Manifested",
+                            "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                            "StatusType": "UD",
+                            "StatusLocation": "Origin Hub",
+                            "Instructions": "Manifest uploaded",
+                        },
+                        "ReferenceNo": str(self.order.order_number),
+                        "AWB": "85172510000022",
+                    }
+                }
+            )
+
+        self.assertEqual(response.status_code, 200)
+        mock_info.assert_called_once()
+        self.assertIn("delhivery_scan_push_updated", mock_info.call_args[0][0])
 
 
 @override_settings(

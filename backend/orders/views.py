@@ -572,6 +572,7 @@ def process_delhivery_scan_push_payload(payload):
 
     awb = str(shipment.get("AWB") or "").strip()
     if not awb:
+        logger.warning("delhivery_scan_push_missing_awb")
         raise ValueError("Missing AWB in webhook payload.")
 
     reference_number = str(shipment.get("ReferenceNo") or "").strip()
@@ -602,6 +603,13 @@ def process_delhivery_scan_push_payload(payload):
         order,
         raw_payload=payload,
         status=status,
+    )
+    logger.info(
+        "delhivery_scan_push_updated order_id=%s awb=%s reference=%s status=%s",
+        order.id,
+        awb,
+        reference_number,
+        str(status.get("label") or "").strip(),
     )
     return order, "updated"
 
@@ -1779,11 +1787,13 @@ def delhivery_scan_push_webhook(request):
 
     payload = request.data
     if not isinstance(payload, dict):
+        logger.warning("delhivery_scan_push_invalid_payload payload_type=%s", type(payload).__name__)
         return Response({"error": "Invalid payload."}, status=400)
 
     try:
         order, result = process_delhivery_scan_push_payload(payload)
     except ValueError as exc:
+        logger.warning("delhivery_scan_push_invalid_payload error=%s", str(exc))
         return Response({"error": str(exc)}, status=400)
 
     if order is None:
