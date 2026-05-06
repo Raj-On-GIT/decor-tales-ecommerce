@@ -18,9 +18,6 @@ export default function AccountPage() {
     last_name: "",
     phone: "",
   });
-
-  const [avatarPreview, setAvatarPreview] = useState(null); 
-  const [avatarFile, setAvatarFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -42,7 +39,6 @@ export default function AccountPage() {
           last_name: data.last_name || "",
           phone: data.profile?.phone || "",
         });
-        setAvatarPreview(data.profile?.avatar || null);
       } catch {
         error("Failed to load profile");
       } finally {
@@ -120,10 +116,6 @@ export default function AccountPage() {
       formData.append("last_name", payload.last_name);
       formData.append("profile.phone", payload.phone);
 
-      if (avatarFile) {
-        formData.append("profile.avatar", avatarFile);
-      }
-
       const updated = await updateProfile(formData);
       setProfile(updated);
       setForm({
@@ -131,8 +123,6 @@ export default function AccountPage() {
         last_name: updated.last_name || "",
         phone: updated.profile?.phone || "",
       });
-      setAvatarPreview(updated.profile?.avatar || null);
-      setAvatarFile(null);
       success("Profile updated successfully");
     } catch (err) {
       if (err && typeof err === "object" && !Array.isArray(err)) {
@@ -149,41 +139,10 @@ export default function AccountPage() {
 
       const message =
         err?.profile?.phone?.[0] ||
-        err?.profile?.avatar?.[0] ||
         err?.first_name?.[0] ||
         err?.last_name?.[0] ||
         err?.detail ||
         "Failed to update profile";
-      error(message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRemoveAvatar = async () => {
-    try {
-      setSaving(true);
-      const formData = new FormData();
-      formData.append("first_name", form.first_name);
-      formData.append("last_name", form.last_name);
-      formData.append("profile.phone", form.phone);
-      formData.append("profile.avatar", "");
-
-      const updated = await updateProfile(formData);
-      setProfile(updated);
-      setAvatarFile(null);
-      setAvatarPreview(null);
-      setForm({
-        first_name: updated.first_name || "",
-        last_name: updated.last_name || "",
-        phone: updated.profile?.phone || "",
-      });
-      success("Profile photo removed");
-    } catch (err) {
-      const message =
-        err?.profile?.avatar?.[0] ||
-        err?.detail ||
-        "Failed to remove photo";
       error(message);
     } finally {
       setSaving(false);
@@ -216,61 +175,6 @@ export default function AccountPage() {
       ) : (
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative h-24 w-24 overflow-hidden rounded-full border border-gray-200 bg-gray-200 shadow-[0_2px_8px_rgba(0,0,0,0.06)] sm:h-28 sm:w-28">
-            <img
-              src={avatarPreview || "/avatar-placeholder.png"}
-              alt="Avatar"
-              className="h-full w-full object-cover"
-            />
-          </div>
-
-          <input
-            id="avatarUpload"
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (!file) return;
-              setAvatarFile(file);
-              setAvatarPreview(URL.createObjectURL(file));
-            }}
-          />
-
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <label
-              htmlFor="avatarUpload"
-              className="cursor-pointer rounded-full border border-gray-200 bg-[#F0FFDF] px-5 py-2.5 text-sm font-medium text-gray-800 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)]"
-            >
-              Upload
-            </label>
-
-            {avatarPreview && (
-              <button
-                type="button"
-                onClick={handleRemoveAvatar}
-                className="rounded-full border border-red-200 bg-red-50 p-2 text-red-600 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:bg-red-100 hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)]"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 7h12M9 7v10m6-10v10M10 4h4m-9 3h14l-1 13a2 2 0 01-2 2H8a2 2 0 01-2-2L5 7z"
-                  />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-semibold">First Name</label>

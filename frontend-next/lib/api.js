@@ -668,14 +668,7 @@ export async function getProfile() {
     throw new Error("Failed to fetch profile");
   }
 
-  const data = await response.json();
-
-  // 🔥 Fix avatar URL
-  if (data.profile?.avatar && !data.profile.avatar.startsWith("http")) {
-    data.profile.avatar = `${BACKEND}${data.profile.avatar}`;
-  }
-
-  return data;
+  return response.json();
 }
 
 export async function updateProfile(formData) {
@@ -692,13 +685,7 @@ export async function updateProfile(formData) {
     throw err;
   }
 
-  const data = await response.json();
-
-  if (data.profile?.avatar && !data.profile.avatar.startsWith("http")) {
-    data.profile.avatar = `${BACKEND}${data.profile.avatar}`;
-  }
-
-  return data;
+  return response.json();
 }
 
 export async function getAddresses() {

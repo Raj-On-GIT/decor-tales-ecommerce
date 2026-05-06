@@ -125,26 +125,6 @@ def _sanitize_image_upload(
     )
 
 
-def validate_avatar(file):
-    """
-    Validate and sanitize avatar uploads only.
-
-    - Caps file size at 1MB
-    - Allows jpg/jpeg/png/webp
-    - Verifies MIME type, extension, and actual image contents
-    - Rejects images above 1024x1024
-    - Strips metadata by re-saving the image
-    - Downsizes large avatars to fit within 512x512
-    """
-    return _sanitize_image_upload(
-        file,
-        max_file_size=1024 * 1024,
-        max_width=1024,
-        max_height=1024,
-        resize_to=512,
-    )
-
-
 def validate_custom_image(file):
     """
     Validate and sanitize order customization images only.

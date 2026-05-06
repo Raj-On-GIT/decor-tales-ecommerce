@@ -260,12 +260,6 @@ def update_profile(request):
     if "profile.phone" in request.data:
         profile_data["phone"] = request.data.get("profile.phone")
 
-    avatar_removed = "profile.avatar" in request.data and not request.data.get("profile.avatar")
-    if "profile.avatar" in request.FILES:
-        profile_data["avatar"] = request.FILES["profile.avatar"]
-    elif avatar_removed:
-        profile_data["avatar"] = None
-
     if profile_data:
         data["profile"] = profile_data
 

@@ -10,7 +10,7 @@ class UserProfileInline(admin.StackedInline):
     can_delete = False
     extra = 0
     max_num = 1
-    fields = ("phone", "avatar", "created_at", "updated_at")
+    fields = ("phone", "created_at", "updated_at")
     readonly_fields = ("created_at", "updated_at")
     verbose_name_plural = "Profile"
 

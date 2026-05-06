@@ -1,23 +1,10 @@
-import os
-import shutil
-import tempfile
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.urls import reverse
 from django.core.cache import cache
-from PIL import Image
 from rest_framework.test import APIClient
-from django.core.files.uploadedfile import SimpleUploadedFile
-
-
-def build_test_image(name, size=(100, 100), image_format="PNG", content_type="image/png"):
-    image_io = tempfile.SpooledTemporaryFile()
-    image = Image.new("RGB", size, color=(120, 80, 200))
-    image.save(image_io, format=image_format)
-    image_io.seek(0)
-    return SimpleUploadedFile(name, image_io.read(), content_type=content_type)
 
 
 class GoogleAuthTests(TestCase):
@@ -229,68 +216,6 @@ class AdditionalAuthThrottleTests(TestCase):
         )
 
         self.assertEqual(throttled_response.status_code, 429)
-
-
-class AvatarValidationTests(TestCase):
-    def setUp(self):
-        cache.clear()
-        self.media_root = os.path.join(os.getcwd(), "test_media_accounts")
-        shutil.rmtree(self.media_root, ignore_errors=True)
-        os.makedirs(self.media_root, exist_ok=True)
-        self.client = APIClient()
-        self.user = User.objects.create_user(
-            username="avatar-user",
-            email="avatar@example.com",
-            password="testpass123",
-        )
-        self.client.force_authenticate(user=self.user)
-
-        from django.conf import settings
-
-        self._original_media_root = settings.MEDIA_ROOT
-        settings.MEDIA_ROOT = self.media_root
-
-    def tearDown(self):
-        from django.conf import settings
-
-        settings.MEDIA_ROOT = self._original_media_root
-        shutil.rmtree(self.media_root, ignore_errors=True)
-
-    def test_avatar_is_resized_and_saved(self):
-        response = self.client.patch(
-            "/api/accounts/profile/update/",
-            {
-                "first_name": "Avatar",
-                "last_name": "User",
-                "profile.avatar": build_test_image("avatar.png", size=(800, 600)),
-            },
-            format="multipart",
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.user.refresh_from_db()
-        self.assertTrue(bool(self.user.profile.avatar))
-
-        with Image.open(self.user.profile.avatar.path) as saved_image:
-            self.assertLessEqual(saved_image.width, 512)
-            self.assertLessEqual(saved_image.height, 512)
-
-    def test_avatar_rejects_images_above_dimension_limit(self):
-        response = self.client.patch(
-            "/api/accounts/profile/update/",
-            {
-                "first_name": "Avatar",
-                "last_name": "User",
-                "profile.avatar": build_test_image("avatar.png", size=(2048, 1200)),
-            },
-            format="multipart",
-        )
-
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response.data["profile"]["avatar"][0],
-            "Image dimensions must not exceed 1024x1024 pixels.",
-        )
 
 
 class AuthThrottleTests(TestCase):
