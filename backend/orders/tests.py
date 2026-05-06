@@ -1990,6 +1990,39 @@ class OrderAdminDelhiveryShipmentTests(TestCase):
             reverse("admin:orders_order_refresh_tracking", args=[self.order.pk]),
         )
 
+    def test_change_page_shows_compact_shipment_summary(self):
+        self.order.delhivery_waybill = "WB123456789"
+        self.order.delhivery_reference = str(self.order.order_number)
+        self.order.delhivery_shipment_status = "Manifested"
+        self.order.delhivery_tracking_status_label = "In Transit"
+        self.order.delhivery_tracking_status_code = "IT"
+        self.order.delhivery_tracking_status_type = "UD"
+        self.order.delhivery_last_scan_location = "Delhi Hub"
+        self.order.save(
+            update_fields=[
+                "delhivery_waybill",
+                "delhivery_reference",
+                "delhivery_shipment_status",
+                "delhivery_tracking_status_label",
+                "delhivery_tracking_status_code",
+                "delhivery_tracking_status_type",
+                "delhivery_last_scan_location",
+            ]
+        )
+
+        response = self.client.get(
+            reverse("admin:orders_order_change", args=[self.order.pk]),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Shipment Summary")
+        self.assertContains(response, "WB123456789")
+        self.assertContains(response, "In Transit")
+        self.assertContains(response, "Delhi Hub")
+        self.assertNotContains(response, "Delhivery Shipment")
+        self.assertNotContains(response, "Delhivery Tracking")
+
     @patch("orders.views.DelhiveryService.track_shipment")
     def test_admin_can_refresh_tracking(self, mock_track_shipment):
         self.order.delhivery_waybill = "WB987654321"

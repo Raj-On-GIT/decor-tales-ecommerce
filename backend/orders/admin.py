@@ -3,7 +3,8 @@ from django import forms
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import redirect
 from django.urls import path, reverse
-from django.utils.html import format_html
+from django.utils import timezone
+from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django.db import models
 from django.core.exceptions import ImproperlyConfigured
@@ -185,12 +186,21 @@ class OrderAdmin(admin.ModelAdmin):
     readonly_fields = (
         "created_at",
         "updated_at",
+        "shipment_summary",
+        "delhivery_waybill",
+        "delhivery_reference",
+        "delhivery_client_name",
+        "delhivery_shipment_status",
+        "delhivery_payment_mode",
+        "delhivery_created_at",
         "delhivery_tracking_status_label",
         "delhivery_tracking_status_code",
         "delhivery_tracking_status_type",
         "delhivery_last_scan_at",
         "delhivery_last_scan_location",
         "delhivery_tracking_synced_at",
+        "delhivery_raw_response",
+        "delhivery_tracking_raw_response",
     )
     inlines = [OrderItemInline]
     fieldsets = (
@@ -238,28 +248,10 @@ class OrderAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "Delhivery Shipment",
+            "Shipment Summary",
             {
                 "fields": (
-                    "delhivery_waybill",
-                    "delhivery_reference",
-                    "delhivery_client_name",
-                    "delhivery_shipment_status",
-                    "delhivery_payment_mode",
-                    "delhivery_created_at",
-                )
-            },
-        ),
-        (
-            "Delhivery Tracking",
-            {
-                "fields": (
-                    "delhivery_tracking_status_label",
-                    "delhivery_tracking_status_code",
-                    "delhivery_tracking_status_type",
-                    "delhivery_last_scan_at",
-                    "delhivery_last_scan_location",
-                    "delhivery_tracking_synced_at",
+                    "shipment_summary",
                 )
             },
         ),
@@ -284,6 +276,9 @@ class OrderAdmin(admin.ModelAdmin):
         ),
     )
 
+    class Media:
+        css = {"all": ("admin/css/admin_custom.css",)}
+
     def can_create_delhivery_shipment(self, obj):
         if not obj:
             return False
@@ -301,6 +296,55 @@ class OrderAdmin(admin.ModelAdmin):
             return False
 
         return bool(obj.delhivery_waybill)
+
+    @admin.display(description="Shipment Summary")
+    def shipment_summary(self, obj):
+        if not obj:
+            return "-"
+
+        def display(value, empty="Not available"):
+            normalized = str(value or "").strip()
+            return normalized or empty
+
+        def display_dt(value, empty="Not available"):
+            if not value:
+                return empty
+
+            local_value = timezone.localtime(value) if timezone.is_aware(value) else value
+            return local_value.strftime("%d %b %Y, %I:%M %p")
+
+        latest_status = display(
+            obj.delhivery_tracking_status_label or obj.delhivery_shipment_status,
+            "Tracking pending",
+        )
+
+        rows = (
+            ("AWB", display(obj.delhivery_waybill, "Not created")),
+            ("Reference", display(obj.delhivery_reference)),
+            ("Client", display(obj.delhivery_client_name)),
+            ("Shipment State", display(obj.delhivery_shipment_status, "Not created")),
+            ("Payment Mode", display(obj.delhivery_payment_mode)),
+            ("Latest Tracking", latest_status),
+            ("Tracking Code", display(obj.delhivery_tracking_status_code)),
+            ("Tracking Type", display(obj.delhivery_tracking_status_type)),
+            ("Last Scan Location", display(obj.delhivery_last_scan_location, "No scans yet")),
+            ("Last Scan Time", display_dt(obj.delhivery_last_scan_at, "No scans yet")),
+            ("Tracking Synced", display_dt(obj.delhivery_tracking_synced_at, "Never synced")),
+            ("Shipment Created", display_dt(obj.delhivery_created_at, "Not created")),
+        )
+
+        return format_html(
+            '<div class="shipment-summary-grid">{}</div>',
+            format_html_join(
+                "",
+                (
+                    '<div class="shipment-summary-card">'
+                    '<div class="shipment-summary-label">{}</div>'
+                    '<div class="shipment-summary-value">{}</div></div>'
+                ),
+                ((label, value) for label, value in rows),
+            ),
+        )
 
     def get_urls(self):
         urls = super().get_urls()

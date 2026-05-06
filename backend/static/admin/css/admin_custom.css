@@ -16,3 +16,45 @@
 .field-custom_image_limit {
     display: none;
 }
+
+/* Order admin shipment summary layout */
+.field-shipment_summary {
+    align-items: flex-start;
+}
+
+.field-shipment_summary .readonly {
+    width: 100%;
+    max-width: none;
+}
+
+.field-shipment_summary .shipment-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    width: 100%;
+}
+
+.field-shipment_summary .shipment-summary-card {
+    border: 1px solid #d8dde3;
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: #fbfcfd;
+    min-width: 0;
+}
+
+.field-shipment_summary .shipment-summary-label {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6b7280;
+    font-weight: 700;
+}
+
+.field-shipment_summary .shipment-summary-value {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #111827;
+    font-weight: 600;
+    line-height: 1.45;
+    word-break: break-word;
+}
