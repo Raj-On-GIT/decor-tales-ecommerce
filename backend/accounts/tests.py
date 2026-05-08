@@ -1,10 +1,122 @@
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase
-from django.urls import reverse
 from django.core.cache import cache
+from django.test import TestCase, override_settings
+from django.urls import reverse
 from rest_framework.test import APIClient
+
+from .models import SignupOTPChallenge
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class SignupOTPTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient(enforce_csrf_checks=True)
+        csrf_response = self.client.get(reverse("csrf_token"))
+        self.csrf_token = csrf_response.cookies["csrftoken"].value
+        self.signup_payload = {
+            "email": "new-user@example.com",
+            "password": "Strongpass123!",
+            "password2": "Strongpass123!",
+            "first_name": "New",
+            "last_name": "User",
+            "phone": "9876543210",
+        }
+
+    @patch("accounts.services.send_signup_otp_email")
+    def test_signup_start_sends_otp_without_creating_user(self, mock_send_signup_otp_email):
+        response = self.client.post(
+            reverse("signup"),
+            self.signup_payload,
+            format="json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["message"], "Verification code sent to your email.")
+        self.assertIn("signup_token", response.data)
+        self.assertFalse(User.objects.filter(email="new-user@example.com").exists())
+        self.assertTrue(SignupOTPChallenge.objects.filter(email="new-user@example.com").exists())
+        mock_send_signup_otp_email.assert_called_once()
+
+    @patch("accounts.services.send_signup_otp_email")
+    def test_signup_verify_creates_user_after_valid_otp(self, mock_send_signup_otp_email):
+        captured_otp = {}
+
+        def capture_otp(*, to_email, otp_code):
+            captured_otp["code"] = otp_code
+            return {"id": "email_123"}
+
+        mock_send_signup_otp_email.side_effect = capture_otp
+
+        start_response = self.client.post(
+            reverse("signup"),
+            self.signup_payload,
+            format="json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+
+        verify_response = self.client.post(
+            reverse("signup_verify"),
+            {
+                "signup_token": start_response.data["signup_token"],
+                "otp": captured_otp["code"],
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+
+        self.assertEqual(verify_response.status_code, 201)
+        self.assertEqual(verify_response.data["user"]["email"], "new-user@example.com")
+        self.assertTrue(User.objects.filter(email="new-user@example.com").exists())
+        self.assertEqual(User.objects.get(email="new-user@example.com").profile.phone, "9876543210")
+
+    @patch("accounts.services.send_signup_otp_email")
+    def test_signup_verify_rejects_invalid_otp(self, mock_send_signup_otp_email):
+        mock_send_signup_otp_email.return_value = {"id": "email_123"}
+
+        start_response = self.client.post(
+            reverse("signup"),
+            self.signup_payload,
+            format="json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+
+        verify_response = self.client.post(
+            reverse("signup_verify"),
+            {
+                "signup_token": start_response.data["signup_token"],
+                "otp": "000000",
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+
+        self.assertEqual(verify_response.status_code, 400)
+        self.assertEqual(verify_response.data["error"], "Invalid verification code.")
+        self.assertFalse(User.objects.filter(email="new-user@example.com").exists())
+
+    @patch("accounts.services.send_signup_otp_email")
+    def test_signup_start_enforces_resend_cooldown(self, mock_send_signup_otp_email):
+        mock_send_signup_otp_email.return_value = {"id": "email_123"}
+
+        first_response = self.client.post(
+            reverse("signup"),
+            self.signup_payload,
+            format="json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+        second_response = self.client.post(
+            reverse("signup"),
+            self.signup_payload,
+            format="json",
+            HTTP_X_CSRFTOKEN=self.csrf_token,
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 429)
 
 
 class GoogleAuthTests(TestCase):
@@ -190,6 +302,28 @@ class CookieAuthTests(TestCase):
         )
 
 
+class PasswordResetTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="reset-user",
+            email="reset@example.com",
+            password="testpass123",
+        )
+
+    @patch("accounts.serializers.send_password_reset_email")
+    def test_forgot_password_uses_resend_mailer(self, mock_send_password_reset_email):
+        response = self.client.post(
+            "/api/auth/forgot-password/",
+            {"email": "reset@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mock_send_password_reset_email.assert_called_once()
+
+
 class AdditionalAuthThrottleTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -228,7 +362,9 @@ class AuthThrottleTests(TestCase):
             password="testpass123",
         )
 
-    def test_signup_throttle_returns_429_after_ten_requests(self):
+    @patch("accounts.services.send_signup_otp_email")
+    def test_signup_throttle_returns_429_after_ten_requests(self, mock_send_signup_otp_email):
+        mock_send_signup_otp_email.return_value = {"id": "email_123"}
         signup_payload = {
             "email": "new-user@example.com",
             "password": "Strongpass123!",
@@ -244,7 +380,7 @@ class AuthThrottleTests(TestCase):
                 signup_payload,
                 format="json",
             )
-            self.assertIn(response.status_code, {201, 400})
+            self.assertIn(response.status_code, {200, 400, 429})
 
         throttled_response = self.client.post(
             reverse("signup"),

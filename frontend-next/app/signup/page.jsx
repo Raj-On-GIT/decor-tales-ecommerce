@@ -19,7 +19,8 @@ import { useAuth } from "@/context/AuthContext";
 import {
   getGoogleAuthNonce,
   loginWithGoogle,
-  signup as signupRequest,
+  startSignupVerification,
+  verifySignupOtp,
 } from "@/lib/auth";
 
 export default function SignupPage() {
@@ -36,6 +37,12 @@ export default function SignupPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [signupToken, setSignupToken] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [otpStep, setOtpStep] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [googleNonce, setGoogleNonce] = useState(null);
   const [googleNonceToken, setGoogleNonceToken] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(true);
@@ -74,6 +81,18 @@ export default function SignupPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setResendCooldown((current) => Math.max(current - 1, 0));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
 
   const handleGoogleSuccess = async (credentialResponse) => {
     if (!credentialResponse.credential || !googleNonceToken) {
@@ -114,13 +133,45 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const data = await signupRequest({
+      const data = await startSignupVerification({
         email: formData.email,
         password: formData.password,
         password2: formData.confirmPassword,
         phone: formData.phone,
         first_name: formData.name.split(" ")[0] || "",
         last_name: formData.name.split(" ").slice(1).join(" ") || "",
+      });
+
+      setSignupToken(data.signup_token);
+      setSignupEmail(data.email);
+      setResendCooldown(data.resend_cooldown || 0);
+      setOtpStep(true);
+    } catch (err) {
+      if (err && typeof err === "object" && !Array.isArray(err)) {
+        const errors = Object.entries(err)
+          .map(
+            ([field, messages]) =>
+              `${field}: ${Array.isArray(messages) ? messages.join(", ") : messages}`,
+          )
+          .join("\n");
+        setError(errors || "Signup failed");
+      } else {
+        setError(err.message || "Signup failed");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setError("");
+    setOtpLoading(true);
+
+    try {
+      const data = await verifySignupOtp({
+        signup_token: signupToken,
+        otp,
       });
 
       alert(data.message);
@@ -133,9 +184,44 @@ export default function SignupPage() {
               `${field}: ${Array.isArray(messages) ? messages.join(", ") : messages}`,
           )
           .join("\n");
-        setError(errors || "Signup failed");
+        setError(errors || "Verification failed");
       } else {
-        setError(err.message || "Signup failed");
+        setError(err.message || "Verification failed");
+      }
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setError("");
+    setLoading(true);
+
+    try {
+      const data = await startSignupVerification({
+        email: formData.email,
+        password: formData.password,
+        password2: formData.confirmPassword,
+        phone: formData.phone,
+        first_name: formData.name.split(" ")[0] || "",
+        last_name: formData.name.split(" ").slice(1).join(" ") || "",
+      });
+
+      setSignupToken(data.signup_token);
+      setSignupEmail(data.email);
+      setResendCooldown(data.resend_cooldown || 0);
+      setOtp("");
+    } catch (err) {
+      if (err && typeof err === "object" && !Array.isArray(err)) {
+        const errors = Object.entries(err)
+          .map(
+            ([field, messages]) =>
+              `${field}: ${Array.isArray(messages) ? messages.join(", ") : messages}`,
+          )
+          .join("\n");
+        setError(errors || "Could not resend code");
+      } else {
+        setError(err.message || "Could not resend code");
       }
     } finally {
       setLoading(false);
@@ -157,10 +243,45 @@ export default function SignupPage() {
       >
         <div className="p-5 md:p-12 flex flex-col justify-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-5">
-            Create Account
+            {otpStep ? "Verify Your Email" : "Create Account"}
           </h1>
 
-          <form onSubmit={handleSubmit} className="space-y-3">
+          <form
+            onSubmit={otpStep ? handleVerifyOtp : handleSubmit}
+            className="space-y-3"
+          >
+            {otpStep ? (
+              <>
+                <p className="text-sm text-gray-600">
+                  Enter the 6-digit code sent to{" "}
+                  <span className="font-semibold text-gray-900">
+                    {signupEmail}
+                  </span>
+                  .
+                </p>
+
+                <div className="relative">
+                  <Shield
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                    size={18}
+                  />
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e) =>
+                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
+                    disabled={otpLoading}
+                    placeholder="6-digit verification code"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg
+                         focus:outline-none focus:border-gray-900 transition
+                         disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    required
+                  />
+                </div>
+              </>
+            ) : (
+              <>
             <div className="relative">
               <User
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -273,9 +394,11 @@ export default function SignupPage() {
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
+              </>
+            )}
 
             {error && (
               <motion.div
@@ -287,6 +410,7 @@ export default function SignupPage() {
               </motion.div>
             )}
 
+            {!otpStep && (
             <div className="flex items-start gap-2 text-sm text-gray-600 px-2 py-2">
               <input
                 type="checkbox"
@@ -319,10 +443,11 @@ export default function SignupPage() {
                 </Link>
               </span>
             </div>
+            )}
 
             <button
               type="submit"
-              disabled={isFormLocked}
+              disabled={otpStep ? otpLoading : isFormLocked}
               className="
                 w-full
                 bg-[#2f5d56] hover:bg-[#244944]
@@ -333,18 +458,53 @@ export default function SignupPage() {
                 flex items-center justify-center gap-2
               "
             >
-              {loading && !isGoogleRedirecting && (
+              {((otpStep && otpLoading) || (loading && !isGoogleRedirecting)) && (
                 <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
               )}
-              {loading ? "Creating Account..." : "Create Account"}
+              {otpStep
+                ? otpLoading
+                  ? "Verifying..."
+                  : "Verify Email"
+                : loading
+                  ? "Sending Code..."
+                  : "Send Verification Code"}
             </button>
 
+            {otpStep && (
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtpStep(false);
+                    setOtp("");
+                    setError("");
+                  }}
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  Edit details
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={loading || resendCooldown > 0}
+                  className="font-semibold text-[#2f5d56] disabled:text-gray-400"
+                >
+                  {resendCooldown > 0
+                    ? `Resend in ${resendCooldown}s`
+                    : "Resend code"}
+                </button>
+              </div>
+            )}
+
+            {!otpStep && (
             <div className="flex items-center gap-3 my-3">
               <div className="flex-1 h-px bg-gray-200" />
               <span className="text-gray-500 text-sm">Or</span>
               <div className="flex-1 h-px bg-gray-200" />
             </div>
+            )}
 
+            {!otpStep && (
             <div className="w-full mt-3 flex justify-center">
               {isGoogleRedirecting ? (
                 <motion.div
@@ -391,6 +551,7 @@ export default function SignupPage() {
                 </button>
               )}
             </div>
+            )}
           </form>
 
           <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">

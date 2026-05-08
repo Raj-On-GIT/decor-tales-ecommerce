@@ -1,33 +1,44 @@
 import logging
+import secrets
 
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes, parser_classes, throttle_classes
-from rest_framework.authentication import SessionAuthentication
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from django.middleware.csrf import get_token
-from django.views.decorators.csrf import ensure_csrf_cookie
 from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
-from .serializers import ProfileSerializer, ForgotPasswordSerializer, ResetPasswordSerializer, ChangePasswordSerializer
+from django.middleware.csrf import get_token
+from django.views.decorators.csrf import ensure_csrf_cookie
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
+from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, parser_classes, permission_classes, throttle_classes
 from rest_framework.parsers import MultiPartParser, FormParser
-from .serializers import SignupSerializer, LoginSerializer, UserSerializer, AddressSerializer
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from django.conf import settings
+from django.contrib.auth.models import User
+
+from utils.logging_helpers import mask_sensitive
+
 from .models import Address
+from .serializers import (
+    AddressSerializer,
+    ChangePasswordSerializer,
+    ForgotPasswordSerializer,
+    LoginSerializer,
+    ProfileSerializer,
+    ResetPasswordSerializer,
+    SignupSerializer,
+    UserSerializer,
+)
+from .services import SignupOTPError, issue_signup_otp, verify_signup_otp
 from .throttles import (
     GoogleAuthThrottle,
     LoginThrottle,
     PasswordResetThrottle,
     SignupThrottle,
 )
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
-from django.contrib.auth.models import User
-from rest_framework_simplejwt.serializers import TokenRefreshSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.conf import settings
-import secrets
-from utils.logging_helpers import mask_sensitive
 
 logger = logging.getLogger(__name__)
 
@@ -118,28 +129,58 @@ def clear_auth_cookies(response):
 @permission_classes([AllowAny])  # Public endpoint
 @throttle_classes([SignupThrottle])
 def signup_view(request):
-       
     serializer = SignupSerializer(data=request.data)
-    
-    if serializer.is_valid():
-        # Create user (password is hashed in serializer)
-        user = serializer.save()
-        
-        # Return user data (no tokens)
-        user_data = UserSerializer(user).data
-        
+
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        otp_session = issue_signup_otp(serializer.validated_data)
+    except SignupOTPError as exc:
+        return Response(exc.detail, status=exc.status_code)
+    except Exception:
+        logger.exception("auth_signup_otp_issue_failed email=%s", serializer.validated_data.get("email"))
         return Response(
-            {
-                "message": "User created successfully. Please login.",
-                "user": user_data
-            },
-            status=status.HTTP_201_CREATED
+            {"error": "We could not send the verification code right now. Please try again."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-    
-    # Return validation errors
+
     return Response(
-        serializer.errors,
-        status=status.HTTP_400_BAD_REQUEST
+        {
+            "message": "Verification code sent to your email.",
+            "signup_token": otp_session["signup_token"],
+            "email": otp_session["email"],
+            "expires_in": otp_session["expires_in"],
+            "resend_cooldown": otp_session["resend_cooldown"],
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([SignupThrottle])
+def signup_verify_view(request):
+    signup_token = str(request.data.get("signup_token", "") or "").strip()
+    otp_code = str(request.data.get("otp", "") or "").strip()
+
+    if not signup_token or not otp_code:
+        return Response(
+            {"error": "Signup session and verification code are required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        user = verify_signup_otp(signup_token=signup_token, otp_code=otp_code)
+    except SignupOTPError as exc:
+        return Response(exc.detail, status=exc.status_code)
+
+    return Response(
+        {
+            "message": "Account created successfully. Please login.",
+            "user": UserSerializer(user).data,
+        },
+        status=status.HTTP_201_CREATED,
     )
 
 
@@ -180,58 +221,6 @@ def login_view(request):
         serializer.errors,
         status=status.HTTP_400_BAD_REQUEST
     )
-
-
-
-class SignupView(APIView):
-    
-    permission_classes = [AllowAny]
-    
-    def post(self, request):
-        serializer = SignupSerializer(data=request.data)
-        
-        if serializer.is_valid():
-            user = serializer.save()
-            user_data = UserSerializer(user).data
-            
-            return Response(
-                {
-                    "message": "User created successfully. Please login.",
-                    "user": user_data
-                },
-                status=status.HTTP_201_CREATED
-            )
-        
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-
-class LoginView(APIView):
-    permission_classes = [AllowAny]
-    
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        
-        if serializer.is_valid():
-            user = serializer.validated_data.get('user')
-
-            response = Response(
-                {"user": UserSerializer(user).data},
-                status=status.HTTP_200_OK
-            )
-            set_auth_cookies(
-                response,
-                access_token=serializer.validated_data["access"],
-                refresh_token=serializer.validated_data["refresh"],
-            )
-            return response
-        
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -503,11 +492,7 @@ def google_auth_view(request):
         return response
 
     except Exception:
-        logger.warning(
-            "auth_refresh_invalid source=%s refresh_token=%s",
-            refresh_token_source,
-            mask_sensitive(refresh_token),
-        )
+        logger.exception("google_auth_failed")
         return Response({"error": "Google authentication failed."}, status=400)
 
 

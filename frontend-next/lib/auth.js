@@ -88,7 +88,7 @@ export async function apiFetch(url, options = {}) {
   });
 }
 
-export async function signup(userData) {
+export async function startSignupVerification(userData) {
   const response = await apiFetch(`${getApiBase()}/api/auth/signup/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -102,6 +102,26 @@ export async function signup(userData) {
   }
 
   return data;
+}
+
+export async function verifySignupOtp(payload) {
+  const response = await apiFetch(`${getApiBase()}/api/auth/signup/verify/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data;
+}
+
+export async function signup(userData) {
+  return startSignupVerification(userData);
 }
 
 export async function login(credentials) {

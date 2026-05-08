@@ -24,6 +24,7 @@ from orders.views import serve_order_media_direct
 from accounts.views import (
     reset_password_view,
     signup_view,
+    signup_verify_view,
     login_view,
     forgot_password_view,
     google_auth_view,
@@ -52,6 +53,7 @@ urlpatterns = [
     path('api/auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
     path('api/auth/signup/', signup_view, name='signup'),
+    path('api/auth/signup/verify/', signup_verify_view, name='signup_verify'),
     path('api/auth/login/', login_view, name='login'),
     path('api/auth/logout/', logout_view, name='logout'),
     path('api/auth/google/nonce/', google_auth_nonce_view, name='google_auth_nonce'),

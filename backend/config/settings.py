@@ -345,21 +345,27 @@ CORS_ALLOW_HEADERS = [
 ]
 
 # ===============================
-# EMAIL CONFIGURATION (GMAIL)
+# EMAIL CONFIGURATION (RESEND)
 # ===============================
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
+RESEND_API_URL = os.getenv("RESEND_API_URL", "https://api.resend.com/emails").strip()
+RESEND_FROM_EMAIL = os.getenv(
+    "RESEND_FROM_EMAIL",
+    "DecorTales <noreply@decortalesshop.com>",
+).strip()
 
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
-
-DEFAULT_FROM_EMAIL = f"DecorTales <{EMAIL_HOST_USER}>"
+DEFAULT_FROM_EMAIL = RESEND_FROM_EMAIL
 
 PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
+SIGNUP_OTP_EXPIRY_SECONDS = int(os.getenv("SIGNUP_OTP_EXPIRY_SECONDS", "300"))
+SIGNUP_OTP_RESEND_COOLDOWN_SECONDS = int(
+    os.getenv("SIGNUP_OTP_RESEND_COOLDOWN_SECONDS", "60")
+)
+SIGNUP_OTP_MAX_VERIFY_ATTEMPTS = int(
+    os.getenv("SIGNUP_OTP_MAX_VERIFY_ATTEMPTS", "5")
+)
+SIGNUP_OTP_MAX_SENDS = int(os.getenv("SIGNUP_OTP_MAX_SENDS", "5"))
 
 # Frontend URL (important for reset link)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://decor-tales-ecommerce.vercel.app")

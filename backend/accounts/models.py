@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 class UserProfile(models.Model):
     user = models.OneToOneField(
@@ -53,3 +54,31 @@ class Address(models.Model):
 
     def __str__(self):
         return f"{self.full_name} - {self.city}"
+
+
+class SignupOTPChallenge(models.Model):
+    email = models.EmailField(unique=True)
+    first_name = models.CharField(max_length=150, blank=True)
+    last_name = models.CharField(max_length=150, blank=True)
+    phone = models.CharField(max_length=20)
+    password_hash = models.CharField(max_length=128)
+    otp_hash = models.CharField(max_length=128)
+    send_count = models.PositiveSmallIntegerField(default=0)
+    verify_attempt_count = models.PositiveSmallIntegerField(default=0)
+    last_sent_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-updated_at",)
+
+    def is_expired(self):
+        return self.expires_at <= timezone.now()
+
+    def is_consumed(self):
+        return self.consumed_at is not None
+
+    def __str__(self):
+        return f"Signup OTP for {self.email}"
