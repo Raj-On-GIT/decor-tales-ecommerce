@@ -174,7 +174,7 @@ class Product(models.Model):
         help_text="Discount percentage (auto-calculated)"
     )
 
-    stock = models.PositiveIntegerField(default=0, help_text="Only used if stock_type is 'main'")
+    stock = models.PositiveIntegerField(default=10, help_text="Only used if stock_type is 'main'")
     stock_type = models.CharField(max_length=10, choices=STOCK_TYPE_CHOICES, default='main')
     category = models.ForeignKey(
         Category,
@@ -305,7 +305,7 @@ class ProductVariant(models.Model):
         help_text="Discount percentage (auto-calculated)"
     )
 
-    stock = models.PositiveIntegerField(default=0)
+    stock = models.PositiveIntegerField(default=10)
     sku = models.CharField(max_length=100, unique=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

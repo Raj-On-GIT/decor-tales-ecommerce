@@ -125,7 +125,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
         stock = data.get(
             "stock",
-            self.instance.stock if self.instance else 0
+            self.instance.stock if self.instance else 10
         )
 
         # ✅ MAIN STOCK: validate only main stock
