@@ -116,7 +116,7 @@ export default function ShippingPage() {
       <div className="absolute -right-20 bottom-12 h-72 w-72 rounded-full bg-[#c58b52]/10 blur-3xl" />
 
       <div className="relative mx-auto max-w-6xl px-5 py-5 sm:px-8 sm:py-10 lg:px-10">
-        <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+        <div className="grid gap-8 md:grid-cols-[1.05fr_0.95fr] md:items-start lg:grid-cols-[1.1fr_0.9fr]">
           <div className="max-w-3xl">
             <h1 className="mt-4 font-serif text-4xl leading-tight text-[#102726] sm:text-5xl">
               Shipping & Delivery
@@ -210,7 +210,7 @@ export default function ShippingPage() {
           ))}
         </div>
 
-        <div className="mt-12 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="mt-12 grid gap-5 md:grid-cols-[1.05fr_0.95fr] lg:grid-cols-[1.1fr_0.9fr]">
           <div className="rounded-[30px] border border-[#d7e2de] bg-white/90 p-6 shadow-[0_18px_60px_rgba(16,39,38,0.08)] sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#7b8f8d]">
               Overview of Shipping Process
@@ -281,7 +281,7 @@ export default function ShippingPage() {
           ))}
         </div>
 
-        <div className="mt-12 grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="mt-12 grid gap-5 md:grid-cols-[0.98fr_1.02fr] lg:grid-cols-[0.95fr_1.05fr]">
           <div className="rounded-[30px] border border-[#d7e2de] bg-white/90 p-6 shadow-[0_18px_60px_rgba(16,39,38,0.08)] sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#7b8f8d]">
               Tracking

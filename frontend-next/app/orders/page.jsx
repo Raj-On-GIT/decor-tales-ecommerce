@@ -133,7 +133,7 @@ export default function OrdersPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-teal-800/70">
             Order History
           </p>
-          <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <h1 className="font-serif text-3xl font-bold text-gray-900 sm:text-4xl">
                 Your recent purchases
@@ -164,7 +164,7 @@ export default function OrdersPage() {
                 key={order.id}
                 className="group rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_30px_80px_rgba(15,23,42,0.12)]"
               >
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3">
                       <p
@@ -231,7 +231,7 @@ export default function OrdersPage() {
                     ) : null}
                   </div>
 
-                  <div className="flex items-center justify-between gap-4 lg:block lg:text-right">
+                  <div className="flex items-center justify-between gap-4 md:block md:text-right">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
                         Total

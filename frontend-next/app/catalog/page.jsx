@@ -46,7 +46,7 @@ export default async function CatalogPage({ searchParams }) {
 
       <ViewportReveal
         stagger
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10"
+        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-10"
       >
         {products.length > 0 ? (
           products.map((p) => (

@@ -23,8 +23,8 @@ export default function AccountLayout({ children }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-6 sm:px-6 sm:py-8 lg:py-12">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-5 overflow-x-auto pb-1">
-          <div className="flex min-w-max gap-3 lg:hidden">
+        <div className="mb-5 overflow-x-auto pb-1 md:hidden">
+          <div className="flex min-w-max gap-3">
             <Link href="/account" className={mobileLinkClass("/account")}>
               Profile
             </Link>
@@ -43,8 +43,8 @@ export default function AccountLayout({ children }) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-5 lg:flex-row lg:gap-8">
-          <div className="hidden h-fit w-60 rounded-2xl bg-white p-6 shadow-lg lg:block">
+        <div className="flex flex-col gap-5 md:flex-row md:gap-6 lg:gap-8">
+          <div className="hidden h-fit w-56 rounded-2xl bg-white p-5 shadow-lg md:block lg:w-60 lg:p-6">
             <h2 className="mb-4 text-lg font-bold">My Account</h2>
 
             <nav className="flex flex-col gap-2">

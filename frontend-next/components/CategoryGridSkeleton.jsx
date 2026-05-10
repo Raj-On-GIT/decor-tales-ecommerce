@@ -12,7 +12,7 @@ export default function CategoryGridSkeleton({ count = 4 }) {
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: count }).map((_, i) => (
           <div key={i} className="group">
             <div

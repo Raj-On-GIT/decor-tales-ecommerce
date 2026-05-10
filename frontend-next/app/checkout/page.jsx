@@ -367,7 +367,7 @@ export default function CheckoutPage() {
     <section className="min-h-screen overflow-x-clip bg-gradient-to-br from-[#F0FFDF] via-white to-[#FFECC0] px-4 py-8 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-screen-xl min-w-0">
         <div className="mb-6 rounded-[1.75rem] border border-white/70 bg-white/70 px-5 py-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:mb-8 sm:rounded-[2rem] sm:px-8 sm:py-7">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-teal-800/70">
                 Secure Checkout
@@ -392,7 +392,7 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <div className="grid min-w-0 gap-5 lg:gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+        <div className="grid min-w-0 gap-5 md:grid-cols-[0.92fr_1.08fr] lg:gap-6 xl:grid-cols-[0.85fr_1.15fr]">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -487,7 +487,7 @@ export default function CheckoutPage() {
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            className="min-w-0 rounded-[1.75rem] border border-white/80 bg-[#fffdf8]/95 p-5 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-[2rem] sm:p-8 xl:sticky xl:top-24"
+            className="min-w-0 rounded-[1.75rem] border border-white/80 bg-[#fffdf8]/95 p-5 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-[2rem] sm:p-8 md:sticky md:top-24 xl:top-24"
           >
             <div className="mb-6 flex flex-col gap-2 sm:mb-8 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
               <div>

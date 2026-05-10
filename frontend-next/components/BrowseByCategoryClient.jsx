@@ -14,7 +14,7 @@ export default function BrowseByCategoryClient({ categories, reveal = false }) {
   }
 
   const gridClassName =
-    "grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4";
+    "grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4";
   const content = categories.map((category) => (
     <Link key={category.id} href={`/catalog/${category.slug}`}>
       <div className="group cursor-pointer">

@@ -77,7 +77,7 @@ export default function ContactPage() {
           </p>
         </div>
 
-        <div className="mt-12 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="mt-12 grid gap-5 md:grid-cols-[1.15fr_0.85fr] lg:grid-cols-[1.2fr_0.8fr]">
           <div className="min-w-0 rounded-[28px] border border-[#d7e2de] bg-white/90 p-6 shadow-[0_18px_60px_rgba(16,39,38,0.08)] backdrop-blur sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#7b8f8d]">
               Direct Support
