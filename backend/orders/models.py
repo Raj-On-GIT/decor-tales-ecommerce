@@ -165,6 +165,7 @@ class Order(models.Model):
     payment_verified_at = models.DateTimeField(blank=True, null=True)
     payment_processed = models.BooleanField(default=False)
     refund_processed = models.BooleanField(default=False)
+    customization_media_purged_at = models.DateTimeField(blank=True, null=True)
     
     # Shipping details
     shipping_email = models.EmailField(blank=True)
@@ -304,3 +305,24 @@ class StockReservation(models.Model):
     def __str__(self):
         target = self.variant or self.product
         return f"Reservation for {target} x {self.quantity}"
+
+
+class MediaCleanupTask(models.Model):
+    SCOPE_ORDER_CUSTOMIZATION = "order_customization"
+    SCOPE_PRODUCT_MEDIA = "product_media"
+    SCOPE_CHOICES = [
+        (SCOPE_ORDER_CUSTOMIZATION, "Order Customization"),
+        (SCOPE_PRODUCT_MEDIA, "Product Media"),
+    ]
+
+    file_name = models.CharField(max_length=500, db_index=True)
+    scope = models.CharField(max_length=50, choices=SCOPE_CHOICES)
+    delete_after = models.DateTimeField(db_index=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["delete_after", "id"]
+
+    def __str__(self):
+        return f"{self.scope}: {self.file_name}"

@@ -1,11 +1,27 @@
 from decimal import Decimal
+import os
+import shutil
+import tempfile
+from datetime import timedelta
 
 from django.contrib.auth.models import User
+from django.core.management import call_command
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
+from PIL import Image
 
-from orders.models import Cart, CartItem, Order, OrderItem, StockReservation
-from products.models import Category, Product, SubCategory
+from orders.models import Cart, CartItem, MediaCleanupTask, Order, OrderItem, StockReservation
+from products.models import Category, Product, ProductImage, SubCategory
+
+
+def build_test_image(name, size=(100, 100), image_format="PNG", content_type="image/png"):
+    image_io = tempfile.SpooledTemporaryFile()
+    image = Image.new("RGB", size, color=(120, 160, 220))
+    image.save(image_io, format=image_format)
+    image_io.seek(0)
+    return SimpleUploadedFile(name, image_io.read(), content_type=content_type)
 
 
 class ProductDeletionRulesTests(TestCase):
@@ -206,3 +222,72 @@ class ProductAdminDeletionControlsTests(TestCase):
 
         self.assertNotContains(response, "Permanently Delete")
         self.assertContains(response, "order history")
+
+
+@override_settings(
+    STORAGES={
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    },
+)
+class ProductMediaDeletionTests(TestCase):
+    def setUp(self):
+        self.media_root = os.path.join(os.getcwd(), "test_media_product_cleanup")
+        shutil.rmtree(self.media_root, ignore_errors=True)
+        os.makedirs(self.media_root, exist_ok=True)
+
+        from django.conf import settings
+
+        self._original_media_root = settings.MEDIA_ROOT
+        settings.MEDIA_ROOT = self.media_root
+
+        self.category = Category.objects.create(name="Media Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Media Modern",
+        )
+
+    def tearDown(self):
+        from django.conf import settings
+
+        settings.MEDIA_ROOT = self._original_media_root
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_hard_delete_queues_product_media_for_retained_cleanup(self):
+        product = Product.objects.create(
+            title="Disposable Product",
+            mrp=Decimal("699.00"),
+            stock=2,
+            category=self.category,
+            sub_category=self.subcategory,
+            image=build_test_image("product-main.png", size=(200, 200)),
+        )
+        gallery_image = ProductImage.objects.create(
+            product=product,
+            image=build_test_image("product-gallery.png", size=(220, 220)),
+        )
+
+        main_path = product.image.path
+        gallery_path = gallery_image.image.path
+
+        product.delete()
+
+        self.assertFalse(Product.objects.filter(pk=product.pk).exists())
+        self.assertTrue(os.path.exists(main_path))
+        self.assertTrue(os.path.exists(gallery_path))
+        self.assertEqual(
+            MediaCleanupTask.objects.filter(scope="product_media", deleted_at__isnull=True).count(),
+            2,
+        )
+
+        MediaCleanupTask.objects.filter(scope="product_media").update(
+            delete_after=timezone.now() - timedelta(seconds=1)
+        )
+        call_command("purge_delivered_order_media", "--days", "0", "--limit", "10")
+
+        self.assertFalse(os.path.exists(main_path))
+        self.assertFalse(os.path.exists(gallery_path))

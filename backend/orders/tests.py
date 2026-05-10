@@ -5,6 +5,7 @@ import tempfile
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.test import TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
@@ -1257,6 +1258,172 @@ class ProductAvailabilityHistoryTests(TestCase):
         self.assertEqual(product_payload["category"]["name"], "Archive Frames")
         self.assertEqual(product_payload["status"], "available")
         self.assertTrue(product_payload["can_view"])
+
+
+@override_settings(
+    STORAGES={
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    },
+    ORDER_CUSTOMIZATION_MEDIA_RETENTION_DAYS=0,
+)
+class OrderCustomizationMediaCleanupTests(TestCase):
+    def setUp(self):
+        self.media_root = os.path.join(os.getcwd(), "test_media_order_cleanup")
+        shutil.rmtree(self.media_root, ignore_errors=True)
+        os.makedirs(self.media_root, exist_ok=True)
+
+        from django.conf import settings
+
+        self._original_media_root = settings.MEDIA_ROOT
+        settings.MEDIA_ROOT = self.media_root
+
+        self.user = User.objects.create_user(
+            username="cleanup-user",
+            email="cleanup@example.com",
+            password="testpass123",
+        )
+        self.category = Category.objects.create(name="Cleanup Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Cleanup Modern",
+        )
+        self.product = Product.objects.create(
+            title="Cleanup Frame",
+            mrp=Decimal("799.00"),
+            stock=10,
+            category=self.category,
+            sub_category=self.subcategory,
+            allow_custom_image=True,
+        )
+
+    def tearDown(self):
+        from django.conf import settings
+
+        settings.MEDIA_ROOT = self._original_media_root
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def create_order_with_shared_custom_media(self):
+        cart = Cart.objects.create(user=self.user)
+        cart_item = CartItem.objects.create(
+            cart=cart,
+            product=self.product,
+            quantity=1,
+        )
+        cart_image = CartItemImage.objects.create(
+            cart_item=cart_item,
+            image=build_test_image("shared-custom.png", size=(240, 240)),
+        )
+
+        order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("799.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("799.00"),
+            shipping_address="Address line",
+            city="Delhi",
+            postal_code="110001",
+            phone="9999999999",
+            status="paid",
+            payment_processed=True,
+        )
+        order_item = OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("799.00"),
+        )
+        OrderItemImage.objects.create(order_item=order_item, image=cart_image.image.name)
+
+        return order, cart_item, cart_image, order_item
+
+    def test_deleting_cart_media_keeps_shared_order_file(self):
+        order, cart_item, cart_image, order_item = self.create_order_with_shared_custom_media()
+        shared_path = cart_image.image.path
+
+        cart_item.delete()
+
+        self.assertTrue(os.path.exists(shared_path))
+        self.assertTrue(order_item.custom_images.filter(image=cart_image.image.name).exists())
+        self.assertEqual(order.status, "paid")
+
+    def test_delivered_order_status_change_purges_customization_media(self):
+        order, cart_item, cart_image, order_item = self.create_order_with_shared_custom_media()
+        shared_path = cart_image.image.path
+
+        cart_item.delete()
+        order.status = "delivered"
+        order.save(update_fields=["status"])
+
+        order.refresh_from_db()
+        order_item.refresh_from_db()
+        self.assertIsNotNone(order.customization_media_purged_at)
+        self.assertEqual(order_item.custom_images.count(), 0)
+        self.assertFalse(os.path.exists(shared_path))
+
+    def test_management_command_purges_existing_delivered_orders(self):
+        order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("799.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("799.00"),
+            shipping_address="Address line",
+            city="Delhi",
+            postal_code="110001",
+            phone="9999999999",
+            status="delivered",
+            payment_processed=True,
+        )
+        order_item = OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("799.00"),
+            custom_image=build_test_image("delivered-custom.png", size=(220, 220)),
+        )
+        stored_path = order_item.custom_image.path
+
+        call_command("purge_delivered_order_media", "--days", "0", "--limit", "10")
+
+        order.refresh_from_db()
+        order_item.refresh_from_db()
+        self.assertIsNotNone(order.customization_media_purged_at)
+        self.assertFalse(order_item.custom_image)
+        self.assertFalse(os.path.exists(stored_path))
+
+    def test_management_command_purges_failed_orders_after_retention(self):
+        order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("799.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("799.00"),
+            shipping_address="Address line",
+            city="Delhi",
+            postal_code="110001",
+            phone="9999999999",
+            status="failed",
+            payment_processed=False,
+        )
+        order_item = OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("799.00"),
+            custom_image=build_test_image("failed-custom.png", size=(220, 220)),
+        )
+        stored_path = order_item.custom_image.path
+
+        call_command("purge_delivered_order_media", "--days", "0", "--limit", "10")
+
+        order.refresh_from_db()
+        order_item.refresh_from_db()
+        self.assertIsNotNone(order.customization_media_purged_at)
+        self.assertFalse(order_item.custom_image)
+        self.assertFalse(os.path.exists(stored_path))
 
     def test_order_detail_includes_stored_shipment_tracking_snapshot(self):
         self.order.delhivery_waybill = "85172510000022"
