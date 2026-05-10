@@ -332,11 +332,11 @@ export default function SearchBar({ isOpen, onClose }) {
                           <div className="flex flex-col items-end gap-0.5 text-right">
                             {originalPrice ? (
                               <span className="text-xs text-gray-500 line-through">
-                                Rs {formatPrice(originalPrice)}
+                                ₹{formatPrice(originalPrice)}
                               </span>
                             ) : null}
                             <span className="flex-shrink-0 text-sm font-semibold text-gray-900">
-                              Rs {formatPrice(currentPrice)}
+                              ₹{formatPrice(currentPrice)}
                             </span>
                           </div>
                         </motion.button>

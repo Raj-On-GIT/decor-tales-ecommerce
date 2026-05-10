@@ -86,10 +86,10 @@ export default function ProductCard({ product }) {
               <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500 line-through sm:text-sm">
-                    Rs {formatPrice(primaryVariant.mrp)}
+                    ₹{formatPrice(primaryVariant.mrp)}
                   </span>
                   <span className="text-sm font-semibold text-gray-900 sm:text-base">
-                    Rs {formatPrice(primaryVariant.slashed_price)}
+                    ₹{formatPrice(primaryVariant.slashed_price)}
                   </span>
                 </div>
                 <span className="inline-flex w-fit items-center self-start rounded-md bg-green-700 px-1.5 py-[2px] text-[10px] font-semibold text-white sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs">
@@ -98,17 +98,17 @@ export default function ProductCard({ product }) {
               </div>
             ) : (
               <p className="mt-1 font-semibold text-gray-900">
-                Rs {formatPrice(primaryVariant.mrp)}
+                ₹{formatPrice(primaryVariant.mrp)}
               </p>
             )
           ) : product.slashed_price ? (
             <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500 line-through sm:text-sm">
-                  Rs {formatPrice(product.mrp)}
+                  ₹{formatPrice(product.mrp)}
                 </span>
                 <span className="text-sm font-semibold text-gray-900 sm:text-base">
-                  Rs {formatPrice(product.slashed_price)}
+                  ₹{formatPrice(product.slashed_price)}
                 </span>
               </div>
               <span className="inline-flex w-fit items-center self-start rounded-md bg-green-700 px-1.5 py-[2px] text-[10px] font-semibold text-white sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs">
@@ -117,7 +117,7 @@ export default function ProductCard({ product }) {
             </div>
           ) : (
             <p className="mt-1 font-semibold text-gray-900">
-              Rs {formatPrice(product.mrp)}
+              ₹{formatPrice(product.mrp)}
             </p>
           )}
         </div>
