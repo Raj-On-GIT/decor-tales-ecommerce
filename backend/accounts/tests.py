@@ -5,8 +5,11 @@ from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import SignupOTPChallenge
+from .models import SignupOTPChallenge, UserAuthIdentity
+from .services import revoke_other_user_sessions
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -154,6 +157,7 @@ class GoogleAuthTests(TestCase):
         nonce_response = self.client.get(reverse("google_auth_nonce"))
 
         mock_verify_token.return_value = {
+            "sub": "google-sub-mismatch",
             "email": "google@example.com",
             "email_verified": True,
             "given_name": "Google",
@@ -180,6 +184,7 @@ class GoogleAuthTests(TestCase):
         nonce_response = self.client.get(reverse("google_auth_nonce"))
 
         mock_verify_token.return_value = {
+            "sub": "google-sub-1",
             "email": "google@example.com",
             "email_verified": True,
             "given_name": "Google",
@@ -202,6 +207,91 @@ class GoogleAuthTests(TestCase):
         self.assertIn("refresh_token", response.cookies)
         self.assertEqual(response.data["user"]["email"], "google@example.com")
         self.assertTrue(User.objects.filter(email="google@example.com").exists())
+        self.assertTrue(
+            UserAuthIdentity.objects.filter(
+                provider=UserAuthIdentity.PROVIDER_GOOGLE,
+                provider_user_id="google-sub-1",
+            ).exists()
+        )
+
+    @patch("accounts.views.settings.GOOGLE_CLIENT_ID", "google-client-id")
+    @patch("accounts.views.id_token.verify_oauth2_token")
+    def test_google_auth_links_to_existing_user_with_same_email(self, mock_verify_token):
+        existing_user = User.objects.create_user(
+            username="existing-user",
+            email="google@example.com",
+            password="testpass123",
+        )
+        nonce_response = self.client.get(reverse("google_auth_nonce"))
+
+        mock_verify_token.return_value = {
+            "sub": "google-sub-link",
+            "email": "google@example.com",
+            "email_verified": True,
+            "given_name": "Google",
+            "family_name": "User",
+            "iss": "https://accounts.google.com",
+            "nonce": nonce_response.data["nonce"],
+        }
+
+        response = self.client.post(
+            reverse("google"),
+            {
+                "credential": "fake-jwt",
+                "nonce_token": nonce_response.data["nonce_token"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user"]["id"], existing_user.id)
+        self.assertEqual(User.objects.filter(email="google@example.com").count(), 1)
+        self.assertTrue(
+            UserAuthIdentity.objects.filter(
+                user=existing_user,
+                provider=UserAuthIdentity.PROVIDER_GOOGLE,
+                provider_user_id="google-sub-link",
+            ).exists()
+        )
+
+    @patch("accounts.views.settings.GOOGLE_CLIENT_ID", "google-client-id")
+    @patch("accounts.views.id_token.verify_oauth2_token")
+    def test_google_auth_reuses_existing_provider_identity(self, mock_verify_token):
+        user = User.objects.create_user(
+            username="google-user",
+            email="google@example.com",
+            password="testpass123",
+        )
+        UserAuthIdentity.objects.create(
+            user=user,
+            provider=UserAuthIdentity.PROVIDER_GOOGLE,
+            provider_user_id="google-sub-stable",
+            email_normalized="google@example.com",
+        )
+        nonce_response = self.client.get(reverse("google_auth_nonce"))
+
+        mock_verify_token.return_value = {
+            "sub": "google-sub-stable",
+            "email": "Google@Example.com",
+            "email_verified": True,
+            "given_name": "Google",
+            "family_name": "User",
+            "iss": "https://accounts.google.com",
+            "nonce": nonce_response.data["nonce"],
+        }
+
+        response = self.client.post(
+            reverse("google"),
+            {
+                "credential": "fake-jwt",
+                "nonce_token": nonce_response.data["nonce_token"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user"]["id"], user.id)
+        self.assertEqual(User.objects.filter(email__iexact="google@example.com").count(), 1)
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -322,6 +412,107 @@ class PasswordResetTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         mock_send_password_reset_email.assert_called_once()
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class AccountSecurityTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient(enforce_csrf_checks=True)
+        self.user = User.objects.create_user(
+            username="security-user",
+            email="security@example.com",
+            password="testpass123",
+        )
+        self.google_only_user = User.objects.create(
+            username="google-only",
+            email="google-only@example.com",
+        )
+        self.google_only_user.set_unusable_password()
+        self.google_only_user.save(update_fields=["password"])
+        UserAuthIdentity.objects.create(
+            user=self.google_only_user,
+            provider=UserAuthIdentity.PROVIDER_GOOGLE,
+            provider_user_id="google-sub-security",
+            email_normalized="google-only@example.com",
+        )
+
+    def authenticate(self, email, password):
+        csrf_response = self.client.get(reverse("csrf_token"))
+        csrf_token = csrf_response.cookies["csrftoken"].value
+        response = self.client.post(
+            reverse("login"),
+            {"username": email, "password": password},
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+        self.client.cookies["access_token"] = response.cookies["access_token"].value
+        self.client.cookies["refresh_token"] = response.cookies["refresh_token"].value
+        return csrf_token
+
+    def test_account_security_endpoint_returns_password_and_identity_state(self):
+        csrf_token = self.authenticate("security@example.com", "testpass123")
+
+        response = self.client.get(
+            "/api/accounts/security/",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["email"], "security@example.com")
+        self.assertTrue(response.data["has_password"])
+        self.assertEqual(response.data["linked_identities"], [])
+
+    def test_set_password_allows_google_only_user(self):
+        self.assertTrue(
+            self.client.force_authenticate(user=self.google_only_user) is None
+        )
+
+        response = self.client.post(
+            "/api/accounts/set-password/",
+            {
+                "new_password": "Strongpass123!",
+                "confirm_password": "Strongpass123!",
+            },
+            format="json",
+        )
+
+        self.google_only_user.refresh_from_db()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(self.google_only_user.has_usable_password())
+        self.assertTrue(self.google_only_user.check_password("Strongpass123!"))
+
+    def test_set_password_rejects_user_with_existing_password(self):
+        self.assertTrue(self.client.force_authenticate(user=self.user) is None)
+
+        response = self.client.post(
+            "/api/accounts/set-password/",
+            {
+                "new_password": "Strongpass123!",
+                "confirm_password": "Strongpass123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_revoke_other_user_sessions_preserves_current_refresh_token(self):
+        current_refresh = RefreshToken.for_user(self.user)
+        other_refresh = RefreshToken.for_user(self.user)
+
+        revoked_count = revoke_other_user_sessions(
+            user=self.user,
+            current_refresh_token=str(current_refresh),
+        )
+
+        self.assertEqual(revoked_count, 1)
+        self.assertFalse(
+            BlacklistedToken.objects.filter(token__jti=current_refresh["jti"]).exists()
+        )
+        self.assertTrue(
+            BlacklistedToken.objects.filter(token__jti=other_refresh["jti"]).exists()
+        )
 
 
 class AdditionalAuthThrottleTests(TestCase):

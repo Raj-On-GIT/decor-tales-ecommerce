@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { KeyRound, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getProfile, updateProfile } from "@/lib/api";
+import { getAccountSecurity, getProfile, updateProfile } from "@/lib/api";
 import { useGlobalToast } from "@/context/ToastContext";
 
 export default function AccountPage() {
@@ -20,6 +22,7 @@ export default function AccountPage() {
   });
   const [saving, setSaving] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [security, setSecurity] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
@@ -33,7 +36,9 @@ export default function AccountPage() {
       try {
         setProfileLoading(true);
         const data = await getProfile();
+        const securityData = await getAccountSecurity();
         setProfile(data);
+        setSecurity(securityData);
         setForm({
           first_name: data.first_name || "",
           last_name: data.last_name || "",
@@ -173,7 +178,7 @@ export default function AccountPage() {
           Unable to load your profile right now.
         </div>
       ) : (
-
+      <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
@@ -236,6 +241,64 @@ export default function AccountPage() {
           {saving ? "Saving..." : "Save Changes"}
         </button>
       </form>
+      <section className="rounded-2xl border border-[#d9e5e2] bg-[#f8fbfa] p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-[#244944]">
+              <ShieldCheck size={18} />
+              <h2 className="text-lg font-semibold">Account Security</h2>
+            </div>
+            <p className="mt-1 text-sm text-gray-600">
+              Review your linked sign-in methods and password status.
+            </p>
+          </div>
+          <Link
+            href={security?.has_password ? "/account/change-password" : "/account/change-password"}
+            className="inline-flex items-center gap-2 rounded-full border border-[#2f5d56]/15 bg-white px-4 py-2 text-sm font-semibold text-[#244944] transition hover:border-[#2f5d56] hover:text-[#1f3f3b]"
+          >
+            <KeyRound size={16} />
+            {security?.has_password ? "Change Password" : "Set Password"}
+          </Link>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+              Password
+            </p>
+            <p className="mt-2 text-sm font-medium text-gray-900">
+              {security?.has_password
+                ? "Password login is enabled for this account."
+                : "No password is set yet. You currently rely on Google sign-in."}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+              Linked Methods
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold text-white">
+                Email
+              </span>
+              {security?.linked_identities?.map((identity) => (
+                <span
+                  key={`${identity.provider}-${identity.email}`}
+                  className="rounded-full bg-[#2f5d56] px-3 py-1 text-xs font-semibold text-white"
+                >
+                  {identity.provider === "google" ? "Google" : identity.provider}
+                </span>
+              ))}
+            </div>
+            {!!security?.linked_identities?.length && (
+              <p className="mt-3 text-xs text-gray-500">
+                Last linked: {new Date(security.linked_identities[0].linked_at).toLocaleString()}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+      </div>
       )}
     </motion.div>
   );

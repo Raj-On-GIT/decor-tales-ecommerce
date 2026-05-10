@@ -8,8 +8,9 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .email_utils import normalize_email_address
 from .models import Address, UserProfile
-from .services import send_password_reset_email
+from .services import SignupOTPError, find_user_by_normalized_email, send_password_reset_email
 
 
 class SignupSerializer(serializers.Serializer):
@@ -39,9 +40,10 @@ class SignupSerializer(serializers.Serializer):
     last_name = serializers.CharField(required=False, allow_blank=True)
 
     def validate_email(self, value):
-        if User.objects.filter(email__iexact=value).exists():
+        normalized_email = normalize_email_address(value)
+        if User.objects.filter(email__iexact=normalized_email).exists():
             raise serializers.ValidationError("A user with this email already exists.")
-        return value.lower()
+        return normalized_email
 
     def validate_phone(self, value):
         digits = "".join(filter(str.isdigit, value or ""))
@@ -89,10 +91,7 @@ class LoginSerializer(serializers.Serializer):
         user = None
 
         if "@" in username_or_email:
-            try:
-                user = User.objects.get(email__iexact=username_or_email)
-            except User.DoesNotExist:
-                pass
+            user = find_user_by_normalized_email(username_or_email)
 
         if user is None:
             try:
@@ -185,6 +184,19 @@ class ProfileSerializer(serializers.ModelSerializer):
         return instance
 
 
+class UserAuthIdentitySerializer(serializers.Serializer):
+    provider = serializers.CharField()
+    email = serializers.EmailField(source="email_normalized")
+    linked_at = serializers.DateTimeField()
+    last_login_at = serializers.DateTimeField(allow_null=True)
+
+
+class AccountSecuritySerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    has_password = serializers.BooleanField()
+    linked_identities = UserAuthIdentitySerializer(many=True)
+
+
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
@@ -274,10 +286,14 @@ class ForgotPasswordSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         email = attrs.get("email")
+        normalized_email = normalize_email_address(email)
 
         try:
-            user = User.objects.get(email__iexact=email)
+            user = find_user_by_normalized_email(normalized_email)
+        except SignupOTPError:
+            user = None
 
+        if user is not None:
             token_generator = PasswordResetTokenGenerator()
             uid = urlsafe_base64_encode(smart_bytes(user.id))
             token = token_generator.make_token(user)
@@ -288,9 +304,6 @@ class ForgotPasswordSerializer(serializers.Serializer):
                 to_email=user.email,
                 reset_url=reset_url,
             )
-
-        except User.DoesNotExist:
-            pass
 
         return attrs
 
@@ -339,6 +352,39 @@ class ChangePasswordSerializer(serializers.Serializer):
         if not user.check_password(attrs["old_password"]):
             raise serializers.ValidationError(
                 {"old_password": "Old password is incorrect."}
+            )
+
+        try:
+            validate_password(attrs["new_password"], user)
+        except ValidationError as exc:
+            raise serializers.ValidationError({
+                "new_password": list(exc.messages)
+            })
+
+        return attrs
+
+    def save(self):
+        user = self.context["request"].user
+        user.set_password(self.validated_data["new_password"])
+        user.save()
+        return user
+
+
+class SetPasswordSerializer(serializers.Serializer):
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+
+        if user.has_usable_password():
+            raise serializers.ValidationError(
+                {"detail": "Use the change password flow for accounts that already have a password."}
+            )
+
+        if attrs["new_password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError(
+                {"confirm_password": "Passwords do not match."}
             )
 
         try:

@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.models import User
 
-from .models import Address, UserProfile
+from .models import Address, UserAuthIdentity, UserProfile
 
 
 class UserProfileInline(admin.StackedInline):
@@ -15,6 +15,22 @@ class UserProfileInline(admin.StackedInline):
     verbose_name_plural = "Profile"
 
 
+class UserAuthIdentityInline(admin.TabularInline):
+    model = UserAuthIdentity
+    can_delete = False
+    extra = 0
+    fields = (
+        "provider",
+        "provider_user_id",
+        "email_normalized",
+        "email_verified_at",
+        "linked_at",
+        "last_login_at",
+    )
+    readonly_fields = fields
+    verbose_name_plural = "Linked sign-in methods"
+
+
 @admin.register(Address)
 class AddressAdmin(admin.ModelAdmin):
     list_display = ("full_name", "user", "phone", "city", "state", "postal_code", "is_default")
@@ -24,7 +40,7 @@ class AddressAdmin(admin.ModelAdmin):
 
 
 class UserAdmin(DjangoUserAdmin):
-    inlines = (UserProfileInline,)
+    inlines = (UserProfileInline, UserAuthIdentityInline)
     list_display = DjangoUserAdmin.list_display + ("phone_number",)
     search_fields = DjangoUserAdmin.search_fields + ("profile__phone",)
 

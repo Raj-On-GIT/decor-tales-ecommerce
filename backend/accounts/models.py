@@ -82,3 +82,41 @@ class SignupOTPChallenge(models.Model):
 
     def __str__(self):
         return f"Signup OTP for {self.email}"
+
+
+class UserAuthIdentity(models.Model):
+    PROVIDER_GOOGLE = "google"
+    PROVIDER_CHOICES = (
+        (PROVIDER_GOOGLE, "Google"),
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="auth_identities",
+    )
+    provider = models.CharField(max_length=32, choices=PROVIDER_CHOICES)
+    provider_user_id = models.CharField(max_length=255)
+    email_normalized = models.EmailField()
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+    linked_at = models.DateTimeField(auto_now_add=True)
+    last_login_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("provider", "provider_user_id"),
+                name="accounts_auth_identity_provider_uid_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=("user", "provider"), name="acct_auth_user_prov_idx"),
+            models.Index(fields=("email_normalized",), name="acct_auth_email_idx"),
+        ]
+        ordering = ("provider", "linked_at")
+
+    def __str__(self):
+        return f"{self.provider}:{self.provider_user_id} -> {self.user_id}"

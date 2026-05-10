@@ -23,16 +23,24 @@ from utils.logging_helpers import mask_sensitive
 
 from .models import Address
 from .serializers import (
+    AccountSecuritySerializer,
     AddressSerializer,
     ChangePasswordSerializer,
     ForgotPasswordSerializer,
     LoginSerializer,
     ProfileSerializer,
     ResetPasswordSerializer,
+    SetPasswordSerializer,
     SignupSerializer,
     UserSerializer,
 )
-from .services import SignupOTPError, issue_signup_otp, verify_signup_otp
+from .services import (
+    SignupOTPError,
+    issue_signup_otp,
+    resolve_google_user,
+    revoke_other_user_sessions,
+    verify_signup_otp,
+)
 from .throttles import (
     GoogleAuthThrottle,
     LoginThrottle,
@@ -53,6 +61,12 @@ def reject_non_storefront_session_auth(request):
         )
 
     return None
+
+
+def request_flag(value):
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 # ============================================================================
@@ -224,6 +238,24 @@ def login_view(request):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+def account_security_view(request):
+    storefront_auth_error = reject_non_storefront_session_auth(request)
+    if storefront_auth_error is not None:
+        return storefront_auth_error
+
+    identities = request.user.auth_identities.order_by("provider", "linked_at")
+    serializer = AccountSecuritySerializer(
+        {
+            "email": request.user.email,
+            "has_password": request.user.has_usable_password(),
+            "linked_identities": identities,
+        }
+    )
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def get_profile(request):
     storefront_auth_error = reject_non_storefront_session_auth(request)
     if storefront_auth_error is not None:
@@ -380,8 +412,54 @@ def change_password_view(request):
 
     if serializer.is_valid():
         serializer.save()
+        logout_other_devices = request_flag(request.data.get("logout_other_devices"))
+        if logout_other_devices:
+            revoke_other_user_sessions(
+                user=request.user,
+                current_refresh_token=request.COOKIES.get("refresh_token"),
+            )
         return Response(
-            {"message": "Password changed successfully."},
+            {
+                "message": (
+                    "Password changed and other devices were signed out."
+                    if logout_other_devices
+                    else "Password changed successfully."
+                )
+            },
+            status=200,
+        )
+
+    return Response(serializer.errors, status=400)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def set_password_view(request):
+    storefront_auth_error = reject_non_storefront_session_auth(request)
+    if storefront_auth_error is not None:
+        return storefront_auth_error
+
+    serializer = SetPasswordSerializer(
+        data=request.data,
+        context={"request": request},
+    )
+
+    if serializer.is_valid():
+        serializer.save()
+        logout_other_devices = request_flag(request.data.get("logout_other_devices"))
+        if logout_other_devices:
+            revoke_other_user_sessions(
+                user=request.user,
+                current_refresh_token=request.COOKIES.get("refresh_token"),
+            )
+        return Response(
+            {
+                "message": (
+                    "Password set and other devices were signed out."
+                    if logout_other_devices
+                    else "Password set successfully."
+                )
+            },
             status=200,
         )
 
@@ -464,21 +542,25 @@ def google_auth_view(request):
         if not token_info.get("email_verified"):
             return Response({"error": "Google email is not verified."}, status=400)
 
-        email = (token_info.get("email") or "").strip().lower()
+        email = token_info.get("email") or ""
         first_name = token_info.get("given_name", "")
         last_name = token_info.get("family_name", "")
+        provider_user_id = str(token_info.get("sub") or "").strip()
 
-        if not email:
+        if not email or not provider_user_id:
             return Response({"error": "Google account email is unavailable."}, status=400)
 
-        # Create or get user
-        user, _created = User.objects.get_or_create(
-            username=email,
-            defaults={
+        user, _created, _linked_existing = resolve_google_user(
+            email=email,
+            email_verified=True,
+            provider_user_id=provider_user_id,
+            metadata={
+                "given_name": first_name,
+                "family_name": last_name,
                 "email": email,
-                "first_name": first_name,
-                "last_name": last_name
-            }
+                "hd": token_info.get("hd"),
+                "picture": token_info.get("picture"),
+            },
         )
 
         refresh = RefreshToken.for_user(user)

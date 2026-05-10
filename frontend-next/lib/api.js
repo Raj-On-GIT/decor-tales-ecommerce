@@ -671,6 +671,16 @@ export async function getProfile() {
   return response.json();
 }
 
+export async function getAccountSecurity() {
+  const response = await fetchWithAuth(`${API_BASE}/api/accounts/security/`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch account security.");
+  }
+
+  return response.json();
+}
+
 export async function updateProfile(formData) {
   const response = await fetchWithAuth(
     `${API_BASE}/api/accounts/profile/update/`,
@@ -686,6 +696,22 @@ export async function updateProfile(formData) {
   }
 
   return response.json();
+}
+
+export async function setAccountPassword(payload) {
+  const response = await fetchWithAuth(`${API_BASE}/api/accounts/set-password/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data;
 }
 
 export async function getAddresses() {
