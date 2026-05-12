@@ -1300,7 +1300,7 @@ def get_cart(request):
         return Response({"error": str(e)}, status=400)
 
 
-@api_view(["DELETE"])
+@api_view(["DELETE", "POST"])
 @permission_classes([IsAuthenticated])
 def remove_from_cart(request, item_id):
     cart = Cart.objects.filter(user=request.user).first()

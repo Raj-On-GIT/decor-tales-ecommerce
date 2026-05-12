@@ -571,10 +571,14 @@ export async function syncCartStock(cartItems = []) {
 }
 
 export async function removeFromCart(itemId) {
-  const response = await fetchWithAuth(
-    `${API_BASE}/api/orders/cart/remove/${itemId}/`,
-    { method: "DELETE" },
-  );
+  const url = `${API_BASE}/api/orders/cart/remove/${itemId}/`;
+  let response = await fetchWithAuth(url, { method: "DELETE" });
+
+  // Some deployments/proxies reject DELETE even though the backend route exists.
+  // Retry with POST so remove still works from the cart drawer.
+  if (!response.ok && [403, 405, 501].includes(response.status)) {
+    response = await fetchWithAuth(url, { method: "POST" });
+  }
 
   if (!response.ok) {
     throw new Error("Failed to remove item");

@@ -466,6 +466,22 @@ class CartValidationTests(TestCase):
         cart_item = CartItem.objects.get(product=self.simple_product)
         self.assertEqual(cart_item.custom_images.count(), 2)
 
+    def test_remove_from_cart_accepts_post_fallback(self):
+        add_response = self.client.post(
+            reverse("add_to_cart"),
+            {"product_id": self.simple_product.id, "quantity": 1},
+            format="json",
+        )
+
+        self.assertEqual(add_response.status_code, 201)
+        item_id = add_response.data["cart_item"]["id"]
+
+        remove_response = self.client.post(reverse("remove_from_cart", args=[item_id]))
+
+        self.assertEqual(remove_response.status_code, 200)
+        self.assertEqual(remove_response.data["message"], "Item removed")
+        self.assertFalse(CartItem.objects.filter(id=item_id).exists())
+
 
 class SecureOrderMediaTests(TestCase):
     def setUp(self):

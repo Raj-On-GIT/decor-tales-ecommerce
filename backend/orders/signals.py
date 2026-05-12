@@ -6,6 +6,7 @@ from products.models import Banner, Category, Product, ProductImage, SubCategory
 
 from .models import CartItem, CartItemImage, Order, OrderItem, OrderItemImage
 from utils.media_cleanup import (
+    ALL_MEDIA_REFERENCE_SPECS,
     MEDIA_PURGE_ORDER_STATUSES,
     delete_file_if_unreferenced,
     purge_order_customization_media,
