@@ -62,9 +62,9 @@ export default function ProductCard({ product }) {
   };
 
   return (
-    <div className="group relative rounded-2xl border border-gray-300 bg-[#F0FFF0] p-1 sm:p-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)]">
+    <div className="group relative rounded-2xl border border-[#F5B6B6] bg-gradient-to-b from-[#FFF7CD] via-[#FFF1D8] to-[#FDC3A1] p-1 sm:p-1.5 shadow-[0_4px_14px_rgba(245,119,153,0.14)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-[#F57799]/55 hover:shadow-[0_14px_34px_rgba(251,155,143,0.22)]">
       <Link href={`/products/${product.id}`} className="block">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-gray-50">
+        <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-[#FFF7CD]/65">
           <img
             src={product.image}
             alt={product.title}
@@ -92,9 +92,9 @@ export default function ProductCard({ product }) {
                     ₹{formatPrice(primaryVariant.slashed_price)}
                   </span>
                 </div>
-                <span className="inline-flex w-fit items-center self-start rounded-md bg-green-700 px-1.5 py-[2px] text-[10px] font-semibold text-white sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs">
-                  {primaryVariant.discount_percent}% OFF
-                </span>
+              <span className="inline-flex w-fit items-center self-start rounded-md bg-green-700 px-1.5 py-[2px] text-[10px] font-semibold text-white sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs">
+                {primaryVariant.discount_percent}% OFF
+              </span>
               </div>
             ) : (
               <p className="mt-1 font-semibold text-gray-900">
@@ -128,7 +128,7 @@ export default function ProductCard({ product }) {
           <Link href={`/products/${product.id}`}>
             <button
               type="button"
-              className="rounded-full bg-gray-200 p-2 text-gray-800 transition-colors hover:bg-gray-300"
+              className="rounded-full bg-[#FB9B8F]/24 p-2 text-gray-800 transition-colors hover:bg-[#FB9B8F]/38"
             >
               <img src="/out_of_stock.svg" alt="Out of stock" className="h-5 w-5" />
             </button>
@@ -137,7 +137,7 @@ export default function ProductCard({ product }) {
           <Link href={`/products/${product.id}`}>
             <button
               type="button"
-              className="rounded-full bg-gray-200 p-2 text-gray-800 transition-colors hover:bg-gray-300"
+              className="rounded-full bg-[#F57799]/18 p-2 text-gray-800 transition-colors hover:bg-[#F57799]/30"
             >
               <img src="/customize.svg" alt="Customize" className="h-5 w-5" />
             </button>
@@ -150,8 +150,8 @@ export default function ProductCard({ product }) {
             aria-label={isAdding ? "Adding to cart" : "Add to cart"}
             className={`rounded-full p-2 text-gray-800 transition-all duration-200 active:scale-95 ${
               isAdding
-                ? "bg-black text-white shadow-lg shadow-black/20"
-                : "bg-gray-200 hover:bg-gray-300"
+                ? "bg-[#F57799] text-white shadow-lg shadow-[#F57799]/25"
+                : "bg-[#FDC3A1]/45 hover:bg-[#FDC3A1]/70"
             }`}
           >
             {isAdding ? (

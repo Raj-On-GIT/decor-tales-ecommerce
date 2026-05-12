@@ -91,7 +91,7 @@ export default function Header() {
   return (
     <>
       {/* HEADER */}
-      <header className="sticky top-0 z-40 bg-[#F0FFF0]/80 backdrop-blur-md border-b border-gray-100">
+      <header className="sticky top-0 z-40 border-[#131b23] bg-[#f9dbbd]/70 backdrop-blur-md">
         <div
           className={`max-w-screen-xl mx-auto 
                         px-4 sm:px-6
@@ -204,7 +204,7 @@ export default function Header() {
                 onClick={() => {
                   if (!isIdentityLoading) setIsProfileOpen(!isProfileOpen);
                 }}
-                className="flex items-center gap-2 rounded-full border border-transparent px-2 py-1.5 text-gray-900 transition hover:border-gray-200 hover:bg-white/70 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-full border border-transparent px-2 py-1.5 text-gray-900 transition hover:border-[#F5B6B6] hover:bg-[#FDC3A1]/35 disabled:opacity-50"
               >
                 {isAuthenticated && firstName ? (
                   <span className="max-w-24 truncate text-sm font-medium text-gray-700">
@@ -227,8 +227,8 @@ export default function Header() {
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                     transition={{ duration: 0.15, ease: "easeOut" }}
                     className="absolute right-0 mt-3 w-72
-                              bg-white/95 backdrop-blur
-                              border border-gray-200
+                              bg-[#FFF7CD]/95 backdrop-blur
+                              border border-[#FDC3A1]
                               rounded-2xl shadow-xl
                               overflow-hidden z-50"
                   >
@@ -241,9 +241,9 @@ export default function Header() {
                     ) : isAuthenticated ? (
                       /* LOGGED IN STATE */
                       <>
-                        <div className="border-b border-gray-200 bg-gradient-to-br from-[#F7FFD9] via-white to-[#FFF3D6] px-5 py-5">
+                        <div className="border-b border-[#FDC3A1] bg-gradient-to-br from-[#FFF7CD] via-[#FFF7CD] to-[#FDC3A1]/70 px-5 py-5">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#002424] text-white shadow-sm">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F57799] text-white shadow-sm">
                               <User size={18} />
                             </div>
                             <div className="min-w-0">
@@ -261,23 +261,23 @@ export default function Header() {
                           <Link
                             href="/account"
                             onClick={() => setIsProfileOpen(false)}
-                            className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-[#f7fbe8] hover:text-gray-900"
+                            className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-[#FDC3A1]/35 hover:text-gray-900"
                           >
                             My Account
                           </Link>
                           <Link
                             href="/orders"
                             onClick={() => setIsProfileOpen(false)}
-                            className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-[#f7fbe8] hover:text-gray-900"
+                            className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-[#FDC3A1]/35 hover:text-gray-900"
                           >
                             My Orders
                           </Link>
                         </div>
 
-                        <div className="border-t border-gray-200 p-2">
+                        <div className="border-t border-[#FDC3A1] p-2">
                           <button
                             onClick={handleLogout}
-                            className="flex w-full items-center rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+                            className="flex w-full items-center rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-[#FB9B8F]/20"
                           >
                             <span className="inline-flex items-center gap-2">
                               Logout
@@ -293,7 +293,7 @@ export default function Header() {
                           <h3 className="text-lg font-bold text-gray-900 tracking-wide">
                             Your Account
                           </h3>
-                          <div className="mt-2 h-1 w-12 bg-teal-500"></div>
+                          <div className="mt-2 h-1 w-12 bg-[#F57799]"></div>
                         </div>
 
                         <div className="px-6 py-5 space-y-3">
@@ -301,7 +301,7 @@ export default function Header() {
                             href="/login"
                             onClick={() => setIsProfileOpen(false)}
                             className="block w-full py-3 px-4
-           bg-[#002424] hover:bg-[#004c4c] hover:text-white
+           bg-[#F57799] hover:bg-[#e96b91] hover:text-white
            text-white text-center font-medium text-base
            rounded-xl transition"
                           >
@@ -311,7 +311,7 @@ export default function Header() {
                             href="/signup"
                             onClick={() => setIsProfileOpen(false)}
                             className="block w-full py-3 px-4
-           bg-[#b2d8d8] hover:bg-[#74baba]
+           bg-[#FDC3A1] hover:bg-[#f7b48b]
            text-black text-center font-medium text-base
            rounded-xl transition"
                           >
@@ -352,23 +352,23 @@ export default function Header() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 h-full w-72 bg-white z-50 shadow-2xl p-6 flex flex-col"
+              className="fixed top-0 right-0 flex h-full w-72 flex-col bg-[#FFF7CD] p-6 shadow-2xl z-50"
             >
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-xl font-serif font-bold">Menu</h2>
                 <button
                   onClick={() => setIsMenuOpen(false)}
-                  className="p-2 hover:bg-gray-100 rounded-full"
+                  className="rounded-full p-2 hover:bg-[#FDC3A1]/35"
                 >
                   ✕
                 </button>
               </div>
 
               {isAuthenticated ? (
-                <div className="mb-6 rounded-2xl border border-gray-200 bg-gradient-to-br from-[#F7FFD9] via-white to-[#FFF3D6] px-4 py-4">
+                <div className="mb-6 rounded-2xl border border-[#FDC3A1] bg-gradient-to-br from-[#FFF7CD] via-[#FFF7CD] to-[#FDC3A1]/70 px-4 py-4">
                   {isIdentityLoading ? (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#002424] text-white shadow-sm">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F57799] text-white shadow-sm">
                         <Loader2 size={18} className="animate-spin" />
                       </div>
                       <div className="min-w-0">
@@ -382,7 +382,7 @@ export default function Header() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#002424] text-white shadow-sm">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F57799] text-white shadow-sm">
                         <User size={18} />
                       </div>
                       <div className="min-w-0">

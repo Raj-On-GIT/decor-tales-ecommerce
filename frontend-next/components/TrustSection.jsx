@@ -34,7 +34,7 @@ export default function TrustSection() {
                 className="relative flex-1"
               >
                 <div className="flex flex-col items-center gap-4 py-5 text-center sm:flex-row sm:items-start sm:text-left sm:gap-5 lg:h-full lg:flex-col lg:items-center lg:justify-center lg:px-8 lg:py-6 lg:text-center">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#eef7ea] text-[#002424] shadow-[inset_0_0_0_1px_rgba(0,36,36,0.06)]">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#f9dbbd] text-[#002424] shadow-[inset_0_0_0_1px_rgba(0,36,36,0.35)]">
                     {item.icon}
                   </div>
 
@@ -52,11 +52,11 @@ export default function TrustSection() {
                   <>
                     <div
                       aria-hidden="true"
-                      className="mx-auto h-[2px] w-full bg-gradient-to-r from-transparent via-[#9ab4a8]/65 to-transparent lg:hidden"
+                      className="mx-auto h-[2px] w-full bg-gradient-to-r from-transparent via-[#f9dbbd]/65 to-transparent lg:hidden"
                     />
                     <div
                       aria-hidden="true"
-                      className="absolute right-0 top-1/2 hidden h-full w-[3px] -translate-y-1/2 bg-gradient-to-b from-transparent via-[#9ab4a8]/65 to-transparent lg:block"
+                      className="absolute right-0 top-1/2 hidden h-full w-[3px] -translate-y-1/2 bg-gradient-to-b from-transparent via-[#f9dbbd]/65 to-transparent lg:block"
                     />
                   </>
                 ) : null}

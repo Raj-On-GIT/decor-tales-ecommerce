@@ -253,6 +253,9 @@ export default function ProductDetailPage() {
 
   const isVariantProduct = product?.stock_type === "variants";
   const isUnavailable = product?.availability_status === "unavailable";
+  const requiredCustomImageCount = product?.allow_custom_image
+    ? Math.max(1, Number(product?.custom_image_limit || 1))
+    : 0;
   const activeStock = isVariantProduct
     ? selectedVariant?.stock
     : product?.stock;
@@ -331,21 +334,29 @@ export default function ProductDetailPage() {
   };
 
   // ✅ Handle Custom Image Uploads
-  const handleCustomImageUpload = (e, index) => {
-    const file = e.target.files?.[0];
+  const handleCustomImageUpload = (e) => {
+    const files = Array.from(e.target.files || []);
 
-    if (!file) {
+    if (!files.length) {
       return;
     }
 
-    if (file.size > MAX_CUSTOM_IMAGE_SIZE_BYTES) {
+    if (files.length !== requiredCustomImageCount) {
+      error(`Please select exactly ${requiredCustomImageCount} image(s).`);
+      e.target.value = "";
+      return;
+    }
+
+    const oversizedFile = files.find(
+      (file) => file.size > MAX_CUSTOM_IMAGE_SIZE_BYTES,
+    );
+
+    if (oversizedFile) {
       error("Each uploaded image must be 5 MB or smaller.");
       e.target.value = "";
       return;
     }
 
-    const files = [...customImages];
-    files[index] = file;
     setCustomImages(files);
   };
 
@@ -511,64 +522,65 @@ export default function ProductDetailPage() {
                 {product.allow_custom_image && (
                   <>
                     <h3 className="mt-5 font-semibold">Upload Custom Images</h3>
-                    <div className="mt-2 grid w-full grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-4">
-                      {Array.from({ length: product.custom_image_limit }).map(
-                        (_, index) => {
-                          const selectedFile = customImages[index];
+                    <div className="mt-2">
+                      <label
+                        className={`flex w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border px-3 py-3 text-center transition sm:px-4 ${
+                          customImages.length === requiredCustomImageCount &&
+                          requiredCustomImageCount > 0
+                            ? "border-black bg-gray-100"
+                            : "border-gray-300 hover:bg-gray-100"
+                        } ${isUnavailable ? "cursor-not-allowed opacity-60" : ""}`}
+                      >
+                        <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4 text-gray-700"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0l-4 4m4-4l4 4"
+                            />
+                          </svg>
+                          <span>Select Photos</span>
+                        </div>
+                        <span className="text-[11px] text-gray-500 sm:text-xs">
+                          Upload exactly {requiredCustomImageCount} photo
+                          {requiredCustomImageCount === 1 ? "" : "s"}
+                        </span>
+                        <input
+                          key={uploadResetKey}
+                          type="file"
+                          accept="image/*"
+                          multiple={requiredCustomImageCount > 1}
+                          disabled={isUnavailable}
+                          onChange={handleCustomImageUpload}
+                          className="hidden"
+                        />
+                      </label>
 
-                          return (
-                            <div
-                              key={index}
-                              className="flex w-full flex-col"
-                            >
-                              <label
-                                className={`flex w-full items-center justify-center gap-2
-                            rounded-lg border cursor-pointer
-                            px-2 py-2 sm:px-3
-                            text-xs font-medium sm:text-sm
-                            hover:bg-gray-200 transition
-                            ${
-                              selectedFile
-                                ? "border-black bg-gray-300"
-                                : "border-gray-300"
-                            }`}
+                      {customImages.length > 0 ? (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-center text-xs font-medium text-gray-700">
+                            {customImages.length} of {requiredCustomImageCount} photo
+                            {requiredCustomImageCount === 1 ? "" : "s"} selected
+                          </p>
+                          <div className="grid gap-1 sm:grid-cols-2">
+                            {customImages.map((file, index) => (
+                              <p
+                                key={`${file.name}-${index}`}
+                                className="truncate rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-700"
                               >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="w-4 h-4 text-gray-700"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 0l-4 4m4-4l4 4"
-                                  />
-                                </svg>
-                                <span className="truncate">Upload: {index + 1}</span>
-                                <input
-                                  key={uploadResetKey}
-                                  type="file"
-                                  accept="image/*"
-                                  disabled={isUnavailable}
-                                  onChange={(e) =>
-                                    handleCustomImageUpload(e, index)
-                                  }
-                                  className="hidden"
-                                />
-                              </label>
-
-                              {selectedFile && (
-                                <p className="mt-1 w-full truncate text-center text-xs text-gray-700">
-                                  {selectedFile.name}
-                                </p>
-                              )}
-                            </div>
-                          );
-                        },
-                      )}
+                                {index + 1}. {file.name}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </>
                 )}
@@ -589,7 +601,7 @@ export default function ProductDetailPage() {
                       placeholder="Enter text for engraving..."
                       className="mt-1 block w-full resize-none rounded-lg border border-gray-400 p-2 text-sm"
                     />
-                    <p className="mt-1 text-right text-xs text-gray-500">
+                    <p className="text-right text-xs text-gray-500">
                       {customText.length}/{MAX_CUSTOM_TEXT_LENGTH}
                     </p>
                   </>
@@ -778,6 +790,17 @@ export default function ProductDetailPage() {
                       if (!isAuthenticated && customImages.length > 0) {
                         error(
                           "Please log in before adding products with custom image uploads.",
+                        );
+                        return;
+                      }
+
+                      if (
+                        product.allow_custom_image &&
+                        customImages.length > 0 &&
+                        customImages.length !== requiredCustomImageCount
+                      ) {
+                        error(
+                          `Please select exactly ${requiredCustomImageCount} image(s).`,
                         );
                         return;
                       }

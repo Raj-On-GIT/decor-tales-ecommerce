@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="bg-[#002424] text-white pt-10 pb-5">
+    <footer className="bg-[#1b000d] pt-10 pb-5 text-white">
       <div className="max-w-screen-2xl mx-auto grid grid-cols-1 gap-8 px-5 sm:grid-cols-2 sm:px-6 md:px-10 xl:grid-cols-4 xl:px-35 md:gap-10">
         <div>
           <h3 className="mb-4 text-2xl font-serif font-bold">Decor Tales</h3>
@@ -72,9 +72,9 @@ export default function Footer() {
           <div className="flex flex-col gap-3 sm:flex-row sm:gap-0">
             <input
               placeholder="Email"
-              className="w-full rounded-md bg-white/10 px-4 py-2 text-white placeholder-white/60 focus:outline-none sm:rounded-l sm:rounded-r-none"
+              className="w-full rounded-md border border-[#FFF7CD]/45 bg-[#FFF7CD]/18 px-4 py-2 text-white placeholder-white/60 focus:outline-none sm:rounded-l sm:rounded-r-none"
             />
-            <button className="rounded-md bg-white px-4 py-2 font-semibold text-black hover:bg-gray-200 sm:rounded-l-none sm:rounded-r">
+            <button className="rounded-md bg-[#FFF7CD] px-4 py-2 font-semibold text-black hover:bg-[#fff1a8] sm:rounded-l-none sm:rounded-r">
               Go
             </button>
           </div>
@@ -82,7 +82,7 @@ export default function Footer() {
       </div>
 
       <div className="mt-8 flex flex-col items-center space-y-3 px-5 sm:px-6 md:px-10 xl:px-35">
-        <div className="h-px w-72 bg-white/20"></div>
+        <div className="h-px w-72 bg-[#FFF7CD]/45"></div>
         <p className="text-xs text-white/60">
           © {new Date().getFullYear()} Decor Tales. All rights reserved.
         </p>

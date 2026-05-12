@@ -1825,6 +1825,7 @@ def get_my_orders(request):
                 "coupon_code": order.coupon_code,
                 "total": str(order.total_amount),
                 "status": order.status,
+                "shipment_tracking": serialize_order_shipment_tracking(order),
                 "created_at": order.created_at,
                 "items_count": order.items.count(),
                 "items": [

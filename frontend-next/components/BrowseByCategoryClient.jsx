@@ -18,8 +18,8 @@ export default function BrowseByCategoryClient({ categories, reveal = false }) {
   const content = categories.map((category) => (
     <Link key={category.id} href={`/catalog/${category.slug}`}>
       <div className="group cursor-pointer">
-        <div className="relative flex flex-col overflow-hidden rounded-2xl border border-gray-300 bg-[#F0FFF0] p-1 sm:p-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] sm:h-64">
-          <div className="relative h-25 w-full overflow-hidden rounded-xl bg-gray-50 sm:h-45">
+        <div className="relative flex flex-col overflow-hidden rounded-2xl border border-[#F5B6B6] bg-gradient-to-b from-[#FFF7CD] via-[#FFF4DE] to-[#FDC3A1] p-1 sm:p-1.5 shadow-[0_4px_16px_rgba(253,195,161,0.26)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-[#F57799]/50 hover:shadow-[0_14px_34px_rgba(245,119,153,0.18)] sm:h-64">
+          <div className="relative h-25 w-full overflow-hidden rounded-xl bg-[#FFF7CD]/70 sm:h-45">
             {category.image ? (
               <Image
                 src={category.image}
@@ -30,7 +30,7 @@ export default function BrowseByCategoryClient({ categories, reveal = false }) {
                 unoptimized={true}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gray-200">
+              <div className="flex h-full w-full items-center justify-center bg-[#FB9B8F]/22">
                 <span className="text-gray-500">No Image</span>
               </div>
             )}

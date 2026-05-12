@@ -24,27 +24,106 @@ function formatStatus(status = "") {
   return status.replaceAll("_", " ");
 }
 
-function getStatusClasses(status = "") {
-  const normalized = status.toLowerCase();
+function normalizeOrderStatus(status = "") {
+  const normalized = status.toLowerCase().replaceAll("_", " ").trim();
 
-  if (normalized.includes("delivered")) {
+  if (normalized.includes("cancel")) return "cancelled";
+  if (normalized.includes("fail")) return "failed";
+  if (normalized.includes("deliver")) return "delivered";
+  if (normalized.includes("ship") || normalized.includes("dispatch")) return "shipped";
+  if (normalized.includes("process")) return "processing";
+  if (normalized.includes("paid")) return "paid";
+  return "pending";
+}
+
+function getTrackingStage(shipmentTracking) {
+  const status = shipmentTracking?.status || {};
+  const statusLabel = String(status.label || shipmentTracking?.shipment_status || "")
+    .toLowerCase()
+    .trim();
+
+  if (!statusLabel) {
+    return null;
+  }
+
+  if (statusLabel.includes("deliver")) {
+    return "delivered";
+  }
+
+  if (
+    statusLabel.includes("out for delivery") ||
+    statusLabel.includes("transit") ||
+    statusLabel.includes("manifest") ||
+    statusLabel.includes("dispatch") ||
+    statusLabel.includes("ship")
+  ) {
+    return "shipped";
+  }
+
+  return null;
+}
+
+function getEffectiveProgressStatus(order) {
+  const normalizedOrderStatus = normalizeOrderStatus(order?.status);
+  const shipmentTracking = order?.shipment_tracking;
+  const trackingStage = getTrackingStage(shipmentTracking);
+
+  if (normalizedOrderStatus === "cancelled" || normalizedOrderStatus === "failed") {
+    return normalizedOrderStatus;
+  }
+
+  if (normalizedOrderStatus === "delivered" || trackingStage === "delivered") {
+    return "delivered";
+  }
+
+  if (trackingStage === "shipped") {
+    return "shipped";
+  }
+
+  if (shipmentTracking?.has_shipment) {
+    return "processed";
+  }
+
+  if (normalizedOrderStatus === "shipped") {
+    return "shipped";
+  }
+
+  if (normalizedOrderStatus === "processing") {
+    return "processed";
+  }
+
+  if (normalizedOrderStatus === "paid") {
+    return "paid";
+  }
+
+  return "pending";
+}
+
+function getStatusClasses(status = "") {
+  const normalized = normalizeOrderStatus(status);
+
+  if (normalized === "delivered") {
     return "bg-emerald-100 text-emerald-800";
   }
 
-  if (normalized.includes("paid")) {
+  if (normalized === "paid") {
     return "bg-teal-100 text-teal-800";
   }
 
-  if (normalized.includes("cancel")) {
+  if (normalized === "cancelled") {
     return "bg-rose-100 text-rose-700";
   }
 
-  if (normalized.includes("fail")) {
+  if (normalized === "failed") {
     return "bg-rose-100 text-rose-700";
   }
 
-  if (normalized.includes("shipped") || normalized.includes("dispatch")) {
+  if (normalized === "shipped") {
     return "bg-sky-100 text-sky-700";
+  }
+
+  if (normalized === "processed") {
+    return "bg-cyan-100 text-cyan-800";
   }
 
   return "bg-amber-100 text-amber-800";
@@ -159,7 +238,10 @@ export default function OrdersPage() {
           </div>
         ) : (
           <div className="grid gap-5">
-            {orders.map((order) => (
+            {orders.map((order) => {
+              const effectiveStatus = getEffectiveProgressStatus(order);
+
+              return (
               <div
                 key={order.id}
                 className="group rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_30px_80px_rgba(15,23,42,0.12)]"
@@ -173,9 +255,9 @@ export default function OrdersPage() {
                         Order #{order.order_number}
                       </p>
                       <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${getStatusClasses(order.status)}`}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${getStatusClasses(effectiveStatus)}`}
                       >
-                        {formatStatus(order.status)}
+                        {formatStatus(effectiveStatus)}
                       </span>
                     </div>
 
@@ -249,7 +331,8 @@ export default function OrdersPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

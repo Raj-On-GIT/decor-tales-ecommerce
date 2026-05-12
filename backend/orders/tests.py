@@ -423,7 +423,7 @@ class CartValidationTests(TestCase):
             "Upload a valid image. The file you uploaded was either not an image or a corrupted image.",
         )
 
-    def test_accepts_valid_custom_image_and_saves_it(self):
+    def test_rejects_custom_image_count_below_required_limit(self):
         self.simple_product.allow_custom_image = True
         self.simple_product.custom_image_limit = 2
         self.simple_product.save(update_fields=["allow_custom_image", "custom_image_limit"])
@@ -438,9 +438,33 @@ class CartValidationTests(TestCase):
             format="multipart",
         )
 
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["error"],
+            "Please upload exactly 2 custom image(s) for this product.",
+        )
+
+    def test_accepts_valid_custom_image_count_and_saves_it(self):
+        self.simple_product.allow_custom_image = True
+        self.simple_product.custom_image_limit = 2
+        self.simple_product.save(update_fields=["allow_custom_image", "custom_image_limit"])
+
+        response = self.client.post(
+            reverse("add_to_cart"),
+            {
+                "product_id": self.simple_product.id,
+                "quantity": 1,
+                "custom_images": [
+                    build_test_image("custom-1.png", size=(1200, 1200)),
+                    build_test_image("custom-2.png", size=(1200, 1200)),
+                ],
+            },
+            format="multipart",
+        )
+
         self.assertEqual(response.status_code, 201)
         cart_item = CartItem.objects.get(product=self.simple_product)
-        self.assertEqual(cart_item.custom_images.count(), 1)
+        self.assertEqual(cart_item.custom_images.count(), 2)
 
 
 class SecureOrderMediaTests(TestCase):
@@ -1473,6 +1497,30 @@ class OrderCustomizationMediaCleanupTests(TestCase):
         self.assertEqual(shipment_payload["waybill"], "")
         self.assertEqual(shipment_payload["status"]["label"], "")
         self.assertIn("Tracking updates will appear", shipment_payload["message"])
+
+    def test_my_orders_includes_stored_shipment_tracking_snapshot(self):
+        self.order.delhivery_waybill = "85172510000022"
+        self.order.delhivery_tracking_status_label = "In Transit"
+        self.order.delhivery_tracking_status_type = "UD"
+        self.order.delhivery_last_scan_location = "Delhi Hub"
+        self.order.save(
+            update_fields=[
+                "delhivery_waybill",
+                "delhivery_tracking_status_label",
+                "delhivery_tracking_status_type",
+                "delhivery_last_scan_location",
+            ]
+        )
+
+        response = self.client.get(reverse("my_orders"))
+
+        self.assertEqual(response.status_code, 200)
+        shipment_payload = response.data["orders"][0]["shipment_tracking"]
+        self.assertTrue(shipment_payload["has_shipment"])
+        self.assertEqual(shipment_payload["waybill"], "85172510000022")
+        self.assertEqual(shipment_payload["status"]["label"], "In Transit")
+        self.assertEqual(shipment_payload["status"]["type"], "UD")
+        self.assertEqual(shipment_payload["status"]["location"], "Delhi Hub")
 
     def test_inactive_product_detail_is_accessible_but_marked_unavailable(self):
         self.product.is_active = False

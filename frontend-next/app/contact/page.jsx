@@ -37,21 +37,25 @@ const socialLinks = [
     icon: Instagram,
     label: "Instagram",
     value: "@decortales30",
+    href: null,
   },
   {
     icon: Facebook,
     label: "Facebook",
     value: "To be added",
+    href: null,
   },
   {
     icon: MessageCircle,
     label: "WhatsApp",
     value: "To be added",
+    href: null,
   },
   {
     icon: MapPin,
     label: "Location",
-    value: "To be added",
+    value: "Locate Us on Google Maps",
+    href: null,
   }
 ];
 
@@ -113,24 +117,46 @@ export default function ContactPage() {
               Social Media
             </p>
             <div className="mt-6 space-y-4">
-              {socialLinks.map(({ icon: Icon, label, value }) => (
-                <div
-                  key={label}
-                  className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4"
-                >
-                  <span className="shrink-0 rounded-full bg-white/10 p-3 text-white">
-                    <Icon size={18} />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block break-words text-sm font-medium">
-                      {label}
+              {socialLinks.map(({ icon: Icon, label, value, href }) => {
+                const baseClassName =
+                  "flex min-w-0 items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4";
+
+                const content = (
+                  <>
+                    <span className="shrink-0 rounded-full bg-white/10 p-3 text-white">
+                      <Icon size={18} />
                     </span>
-                    <span className="block break-words text-sm text-white/65">
-                      {value}
+                    <span className="min-w-0">
+                      <span className="block break-words text-sm font-medium">
+                        {label}
+                      </span>
+                      <span className="block break-words text-sm text-white/65">
+                        {value}
+                      </span>
                     </span>
-                  </span>
-                </div>
-              ))}
+                  </>
+                );
+
+                if (!href) {
+                  return (
+                    <div key={label} className={baseClassName}>
+                      {content}
+                    </div>
+                  );
+                }
+
+                return (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`${baseClassName} transition hover:border-white/25 hover:bg-white/10`}
+                  >
+                    {content}
+                  </a>
+                );
+              })}
             </div>
 
             

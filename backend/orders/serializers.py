@@ -153,7 +153,7 @@ class AddToCartSerializer(serializers.Serializer):
         "variant_not_supported": "Variants are not supported for this product.",
         "variant_mismatch": "Selected variant does not belong to this product.",
         "custom_image_not_allowed": "This product does not allow image customization.",
-        "custom_image_limit": "This product allows only {limit} custom image(s).",
+        "custom_image_limit": "Please upload exactly {limit} custom image(s) for this product.",
         "custom_text_not_allowed": "This product does not allow text customization.",
     }
 
@@ -192,7 +192,7 @@ class AddToCartSerializer(serializers.Serializer):
         if custom_images and not product.allow_custom_image:
             self.fail("custom_image_not_allowed")
 
-        if custom_images and len(custom_images) > product.custom_image_limit:
+        if custom_images and len(custom_images) != product.custom_image_limit:
             self.fail("custom_image_limit", limit=product.custom_image_limit)
 
         if custom_text and not product.allow_custom_text:
