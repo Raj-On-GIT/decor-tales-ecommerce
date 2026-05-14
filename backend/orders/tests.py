@@ -1980,7 +1980,8 @@ class DelhiveryScanPushWebhookTests(TestCase):
                 "AWB": "85172510000022",
             }
         }
-        response = self.post_webhook(payload)
+        with patch("orders.views.logger.info") as mock_info:
+            response = self.post_webhook(payload)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["ok"], True)
@@ -1997,6 +1998,10 @@ class DelhiveryScanPushWebhookTests(TestCase):
         )
         self.assertIsNotNone(self.order.delhivery_tracking_synced_at)
         self.assertEqual(self.order.delhivery_tracking_raw_response, payload)
+        self.assertEqual(
+            mock_info.call_args_list[0].args[0],
+            "delhivery_scan_push_authorized received=%s expected=%s path=%s content_type=%s",
+        )
 
     def test_webhook_updates_successfully_without_reference_number(self):
         response = self.post_webhook(
@@ -2209,8 +2214,9 @@ class DelhiveryScanPushWebhookTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        mock_info.assert_called_once()
-        self.assertIn("delhivery_scan_push_updated", mock_info.call_args[0][0])
+        self.assertEqual(mock_info.call_count, 2)
+        self.assertIn("delhivery_scan_push_authorized", mock_info.call_args_list[0][0][0])
+        self.assertIn("delhivery_scan_push_updated", mock_info.call_args_list[1][0][0])
 
 
 @override_settings(
