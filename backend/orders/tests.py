@@ -1980,7 +1980,7 @@ class DelhiveryScanPushWebhookTests(TestCase):
                 "AWB": "85172510000022",
             }
         }
-        with patch("orders.views.logger.info") as mock_info:
+        with patch("orders.views.logger.warning") as mock_warning:
             response = self.post_webhook(payload)
 
         self.assertEqual(response.status_code, 200)
@@ -1999,7 +1999,7 @@ class DelhiveryScanPushWebhookTests(TestCase):
         self.assertIsNotNone(self.order.delhivery_tracking_synced_at)
         self.assertEqual(self.order.delhivery_tracking_raw_response, payload)
         self.assertEqual(
-            mock_info.call_args_list[0].args[0],
+            mock_warning.call_args_list[0].args[0],
             "delhivery_scan_push_authorized received=%s expected=%s path=%s content_type=%s",
         )
 
@@ -2071,8 +2071,13 @@ class DelhiveryScanPushWebhookTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["ok"], True)
         self.assertEqual(response.data["ignored"], "order_not_found")
-        mock_warning.assert_called_once()
-        self.assertIn("delhivery_scan_push_unmatched_awb", mock_warning.call_args[0][0])
+        self.assertGreaterEqual(mock_warning.call_count, 2)
+        logged_events = [call.args[0] for call in mock_warning.call_args_list]
+        self.assertIn(
+            "delhivery_scan_push_authorized received=%s expected=%s path=%s content_type=%s",
+            logged_events,
+        )
+        self.assertIn("delhivery_scan_push_unmatched_awb awb=%s reference=%s", logged_events)
 
     @patch("orders.views.logger.warning")
     def test_webhook_logs_reference_mismatch_but_updates_by_awb(self, mock_warning):
@@ -2095,8 +2100,16 @@ class DelhiveryScanPushWebhookTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.order.refresh_from_db()
         self.assertEqual(self.order.delhivery_tracking_status_label, "Manifested")
-        mock_warning.assert_called_once()
-        self.assertIn("delhivery_scan_push_reference_mismatch", mock_warning.call_args[0][0])
+        self.assertGreaterEqual(mock_warning.call_count, 2)
+        logged_events = [call.args[0] for call in mock_warning.call_args_list]
+        self.assertIn(
+            "delhivery_scan_push_authorized received=%s expected=%s path=%s content_type=%s",
+            logged_events,
+        )
+        self.assertIn(
+            "delhivery_scan_push_reference_mismatch order_id=%s awb=%s expected_reference=%s received_reference=%s",
+            logged_events,
+        )
 
     def test_webhook_does_not_overwrite_saved_tracking_fields_with_blank_values(self):
         self.order.delhivery_tracking_status_code = "OLD"
@@ -2171,8 +2184,13 @@ class DelhiveryScanPushWebhookTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 400)
-        mock_warning.assert_called_once()
-        self.assertIn("delhivery_scan_push_invalid_payload", mock_warning.call_args[0][0])
+        self.assertGreaterEqual(mock_warning.call_count, 2)
+        logged_events = [call.args[0] for call in mock_warning.call_args_list]
+        self.assertIn(
+            "delhivery_scan_push_authorized received=%s expected=%s path=%s content_type=%s",
+            logged_events,
+        )
+        self.assertIn("delhivery_scan_push_invalid_payload payload_type=%s", logged_events)
 
     def test_webhook_rejects_missing_awb_with_monitoring_log(self):
         with patch("orders.views.logger.warning") as mock_warning:
@@ -2196,27 +2214,29 @@ class DelhiveryScanPushWebhookTests(TestCase):
         self.assertIn("delhivery_scan_push_invalid_payload error=%s", logged_events)
 
     def test_webhook_logs_successful_update_for_monitoring(self):
-        with patch("orders.views.logger.info") as mock_info:
-            response = self.post_webhook(
-                {
-                    "Shipment": {
-                        "Status": {
-                            "Status": "Manifested",
-                            "StatusDateTime": "2026-05-05T10:30:00+05:30",
-                            "StatusType": "UD",
-                            "StatusLocation": "Origin Hub",
-                            "Instructions": "Manifest uploaded",
-                        },
-                        "ReferenceNo": str(self.order.order_number),
-                        "AWB": "85172510000022",
+        with patch("orders.views.logger.warning") as mock_warning:
+            with patch("orders.views.logger.info") as mock_info:
+                response = self.post_webhook(
+                    {
+                        "Shipment": {
+                            "Status": {
+                                "Status": "Manifested",
+                                "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                                "StatusType": "UD",
+                                "StatusLocation": "Origin Hub",
+                                "Instructions": "Manifest uploaded",
+                            },
+                            "ReferenceNo": str(self.order.order_number),
+                            "AWB": "85172510000022",
+                        }
                     }
-                }
-            )
+                )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(mock_info.call_count, 2)
-        self.assertIn("delhivery_scan_push_authorized", mock_info.call_args_list[0][0][0])
-        self.assertIn("delhivery_scan_push_updated", mock_info.call_args_list[1][0][0])
+        mock_warning.assert_called_once()
+        self.assertIn("delhivery_scan_push_authorized", mock_warning.call_args_list[0][0][0])
+        mock_info.assert_called_once()
+        self.assertIn("delhivery_scan_push_updated", mock_info.call_args_list[0][0][0])
 
 
 @override_settings(

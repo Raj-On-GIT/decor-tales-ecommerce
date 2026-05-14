@@ -1824,7 +1824,7 @@ def delhivery_scan_push_webhook(request):
         )
         return Response({"error": "Forbidden."}, status=403)
 
-    logger.info(
+    logger.warning(
         "delhivery_scan_push_authorized received=%s expected=%s path=%s content_type=%s",
         build_secret_log_metadata(received_secret),
         build_secret_log_metadata(configured_secret),
