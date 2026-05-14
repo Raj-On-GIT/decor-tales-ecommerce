@@ -1,4 +1,5 @@
 from decimal import Decimal
+import hashlib
 import hmac
 import logging
 import mimetypes
@@ -33,6 +34,38 @@ from products.media_utils import build_media_url, normalize_media_name
 from utils.delhivery_service import DelhiveryService, DelhiveryServiceError
 
 logger = logging.getLogger(__name__)
+
+
+def build_secret_log_metadata(secret):
+    normalized_secret = str(secret or "").strip()
+    if not normalized_secret:
+        return {
+            "present": False,
+            "length": 0,
+            "masked": "",
+            "sha256_prefix": "",
+        }
+
+    known_prefixes = ("dt-webhook-dev-", "dt-webhook-prod-")
+    matched_prefix = next(
+        (prefix for prefix in known_prefixes if normalized_secret.startswith(prefix)),
+        "",
+    )
+
+    if matched_prefix:
+        random_suffix = normalized_secret[len(matched_prefix):]
+        masked_secret = f"{matched_prefix}{'*' * len(random_suffix)}"
+    elif len(normalized_secret) <= 4:
+        masked_secret = "*" * len(normalized_secret)
+    else:
+        masked_secret = f"{normalized_secret[:2]}{'*' * (len(normalized_secret) - 4)}{normalized_secret[-2:]}"
+
+    return {
+        "present": True,
+        "length": len(normalized_secret),
+        "masked": masked_secret,
+        "sha256_prefix": hashlib.sha256(normalized_secret.encode("utf-8")).hexdigest()[:12],
+    }
 
 
 def get_product_price(product):
@@ -1782,7 +1815,13 @@ def delhivery_scan_push_webhook(request):
         request.headers.get("X-Delhivery-Webhook-Secret", "") or ""
     ).strip()
     if not received_secret or not hmac.compare_digest(received_secret, configured_secret):
-        logger.warning("delhivery_scan_push_unauthorized")
+        logger.warning(
+            "delhivery_scan_push_unauthorized received=%s expected=%s path=%s content_type=%s",
+            build_secret_log_metadata(received_secret),
+            build_secret_log_metadata(configured_secret),
+            request.path,
+            request.content_type,
+        )
         return Response({"error": "Forbidden."}, status=403)
 
     payload = request.data

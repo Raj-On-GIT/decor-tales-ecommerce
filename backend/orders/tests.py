@@ -1,4 +1,5 @@
 from decimal import Decimal
+import hashlib
 import os
 import shutil
 import tempfile
@@ -1931,7 +1932,36 @@ class DelhiveryScanPushWebhookTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 403)
-        mock_warning.assert_called_once_with("delhivery_scan_push_unauthorized")
+        mock_warning.assert_called_once()
+        self.assertEqual(
+            mock_warning.call_args.args[0],
+            "delhivery_scan_push_unauthorized received=%s expected=%s path=%s content_type=%s",
+        )
+        self.assertEqual(
+            mock_warning.call_args.args[1],
+            {
+                "present": False,
+                "length": 0,
+                "masked": "",
+                "sha256_prefix": "",
+            },
+        )
+        self.assertEqual(
+            mock_warning.call_args.args[2],
+            {
+                "present": True,
+                "length": len("dt-webhook-prod-test-secret"),
+                "masked": "dt-webhook-prod-***********",
+                "sha256_prefix": hashlib.sha256(
+                    b"dt-webhook-prod-test-secret"
+                ).hexdigest()[:12],
+            },
+        )
+        self.assertEqual(
+            mock_warning.call_args.args[3],
+            reverse("delhivery_scan_push_webhook"),
+        )
+        self.assertEqual(mock_warning.call_args.args[4], "application/json")
 
     def test_webhook_updates_latest_tracking_snapshot(self):
         payload = {
