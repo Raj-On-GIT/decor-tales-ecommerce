@@ -15,7 +15,7 @@ export default function Footer() {
           <h4 className="mb-4 font-bold">Shop</h4>
           <ul className="space-y-2 text-sm text-white/80">
             <li>
-              <Link href="/catalog" className="transition hover:text-white">
+              <Link href="/#browse-by-category" className="transition hover:text-white">
                 All Products
               </Link>
             </li>
@@ -30,7 +30,7 @@ export default function Footer() {
               </Link>
             </li>
             <li>
-              <Link href="/catalog" className="transition hover:text-white">
+              <Link href="/#browse-by-category" className="transition hover:text-white">
                 Browse by Category
               </Link>
             </li>

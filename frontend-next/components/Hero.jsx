@@ -128,7 +128,7 @@ export default function Hero() {
         </h1>
 
         <a
-          href="/catalog"
+          href="/#browse-by-category"
           onMouseEnter={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             const x = e.clientX - rect.left;

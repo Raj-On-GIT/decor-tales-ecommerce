@@ -49,7 +49,7 @@ export default async function SearchPage({ searchParams }) {
             Try a broader keyword or browse the catalog instead.
           </p>
           <Link
-            href="/catalog"
+            href="/#browse-by-category"
             className="mt-6 inline-flex rounded-full bg-[#002424] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#004c4c]"
           >
             Browse catalog

@@ -126,7 +126,7 @@ export default function Header() {
 
             <nav className="hidden md:flex space-x-6 text-sm font-medium text-gray-600">
               <Link
-                href="/catalog"
+                href="/#browse-by-category"
                 className="hover:text-black transition-colors"
               >
                 Catalog
@@ -400,7 +400,7 @@ export default function Header() {
 
               <nav className="flex flex-col divide-y">
                 <Link
-                  href="/catalog"
+                  href="/#browse-by-category"
                   onClick={() => setIsMenuOpen(false)}
                   className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
                 >

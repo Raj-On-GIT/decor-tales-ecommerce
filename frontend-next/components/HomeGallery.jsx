@@ -1,9 +1,8 @@
-import Image from "next/image";
-import Link from "next/link";
 import { getProducts } from "@/lib/api";
 import HomeGalleryClient from "./HomeGalleryClient";
 import { isProductOutOfStock } from "@/lib/utils";
 import ViewportReveal from "./ViewportReveal";
+import ViewAllLink from "./ViewAllLink";
 
 export default async function HomeGallery() {
   const products = await getProducts();
@@ -52,23 +51,7 @@ export default async function HomeGallery() {
             </p>
           </div>
 
-          <Link
-            href="/latest"
-            className="
-              inline-flex items-center gap-2 text-sm font-bold underline
-              self-start sm:self-auto
-            "
-          >
-            <span>View All</span>
-            <Image
-              src="/right_arrow.svg"
-              alt=""
-              width={16}
-              height={16}
-              className="h-4 w-4"
-              aria-hidden="true"
-            />
-          </Link>
+          <ViewAllLink href="/latest" />
         </div>
 
         {/* Products */}

@@ -1,5 +1,3 @@
-import Image from "next/image";
-import Link from "next/link";
 import { getCategories } from "@/lib/api";
 import BrowseByCategoryClient from "./BrowseByCategoryClient";
 import ViewportReveal from "./ViewportReveal";
@@ -13,7 +11,9 @@ export default async function BrowseByCategory() {
 
   return (
     <section
+      id="browse-by-category"
       className="
+      scroll-mt-20 sm:scroll-mt-24 md:scroll-mt-20
       max-w-screen-xl mx-auto
       px-4 sm:px-6
       py-8
@@ -35,7 +35,7 @@ export default async function BrowseByCategory() {
               text-2xl sm:text-3xl md:text-4xl
             "
             >
-              Browse by Category
+              Our Products
             </h2>
 
             <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">
@@ -43,23 +43,6 @@ export default async function BrowseByCategory() {
             </p>
           </div>
 
-          <Link
-            href="/catalog"
-            className="
-            inline-flex items-center gap-2 text-sm font-bold underline
-            self-start sm:self-auto
-          "
-          >
-            <span>View All</span>
-            <Image
-              src="/right_arrow.svg"
-              alt=""
-              width={16}
-              height={16}
-              className="h-4 w-4"
-              aria-hidden="true"
-            />
-          </Link>
         </div>
 
         {/* Categories Grid */}

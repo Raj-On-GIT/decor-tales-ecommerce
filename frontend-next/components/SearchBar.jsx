@@ -135,7 +135,7 @@ export default function SearchBar({ isOpen, onClose }) {
 
       const path = categorySlug
         ? `/catalog/${categorySlug}/${subcategory.slug}`
-        : "/catalog";
+        : "/#browse-by-category";
 
       navigate(path);
     },
