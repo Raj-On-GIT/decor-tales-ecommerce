@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 import hashlib
 import hmac
@@ -147,6 +148,21 @@ def validate_optional_text(value):
     return str(value or "").strip()
 
 
+def get_delhivery_origin_pin():
+    configured_origin_pin = str(
+        getattr(settings, "DELHIVERY_ORIGIN_PIN", "") or ""
+    ).strip()
+    if not configured_origin_pin:
+        raise ImproperlyConfigured("DELHIVERY_ORIGIN_PIN must be configured.")
+
+    try:
+        return validate_indian_pincode(configured_origin_pin)
+    except ValueError as exc:
+        raise ImproperlyConfigured(
+            "DELHIVERY_ORIGIN_PIN must be a valid 6-digit number."
+        ) from exc
+
+
 def validate_expected_pickup_date(value):
     normalized = str(value or "").strip()
     if not normalized:
@@ -268,6 +284,18 @@ def summarize_expected_tat(
     expected_pickup_date="",
 ):
     data = payload.get("data") or {}
+    tat = data.get("tat")
+    estimated_delivery_date = None
+
+    try:
+        tat_days = int(str(tat).strip()) if str(tat).strip() else None
+    except (TypeError, ValueError):
+        tat_days = None
+
+    if tat_days is not None and tat_days >= 0:
+        estimated_delivery_date = (
+            timezone.localdate() + timedelta(days=tat_days)
+        ).isoformat()
 
     return {
         "origin_pin": origin_pin,
@@ -277,7 +305,8 @@ def summarize_expected_tat(
         "expected_pickup_date": expected_pickup_date,
         "success": bool(payload.get("success")),
         "message": payload.get("msg") or "",
-        "tat": data.get("tat"),
+        "tat": tat,
+        "estimated_delivery_date": estimated_delivery_date,
         "raw": payload,
     }
 
@@ -1629,7 +1658,11 @@ def get_delhivery_pincode_serviceability(request):
 @api_view(["GET"])
 def get_delhivery_expected_tat(request):
     try:
-        origin_pin = validate_indian_pincode(request.query_params.get("origin_pin"))
+        origin_pin = validate_optional_text(request.query_params.get("origin_pin"))
+        if origin_pin:
+            origin_pin = validate_indian_pincode(origin_pin)
+        else:
+            origin_pin = get_delhivery_origin_pin()
         destination_pin = validate_indian_pincode(
             request.query_params.get("destination_pin")
         )

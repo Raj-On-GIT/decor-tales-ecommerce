@@ -11,6 +11,7 @@ import {
   getCart,
   getCartStockIssues,
   createRazorpayOrder,
+  getDelhiveryPincodeServiceability,
   markRazorpayPaymentFailed,
   syncCartStock,
   verifyRazorpayPayment,
@@ -118,6 +119,11 @@ export default function CheckoutPage() {
   const [paymentInitializing, setPaymentInitializing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [paymentError, setPaymentError] = useState("");
+  const [deliveryValidation, setDeliveryValidation] = useState({
+    status: "idle",
+    message: "",
+  });
+  const [deliveryValidationAttempt, setDeliveryValidationAttempt] = useState(0);
 
   useEffect(() => {
     return () => {
@@ -182,6 +188,71 @@ export default function CheckoutPage() {
   const selectedAddressRecord = addresses.find((address) => address.id === selectedAddress) || null;
   const selectedAddressMissingFields = getAddressMissingFields(selectedAddressRecord);
   const hasIncompleteSelectedAddress = selectedAddressMissingFields.length > 0;
+  const isDeliveryValidationLoading = deliveryValidation.status === "loading";
+  const isDeliveryServiceable = deliveryValidation.status === "serviceable";
+  const isDeliveryValidationBlocked =
+    deliveryValidation.status === "unserviceable" ||
+    deliveryValidation.status === "unavailable";
+
+  useEffect(() => {
+    if (!selectedAddressRecord || hasIncompleteSelectedAddress) {
+      setDeliveryValidation({ status: "idle", message: "" });
+      return;
+    }
+
+    let isActive = true;
+
+    async function validateDelivery() {
+      setDeliveryValidation({
+        status: "loading",
+        message: "Verifying delivery availability for this pincode...",
+      });
+
+      try {
+        const response = await getDelhiveryPincodeServiceability(
+          selectedAddressRecord.postal_code,
+        );
+
+        if (!isActive) {
+          return;
+        }
+
+        if (response.serviceable) {
+          setDeliveryValidation({
+            status: "serviceable",
+            message: `Delivery is available for ${selectedAddressRecord.postal_code}.`,
+          });
+          return;
+        }
+
+        setDeliveryValidation({
+          status: "unserviceable",
+          message: "Delivery is not available for the selected postal code.",
+        });
+      } catch (validationError) {
+        if (!isActive) {
+          return;
+        }
+
+        setDeliveryValidation({
+          status: "unavailable",
+          message:
+            validationError.message ||
+            "We are temporarily unable to verify delivery availability for this pincode. Please try again shortly.",
+        });
+      }
+    }
+
+    validateDelivery();
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    deliveryValidationAttempt,
+    hasIncompleteSelectedAddress,
+    selectedAddressRecord,
+  ]);
 
   async function handlePlaceOrder() {
     if (hasUnavailableItems) {
@@ -197,6 +268,19 @@ export default function CheckoutPage() {
     if (hasIncompleteSelectedAddress) {
       error(
         `Selected address is incomplete. Add ${formatAddressMissingFields(selectedAddressMissingFields)} before placing the order.`,
+      );
+      return;
+    }
+
+    if (isDeliveryValidationLoading) {
+      error("Delivery availability is still being verified for the selected address.");
+      return;
+    }
+
+    if (!isDeliveryServiceable) {
+      error(
+        deliveryValidation.message ||
+          "Delivery is not available for the selected postal code.",
       );
       return;
     }
@@ -475,6 +559,32 @@ export default function CheckoutPage() {
                         <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                           Complete this address before checkout:{" "}
                           {formatAddressMissingFields(getAddressMissingFields(addr))}.
+                        </div>
+                      ) : null}
+
+                      {selectedAddress === addr.id && !getAddressMissingFields(addr).length ? (
+                        <div
+                          className={`mt-3 rounded-2xl border px-3 py-2 text-sm ${
+                            deliveryValidation.status === "serviceable"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                              : deliveryValidation.status === "loading"
+                                ? "border-sky-200 bg-sky-50 text-sky-800"
+                                : deliveryValidation.status === "unserviceable" ||
+                                    deliveryValidation.status === "unavailable"
+                                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                                  : "border-gray-200 bg-gray-50 text-gray-600"
+                          }`}
+                        >
+                          <div>{deliveryValidation.message}</div>
+                          {deliveryValidation.status === "unavailable" ? (
+                            <button
+                              type="button"
+                              onClick={() => setDeliveryValidationAttempt((current) => current + 1)}
+                              className="mt-2 rounded-full border border-rose-300 px-3 py-1 text-xs font-medium text-rose-700 transition hover:bg-rose-100"
+                            >
+                              Retry
+                            </button>
+                          ) : null}
                         </div>
                       ) : null}
                     </div>
@@ -764,6 +874,25 @@ export default function CheckoutPage() {
                 Remove unavailable items from the cart before payment can continue.
               </div>
             ) : null}
+            {isDeliveryValidationLoading ? (
+              <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                {deliveryValidation.message}
+              </div>
+            ) : null}
+            {isDeliveryValidationBlocked ? (
+              <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <p>{deliveryValidation.message}</p>
+                {deliveryValidation.status === "unavailable" ? (
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryValidationAttempt((current) => current + 1)}
+                    className="mt-3 rounded-full border border-rose-300 px-3 py-1 text-xs font-medium text-rose-700 transition hover:bg-rose-100"
+                  >
+                    Retry delivery check
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             <button
               onClick={handlePlaceOrder}
@@ -772,7 +901,9 @@ export default function CheckoutPage() {
                 !selectedAddress ||
                 !cart.length ||
                 hasUnavailableItems ||
-                hasIncompleteSelectedAddress
+                hasIncompleteSelectedAddress ||
+                isDeliveryValidationLoading ||
+                !isDeliveryServiceable
               }
               className="mt-6 w-full rounded-2xl bg-black py-4 text-lg font-medium tracking-wide text-white transition-all hover:opacity-90 disabled:opacity-50"
             >

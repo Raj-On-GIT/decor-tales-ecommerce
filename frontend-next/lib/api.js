@@ -783,6 +783,39 @@ export async function createOrderWithAddress(addressId, couponCode = "") {
   return res.json();
 }
 
+export async function getDelhiveryPincodeServiceability(pincode) {
+  const params = new URLSearchParams({ pincode: String(pincode || "").trim() });
+  const res = await fetchWithAuth(
+    `${API_BASE}/api/orders/delhivery/pincode-serviceability/?${params.toString()}`,
+  );
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || "Unable to verify delivery availability.");
+  }
+
+  return data;
+}
+
+export async function getDelhiveryExpectedTat(destinationPincode) {
+  const params = new URLSearchParams({
+    destination_pin: String(destinationPincode || "").trim(),
+    mot: "S",
+  });
+  const res = await fetchWithAuth(
+    `${API_BASE}/api/orders/delhivery/expected-tat/?${params.toString()}`,
+  );
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || "Unable to fetch the delivery estimate.");
+  }
+
+  return data;
+}
+
 export async function createRazorpayOrder(addressId, couponCode = "") {
   const res = await fetchWithAuth(`${API_BASE}/api/payments/create-order/`, {
     method: "POST",

@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 import hashlib
 import os
@@ -18,6 +19,7 @@ from rest_framework.test import APIClient
 from orders.models import Cart, CartItem, Coupon, CouponUsage, Order, OrderItem, OrderItemImage, StockReservation
 from orders.payment_services import reconcile_order_payment
 from products.models import Category, Color, Product, ProductVariant, Size, SubCategory
+from utils.delhivery_service import DelhiveryServiceError
 
 
 def build_test_image(name, size=(100, 100), image_format="PNG", content_type="image/png"):
@@ -642,6 +644,24 @@ class PaymentFlowSafetyTests(TestCase):
             postal_code="110001",
             is_default=True,
         )
+        self.delhivery_serviceability_patcher = patch(
+            "orders.payment_services.DelhiveryService.get_pincode_serviceability",
+            return_value={
+                "delivery_codes": [
+                    {
+                        "postal_code": {
+                            "cod": "N",
+                            "pre_paid": "Y",
+                            "pickup": "Y",
+                            "is_oda": "N",
+                            "remarks": "",
+                        }
+                    }
+                ]
+            },
+        )
+        self.mock_delhivery_serviceability = self.delhivery_serviceability_patcher.start()
+        self.addCleanup(self.delhivery_serviceability_patcher.stop)
 
     @patch("orders.payment_services.get_razorpay_client")
     def test_second_checkout_for_last_item_is_blocked_by_reservation(self, mock_client):
@@ -705,6 +725,36 @@ class PaymentFlowSafetyTests(TestCase):
         self.assertEqual(
             response.data["error"],
             "Selected address is missing required shipping fields: full_name, state.",
+        )
+
+    def test_checkout_rejects_unserviceable_pincode(self):
+        self.mock_delhivery_serviceability.return_value = {"delivery_codes": []}
+
+        response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["error"],
+            "Delivery is not available for the selected postal code.",
+        )
+
+    def test_checkout_rejects_when_serviceability_cannot_be_verified(self):
+        self.mock_delhivery_serviceability.side_effect = DelhiveryServiceError("timeout")
+
+        response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["error"],
+            "We are temporarily unable to verify delivery availability for this pincode. Please try again shortly.",
         )
 
     @patch("orders.payment_services.verify_razorpay_webhook_signature", return_value=True)
@@ -1103,23 +1153,22 @@ class PaymentFlowSafetyTests(TestCase):
             "amount": 40000,
             "currency": "INR",
         }
-        mock_client.return_value.payment.fetch.return_value = {
-            "id": "pay_verify_1",
-            "order_id": "order_rzp_11",
-            "status": "captured",
-            "amount": 40000,
-            "notes": {
-                "order_id": "1",
-                "user_id": str(self.user.id),
-            },
-        }
-
         create_response = self.client.post(
             reverse("create_payment_order"),
             {"address_id": self.address.id},
             format="json",
         )
         self.assertEqual(create_response.status_code, 201)
+        mock_client.return_value.payment.fetch.return_value = {
+            "id": "pay_verify_1",
+            "order_id": "order_rzp_11",
+            "status": "captured",
+            "amount": 40000,
+            "notes": {
+                "order_id": str(create_response.data["order"]["id"]),
+                "user_id": str(self.user.id),
+            },
+        }
 
         self.product.stock = 0
         self.product.save(update_fields=["stock"])
@@ -1603,6 +1652,24 @@ class LegacyDirectOrderAddressValidationTests(TestCase):
             postal_code="110001",
             is_default=True,
         )
+        self.delhivery_serviceability_patcher = patch(
+            "orders.payment_services.DelhiveryService.get_pincode_serviceability",
+            return_value={
+                "delivery_codes": [
+                    {
+                        "postal_code": {
+                            "cod": "N",
+                            "pre_paid": "Y",
+                            "pickup": "Y",
+                            "is_oda": "N",
+                            "remarks": "",
+                        }
+                    }
+                ]
+            },
+        )
+        self.mock_delhivery_serviceability = self.delhivery_serviceability_patcher.start()
+        self.addCleanup(self.delhivery_serviceability_patcher.stop)
 
     def test_direct_order_rejects_incomplete_saved_address(self):
         response = self.client.post(
@@ -1615,6 +1682,24 @@ class LegacyDirectOrderAddressValidationTests(TestCase):
         self.assertEqual(
             response.data["error"],
             "Selected address is missing required shipping fields: full_name, state.",
+        )
+
+    def test_direct_order_rejects_unserviceable_pincode(self):
+        self.address.full_name = "Legacy Customer"
+        self.address.state = "Delhi"
+        self.address.save(update_fields=["full_name", "state"])
+        self.mock_delhivery_serviceability.return_value = {"delivery_codes": []}
+
+        response = self.client.post(
+            reverse("create_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["error"],
+            "Delivery is not available for the selected postal code.",
         )
 
 
@@ -1711,6 +1796,46 @@ class DelhiveryShippingLabelApiTests(TestCase):
         self.assertEqual(
             response.data["label"]["pdf_download_link"],
             "https://labels.example.com/api-label.pdf",
+        )
+
+
+@override_settings(
+    DELHIVERY_BASE_URL="https://track.delhivery.test",
+    DELHIVERY_API_KEY="test-api-key",
+    DELHIVERY_ORIGIN_PIN="110077",
+    SECURE_SSL_REDIRECT=False,
+)
+class DelhiveryExpectedTatApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    @patch("orders.views.DelhiveryService.get_expected_tat")
+    def test_expected_tat_uses_configured_origin_pin_by_default(self, mock_get_expected_tat):
+        mock_get_expected_tat.return_value = {
+            "success": True,
+            "msg": "Tat found",
+            "data": {"tat": 3},
+        }
+
+        response = self.client.get(
+            reverse("delhivery_expected_tat"),
+            {"destination_pin": "560001", "mot": "S"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mock_get_expected_tat.assert_called_once_with(
+            origin_pin="110077",
+            destination_pin="560001",
+            mot="S",
+            pdt="",
+            expected_pickup_date="",
+        )
+        self.assertEqual(response.data["origin_pin"], "110077")
+        self.assertEqual(response.data["tat"], 3)
+        self.assertEqual(
+            response.data["estimated_delivery_date"],
+            (timezone.localdate() + timedelta(days=3)).isoformat(),
         )
 
 

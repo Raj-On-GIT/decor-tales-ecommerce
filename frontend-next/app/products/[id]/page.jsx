@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Loader2, ShoppingBag } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import ProductCard from "@/components/ProductCard";
-import { getProducts } from "@/lib/api";
+import { getDelhiveryExpectedTat, getProducts } from "@/lib/api";
 import { API_BASE } from "@/lib/config";
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalToast } from "@/context/ToastContext";
@@ -19,6 +18,24 @@ import { isProductOutOfStock } from "@/lib/utils";
 
 const MAX_CUSTOM_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_CUSTOM_TEXT_LENGTH = 120;
+const PRODUCT_DELIVERY_PINCODE_KEY = "productDeliveryPincode";
+
+function formatDeliveryDate(dateValue) {
+  if (!dateValue) {
+    return "";
+  }
+
+  const parsedDate = new Date(dateValue);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(parsedDate);
+}
 
 export default function ProductDetailPage() {
   const { isAuthenticated } = useAuth();
@@ -43,6 +60,12 @@ export default function ProductDetailPage() {
   // ✅ Variant selection state
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedColor, setSelectedColor] = useState(null);
+  const [deliveryPincode, setDeliveryPincode] = useState("");
+  const [deliveryEstimate, setDeliveryEstimate] = useState({
+    status: "idle",
+    message: "",
+    date: "",
+  });
 
   const [uploadResetKey, setUploadResetKey] = useState(0);
 
@@ -57,6 +80,17 @@ export default function ProductDetailPage() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const savedPincode = window.localStorage.getItem(PRODUCT_DELIVERY_PINCODE_KEY) || "";
+    if (/^\d{6}$/.test(savedPincode)) {
+      setDeliveryPincode(savedPincode);
+    }
+  }, []);
 
   // ================= FETCH PRODUCT =================
   useEffect(() => {
@@ -270,6 +304,78 @@ export default function ProductDetailPage() {
 
   const isColorAvailable = (color) =>
     product?.variants.some((v) => v.color_name === color);
+
+  useEffect(() => {
+    if (!deliveryPincode) {
+      setDeliveryEstimate({ status: "idle", message: "", date: "" });
+      return;
+    }
+
+    if (!/^\d{6}$/.test(deliveryPincode)) {
+      setDeliveryEstimate({
+        status: "invalid",
+        message: "Enter a valid 6-digit pincode.",
+        date: "",
+      });
+      return;
+    }
+
+    let isActive = true;
+
+    async function loadDeliveryEstimate() {
+      setDeliveryEstimate({
+        status: "loading",
+        message: "Checking expected delivery date...",
+        date: "",
+      });
+
+      try {
+        const response = await getDelhiveryExpectedTat(deliveryPincode);
+        if (!isActive) {
+          return;
+        }
+
+        const formattedDate = formatDeliveryDate(response.estimated_delivery_date);
+        if (!response.success || !formattedDate) {
+          setDeliveryEstimate({
+            status: "unserviceable",
+            message:
+              response.message ||
+              "Delivery is not available for this pincode.",
+            date: "",
+          });
+          return;
+        }
+
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(PRODUCT_DELIVERY_PINCODE_KEY, deliveryPincode);
+        }
+
+        setDeliveryEstimate({
+          status: "ready",
+          message: "",
+          date: formattedDate,
+        });
+      } catch (estimateError) {
+        if (!isActive) {
+          return;
+        }
+
+        setDeliveryEstimate({
+          status: "error",
+          message:
+            estimateError.message || "Unable to check delivery availability right now.",
+          date: "",
+        });
+      }
+    }
+
+    loadDeliveryEstimate();
+
+    return () => {
+      isActive = false;
+    };
+  }, [deliveryPincode]);
 
   if (productState === "not_found") {
     return (
@@ -902,6 +1008,64 @@ export default function ProductDetailPage() {
             </div>
           </div>
         </div>
+
+        <section className="mb-10 rounded-[1.75rem] border border-gray-200 bg-[#fffdf8] px-5 py-6 shadow-[0_20px_60px_rgba(15,23,42,0.05)] sm:px-7 sm:py-7">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-gray-500">
+              Delivery Check
+            </p>
+            <h2 className="mt-2 font-serif text-2xl font-bold text-gray-900">
+              Check delivery for your pincode
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Enter your pincode to see the expected delivery date for this product.
+            </p>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={deliveryPincode}
+                onChange={(e) =>
+                  setDeliveryPincode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                }
+                placeholder="Enter 6-digit pincode"
+                className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-black"
+              />
+            </div>
+
+            {deliveryEstimate.status === "loading" ? (
+              <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                {deliveryEstimate.message}
+              </div>
+            ) : null}
+
+            {deliveryEstimate.status === "ready" ? (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                Expected delivery by {deliveryEstimate.date}
+              </div>
+            ) : null}
+
+            {deliveryEstimate.status === "unserviceable" ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {deliveryEstimate.message}
+              </div>
+            ) : null}
+
+            {deliveryEstimate.status === "error" ? (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                {deliveryEstimate.message}
+              </div>
+            ) : null}
+
+            {deliveryEstimate.status === "invalid" ? (
+              <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                {deliveryEstimate.message}
+              </div>
+            ) : null}
+          </div>
+        </section>
 
         {/* ================= SIMILAR PRODUCTS SECTION ================= */}
         {relatedProducts.length > 0 && (

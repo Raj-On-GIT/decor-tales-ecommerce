@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from accounts.models import Address
 from products.models import Product, ProductVariant
+from utils.delhivery_service import DelhiveryService, DelhiveryServiceError
 
 from .models import (
     Cart,
@@ -40,6 +41,30 @@ logger = logging.getLogger(__name__)
 
 class PaymentError(Exception):
     pass
+
+
+DELHIVERY_VERIFICATION_UNAVAILABLE_MESSAGE = (
+    "We are temporarily unable to verify delivery availability for this pincode. "
+    "Please try again shortly."
+)
+
+
+def validate_checkout_address_serviceability(address):
+    postal_code = str(getattr(address, "postal_code", "") or "").strip()
+
+    try:
+        payload = DelhiveryService().get_pincode_serviceability(pincode=postal_code)
+    except (ImproperlyConfigured, DelhiveryServiceError) as exc:
+        logger.warning(
+            "delhivery_serviceability_unavailable postal_code=%s reason=%s",
+            postal_code,
+            str(exc),
+        )
+        raise PaymentError(DELHIVERY_VERIFICATION_UNAVAILABLE_MESSAGE) from exc
+
+    delivery_codes = payload.get("delivery_codes", [])
+    if not delivery_codes:
+        raise PaymentError("Delivery is not available for the selected postal code.")
 
 
 def validate_checkout_address(address):
@@ -72,6 +97,8 @@ def validate_checkout_address(address):
     postal_code = str(address.postal_code).strip()
     if not postal_code.isdigit() or len(postal_code) != 6:
         raise PaymentError("Selected address must include a valid 6-digit postal code.")
+
+    validate_checkout_address_serviceability(address)
 
 
 def get_razorpay_credentials():
