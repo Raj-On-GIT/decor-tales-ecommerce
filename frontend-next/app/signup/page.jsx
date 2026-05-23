@@ -229,20 +229,20 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#e8f3f1] via-white to-[#f6efe2] px-5 sm:px-10">
-      <div className="absolute -top-24 -left-24 h-[320px] w-[320px] rounded-full bg-[#2f5d56]/18 blur-[72px]" />
-      <div className="absolute -bottom-24 -right-24 h-[320px] w-[320px] rounded-full bg-[#ffb347]/14 blur-[72px]" />
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#fff8ef] via-white to-[#fff3df] px-5 sm:px-10">
+      <div className="absolute -top-24 -left-24 h-[320px] w-[320px] rounded-full bg-[#FDC3A1]/24 blur-[72px]" />
+      <div className="absolute -bottom-24 -right-24 h-[320px] w-[320px] rounded-full bg-[#FDC3A1]/20 blur-[72px]" />
 
       <motion.div
         initial={{ opacity: 0, y: 18, scale: 0.995 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className="w-full max-w-5xl bg-white/90 md:bg-white/78 md:backdrop-blur-sm border border-white/40
-                 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.15)]
+        className="w-full max-w-5xl border border-[#F0D1C2]/70 bg-white/92 md:bg-white/84 md:backdrop-blur-sm
+                 rounded-xl shadow-[0_24px_70px_rgba(199,141,101,0.14)]
                  overflow-hidden grid grid-cols-1 md:grid-cols-2 will-change-transform"
       >
         <div className="p-5 md:p-12 flex flex-col justify-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-5">
+          <h1 className="mb-5 text-3xl font-bold text-[#1B000D]">
             {otpStep ? "Verify Your Email" : "Create Account"}
           </h1>
 
@@ -252,9 +252,9 @@ export default function SignupPage() {
           >
             {otpStep ? (
               <>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[#6F5960]">
                   Enter the 6-digit code sent to{" "}
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-[#1B000D]">
                     {signupEmail}
                   </span>
                   .
@@ -262,7 +262,7 @@ export default function SignupPage() {
 
                 <div className="relative">
                   <Shield
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B89B88]"
                     size={18}
                   />
                   <input
@@ -273,9 +273,10 @@ export default function SignupPage() {
                     }
                     disabled={otpLoading}
                     placeholder="6-digit verification code"
-                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg
-                         focus:outline-none focus:border-gray-900 transition
-                         disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-4
+                         text-[#1B000D] placeholder:text-[#9A8C8F]
+                         focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
+                         disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                     required
                   />
                 </div>
@@ -284,7 +285,7 @@ export default function SignupPage() {
               <>
             <div className="relative">
               <User
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B89B88]"
                 size={18}
               />
               <input
@@ -295,16 +296,17 @@ export default function SignupPage() {
                 }
                 disabled={isFormLocked}
                 placeholder="Full Name"
-                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg
-                         focus:outline-none focus:border-gray-900 transition
-                         disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-4
+                         text-[#1B000D] placeholder:text-[#9A8C8F]
+                         focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
+                         disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
               />
             </div>
 
             <div className="relative">
               <Mail
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B89B88]"
                 size={18}
               />
               <input
@@ -315,16 +317,17 @@ export default function SignupPage() {
                 }
                 disabled={isFormLocked}
                 placeholder="Email Address"
-                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg
-                         focus:outline-none focus:border-gray-900 transition
-                         disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-4
+                         text-[#1B000D] placeholder:text-[#9A8C8F]
+                         focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
+                         disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
               />
             </div>
 
             <div className="relative">
               <Phone
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B89B88]"
                 size={18}
               />
               <input
@@ -335,16 +338,17 @@ export default function SignupPage() {
                 }
                 disabled={isFormLocked}
                 placeholder="Phone Number"
-                className="w-full pl-12 pr-4 py-2.5 border border-gray-200 rounded-lg
-                          focus:outline-none focus:border-gray-900 transition
-                          disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-2.5 pl-12 pr-4
+                          text-[#1B000D] placeholder:text-[#9A8C8F]
+                          focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
+                          disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
               />
             </div>
 
             <div className="relative">
               <Lock
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B89B88]"
                 size={18}
               />
               <input
@@ -355,16 +359,17 @@ export default function SignupPage() {
                 }
                 disabled={isFormLocked}
                 placeholder="Password"
-                className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-lg
-                         focus:outline-none focus:border-gray-900 transition
-                         disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-12
+                         text-[#1B000D] placeholder:text-[#9A8C8F]
+                         focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
+                         disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
               />
               <button
                 type="button"
                 disabled={isFormLocked}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 disabled:cursor-not-allowed disabled:opacity-40"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#B89B88] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -372,7 +377,7 @@ export default function SignupPage() {
 
             <div className="relative">
               <Lock
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B89B88]"
                 size={18}
               />
               <input
@@ -383,16 +388,17 @@ export default function SignupPage() {
                 }
                 disabled={isFormLocked}
                 placeholder="Confirm Password"
-                className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-lg
-                         focus:outline-none focus:border-gray-900 transition
-                         disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-12
+                         text-[#1B000D] placeholder:text-[#9A8C8F]
+                         focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
+                         disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
               />
               <button
                 type="button"
                 disabled={isFormLocked}
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 disabled:cursor-not-allowed disabled:opacity-40"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#B89B88] disabled:cursor-not-allowed disabled:opacity-40"
               >
                   {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -411,12 +417,12 @@ export default function SignupPage() {
             )}
 
             {!otpStep && (
-            <div className="flex items-start gap-2 text-sm text-gray-600 px-2 py-2">
+            <div className="flex items-start gap-2 px-2 py-2 text-sm text-[#6F5960]">
               <input
                 type="checkbox"
                 required
                 disabled={isFormLocked}
-                className="mt-1 disabled:cursor-not-allowed"
+                className="mt-1 accent-[#C78556] disabled:cursor-not-allowed"
               />
               <span>
                 I agree to the{" "}
@@ -425,7 +431,7 @@ export default function SignupPage() {
                   className={`font-semibold ${
                     isFormLocked
                       ? "pointer-events-none text-gray-400"
-                      : "text-gray-900 hover:underline"
+                      : "text-[#1B000D] hover:text-[#C78556]"
                   }`}
                 >
                   Terms
@@ -436,7 +442,7 @@ export default function SignupPage() {
                   className={`font-semibold ${
                     isFormLocked
                       ? "pointer-events-none text-gray-400"
-                      : "text-gray-900 hover:underline"
+                      : "text-[#1B000D] hover:text-[#C78556]"
                   }`}
                 >
                   Privacy Policy
@@ -450,7 +456,7 @@ export default function SignupPage() {
               disabled={otpStep ? otpLoading : isFormLocked}
               className="
                 w-full
-                bg-[#2f5d56] hover:bg-[#244944]
+                bg-[#C78556] hover:bg-[#B67446]
                 text-white font-semibold
                 py-3 rounded-lg
                 transition
@@ -479,7 +485,7 @@ export default function SignupPage() {
                     setOtp("");
                     setError("");
                   }}
-                  className="text-gray-600 hover:text-gray-900"
+                  className="text-[#6F5960] hover:text-[#C78556]"
                 >
                   Edit details
                 </button>
@@ -487,7 +493,7 @@ export default function SignupPage() {
                   type="button"
                   onClick={handleResendOtp}
                   disabled={loading || resendCooldown > 0}
-                  className="font-semibold text-[#2f5d56] disabled:text-gray-400"
+                  className="font-semibold text-[#C78556] disabled:text-gray-400"
                 >
                   {resendCooldown > 0
                     ? `Resend in ${resendCooldown}s`
@@ -498,9 +504,9 @@ export default function SignupPage() {
 
             {!otpStep && (
             <div className="flex items-center gap-3 my-3">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-gray-500 text-sm">Or</span>
-              <div className="flex-1 h-px bg-gray-200" />
+              <div className="flex-1 h-px bg-[#EADACF]" />
+              <span className="text-[#8E7A80] text-sm">Or</span>
+              <div className="flex-1 h-px bg-[#EADACF]" />
             </div>
             )}
 
@@ -508,12 +514,12 @@ export default function SignupPage() {
             <div className="w-full mt-3 flex justify-center">
               {isGoogleRedirecting ? (
                 <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="w-full rounded-lg border border-[#d9e5e2] bg-white px-4 py-3"
-                >
-                  <div className="flex items-center justify-center gap-3 text-sm font-medium text-[#244944]">
-                    <span className="h-4 w-4 rounded-full border-2 border-[#2f5d56]/20 border-t-[#2f5d56] animate-spin" />
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full rounded-lg border border-[#E8D7CB] bg-[#fffaf7] px-4 py-3"
+              >
+                  <div className="flex items-center justify-center gap-3 text-sm font-medium text-[#6F4555]">
+                    <span className="h-4 w-4 rounded-full border-2 border-[#D89A6B]/20 border-t-[#D89A6B] animate-spin" />
                     Completing Google sign up...
                   </div>
                   <p className="mt-2 text-center text-xs text-gray-500">
@@ -537,11 +543,11 @@ export default function SignupPage() {
                   disabled
                   className="
                     w-full
-                    border border-gray-300
+                    border border-[#E8D7CB]
                     py-3
                     rounded-lg
-                    text-gray-500
-                    bg-gray-50
+                    text-[#8E7A80]
+                    bg-[#fffaf7]
                     cursor-not-allowed
                   "
                 >
@@ -555,7 +561,7 @@ export default function SignupPage() {
           </form>
 
           <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">
-            <Shield size={14} className="text-[#2f5d56]" />
+            <Shield size={14} className="text-[#C78556]" />
             <span>Your information is securely encrypted</span>
           </div>
         </div>
@@ -564,17 +570,17 @@ export default function SignupPage() {
           <div
             className="absolute inset-0 
              bg-gradient-to-br 
-             from-[#2f5d56] 
-             via-[#3c7a70] 
-             to-[#1f3f3b]"
+             from-[#8B6246]/22 
+             via-[#D89A6B]/14 
+             to-[#FFF7CD]"
           />
 
           <div
-            className="absolute inset-0 scale-105 bg-cover bg-center opacity-38 blur-[2px]"
+            className="absolute inset-0 scale-[1.02] bg-cover bg-center opacity-78"
             style={{ backgroundImage: "url('/signup.jpg')" }}
           />
 
-          <div className="absolute inset-0 bg-black/10" />
+          <div className="absolute inset-0 bg-black/12" />
 
           <div className="relative text-white text-center max-w-xs flex flex-col items-center">
             <h2 className="text-3xl font-bold mb-4">Welcome Back!</h2>
@@ -585,7 +591,7 @@ export default function SignupPage() {
 
             <Link
               href="/login"
-              className="inline-block border border-white px-6 py-2 rounded-full hover:bg-white hover:text-[#2f5d56] transition"
+              className="inline-block rounded-full border border-white px-6 py-2 transition hover:bg-white hover:text-[#C78556]"
             >
               Sign In
             </Link>
@@ -598,8 +604,7 @@ export default function SignupPage() {
              text-white text-sm font-medium
              flex items-center gap-2
              transition-all duration-300
-             hover:bg-white hover:text-[#2f5d56]
-             hover:scale-105 hover:-translate-y-0.5
+             hover:bg-white hover:text-[#C78556]
              group"
             >
               <ArrowLeft

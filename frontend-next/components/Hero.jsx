@@ -159,7 +159,7 @@ export default function Hero() {
 
           <span
             className={`
-              pointer-events-none absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#2f5d56]
+              pointer-events-none absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#2B4241]
               transition-transform duration-900 ease-[cubic-bezier(0.25,1,0.5,1)]
               ${hovered ? "scale-[40]" : "scale-0"}
             `}

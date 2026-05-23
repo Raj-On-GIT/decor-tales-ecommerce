@@ -26,13 +26,11 @@ export default async function Trending() {
         {/* Heading Row */}
         <div
           className="
-            flex flex-col sm:flex-row
-            sm:justify-between sm:items-end
-
-            gap-4 mb-5 md:mb-10
+            mb-5 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 md:mb-10
+            sm:items-end
           "
         >
-          <div>
+          <div className="min-w-0">
             <h2
               className="
                 font-serif font-bold text-black
@@ -42,13 +40,13 @@ export default async function Trending() {
             >
               Trending Now
             </h2>
-
-            <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">
-              Most loved by our customers right now.
-            </p>
           </div>
 
-          <ViewAllLink href="/trending" />
+          <ViewAllLink href="/trending" className="col-start-2 row-start-1" />
+
+          <p className="col-span-full text-sm text-gray-600 sm:mt-2 sm:text-base">
+            Most loved by our customers right now.
+          </p>
         </div>
 
         {/* Products */}

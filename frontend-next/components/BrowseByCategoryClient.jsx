@@ -17,31 +17,31 @@ export default function BrowseByCategoryClient({ categories, reveal = false }) {
     "grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4";
   const content = categories.map((category) => (
     <Link key={category.id} href={`/catalog/${category.slug}`}>
-      <div className="group cursor-pointer">
-        <div className="relative flex flex-col overflow-hidden rounded-2xl border border-[#F5B6B6] bg-gradient-to-b from-[#FFF7CD] via-[#FFF4DE] to-[#FDC3A1] p-1 sm:p-1.5 shadow-[0_4px_16px_rgba(253,195,161,0.26)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-[#F57799]/50 hover:shadow-[0_14px_34px_rgba(245,119,153,0.18)] sm:h-64">
-          <div className="relative h-25 w-full overflow-hidden rounded-xl bg-[#FFF7CD]/70 sm:h-45">
+      <div className="group cursor-pointer h-full">
+        <div className="premium-card relative flex flex-col h-full overflow-hidden rounded-xl p-1 sm:p-1.5 transition-all duration-500 ease-out hover:-translate-y-1 bg-[#FAFAF9] border-[#E7E5E4]">
+          <div className="relative h-32 w-full overflow-hidden rounded-xl bg-[#F5F5F4] sm:h-48 shrink-0">
             {category.image ? (
               <Image
                 src={category.image}
                 alt={category.name}
                 fill
                 style={{ objectFit: "cover" }}
-                className="transition-transform duration-500 ease-out group-hover:scale-103"
+                className="transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                 unoptimized={true}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-[#FB9B8F]/22">
-                <span className="text-gray-500">No Image</span>
+              <div className="flex h-full w-full items-center justify-center bg-[#E7E5E4]/50">
+                <span className="text-[#A8A29E] text-sm">No Image</span>
               </div>
             )}
           </div>
 
-          <div className="mb-2 mt-2 text-center sm:mt-3">
-            <h3 className="mb-1 text-base font-bold text-gray-900 sm:text-lg">
+          <div className="flex-1 flex flex-col justify-center items-center mb-2 mt-3 px-2 text-center">
+            <h3 className="mb-1 text-base font-bold text-[#1C1917] sm:text-lg">
               {category.name}
             </h3>
 
-            <p className="text-xs text-gray-600 sm:text-sm">
+            <p className="text-xs text-[#78716C] sm:text-sm">
               {category.subcategoryCount > 0
                 ? `${category.subcategoryCount} ${
                     category.subcategoryCount === 1 ? "subcategory" : "subcategories"
@@ -52,9 +52,9 @@ export default function BrowseByCategoryClient({ categories, reveal = false }) {
             </p>
           </div>
 
-          <div className="absolute bottom-4 right-4 opacity-0 transition-opacity group-hover:opacity-100 sm:bottom-4 sm:right-4">
+          <div className="absolute bottom-4 right-4 opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:bottom-4 sm:right-4 bg-white/80 backdrop-blur-sm rounded-full p-1.5 shadow-sm border border-[#E7E5E4]">
             <svg
-              className="h-5 w-5 text-gray-700"
+              className="h-4 w-4 text-[#1C1917]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

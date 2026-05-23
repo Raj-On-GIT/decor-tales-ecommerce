@@ -91,7 +91,7 @@ export default function Header() {
   return (
     <>
       {/* HEADER */}
-      <header className="sticky top-0 z-40 border-[#131b23] bg-[#f9dbbd]/70 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-[#131b23] bg-[#FAFAF9]/70 backdrop-blur-md">
         <div
           className={`max-w-screen-xl mx-auto 
                         px-4 sm:px-6
@@ -204,7 +204,7 @@ export default function Header() {
                 onClick={() => {
                   if (!isIdentityLoading) setIsProfileOpen(!isProfileOpen);
                 }}
-                className="flex items-center gap-2 rounded-full border border-transparent px-2 py-1.5 text-gray-900 transition hover:border-[#F5B6B6] hover:bg-[#FDC3A1]/35 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-full border border-transparent px-2 py-1.5 text-gray-900 transition hover:border-[#E7E5E4] hover:bg-white disabled:opacity-50"
               >
                 {isAuthenticated && firstName ? (
                   <span className="max-w-24 truncate text-sm font-medium text-gray-700">
@@ -227,9 +227,9 @@ export default function Header() {
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                     transition={{ duration: 0.15, ease: "easeOut" }}
                     className="absolute right-0 mt-3 w-72
-                              bg-[#FFF7CD]/95 backdrop-blur
-                              border border-[#FDC3A1]
-                              rounded-2xl shadow-xl
+                              bg-white/95 backdrop-blur
+                              border border-[#E7E5E4]
+                              rounded-2xl shadow-premium-hover
                               overflow-hidden z-50"
                   >
                     {isIdentityLoading ? (
@@ -241,16 +241,16 @@ export default function Header() {
                     ) : isAuthenticated ? (
                       /* LOGGED IN STATE */
                       <>
-                        <div className="border-b border-[#FDC3A1] bg-gradient-to-br from-[#FFF7CD] via-[#FFF7CD] to-[#FDC3A1]/70 px-5 py-5">
+                        <div className="border-b border-[#E7E5E4] bg-[#FAFAF9] px-5 py-5">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F57799] text-white shadow-sm">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1C1917] text-[#D4A373] shadow-sm">
                               <User size={18} />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#78716C]">
                                 Signed in as
                               </p>
-                              <h3 className="truncate text-lg font-serif font-semibold text-gray-900">
+                              <h3 className="truncate text-lg font-serif font-semibold text-[#1C1917]">
                                 {visibleProfileName || "Your Account"}
                               </h3>
                             </div>
@@ -261,23 +261,23 @@ export default function Header() {
                           <Link
                             href="/account"
                             onClick={() => setIsProfileOpen(false)}
-                            className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-[#FDC3A1]/35 hover:text-gray-900"
+                            className="block rounded-xl px-4 py-3 text-sm font-medium text-[#78716C] transition hover:bg-[#FAFAF9] hover:text-[#1C1917]"
                           >
                             My Account
                           </Link>
                           <Link
                             href="/orders"
                             onClick={() => setIsProfileOpen(false)}
-                            className="block rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-[#FDC3A1]/35 hover:text-gray-900"
+                            className="block rounded-xl px-4 py-3 text-sm font-medium text-[#78716C] transition hover:bg-[#FAFAF9] hover:text-[#1C1917]"
                           >
                             My Orders
                           </Link>
                         </div>
 
-                        <div className="border-t border-[#FDC3A1] p-2">
+                        <div className="border-t border-[#E7E5E4] p-2">
                           <button
                             onClick={handleLogout}
-                            className="flex w-full items-center rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-[#FB9B8F]/20"
+                            className="flex w-full items-center rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
                           >
                             <span className="inline-flex items-center gap-2">
                               Logout
@@ -290,10 +290,10 @@ export default function Header() {
                       /* LOGGED OUT STATE */
                       <>
                         <div className="px-5 pt-5 pb-4">
-                          <h3 className="text-lg font-bold text-gray-900 tracking-wide">
+                          <h3 className="text-lg font-serif font-bold text-[#1C1917] tracking-wide">
                             Your Account
                           </h3>
-                          <div className="mt-2 h-1 w-12 bg-[#F57799]"></div>
+                          <div className="mt-2 h-[2px] w-12 bg-[#D4A373]"></div>
                         </div>
 
                         <div className="px-6 py-5 space-y-3">
@@ -301,9 +301,9 @@ export default function Header() {
                             href="/login"
                             onClick={() => setIsProfileOpen(false)}
                             className="block w-full py-3 px-4
-           bg-[#F57799] hover:bg-[#e96b91] hover:text-white
+           bg-[#1C1917] hover:bg-black
            text-white text-center font-medium text-base
-           rounded-xl transition"
+           rounded-xl transition shadow-sm"
                           >
                             Login
                           </Link>
@@ -311,8 +311,8 @@ export default function Header() {
                             href="/signup"
                             onClick={() => setIsProfileOpen(false)}
                             className="block w-full py-3 px-4
-           bg-[#FDC3A1] hover:bg-[#f7b48b]
-           text-black text-center font-medium text-base
+           bg-white hover:bg-[#FAFAF9] border border-[#E7E5E4]
+           text-[#1C1917] text-center font-medium text-base
            rounded-xl transition"
                           >
                             Register
@@ -345,34 +345,34 @@ export default function Header() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMenuOpen(false)}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
             />
             <motion.div
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 flex h-full w-72 flex-col bg-[#FFF7CD] p-6 shadow-2xl z-50"
+              className="fixed top-0 right-0 flex h-full w-72 flex-col bg-[#FAFAF9] p-6 shadow-2xl z-50 border-l border-[#E7E5E4]"
             >
               <div className="flex items-center justify-between mb-8">
-                <h2 className="text-xl font-serif font-bold">Menu</h2>
+                <h2 className="text-xl font-serif font-bold text-[#1C1917]">Menu</h2>
                 <button
                   onClick={() => setIsMenuOpen(false)}
-                  className="rounded-full p-2 hover:bg-[#FDC3A1]/35"
+                  className="rounded-full p-2 text-[#78716C] hover:bg-[#E7E5E4] hover:text-[#1C1917] transition-colors"
                 >
                   ✕
                 </button>
               </div>
 
               {isAuthenticated ? (
-                <div className="mb-6 rounded-2xl border border-[#FDC3A1] bg-gradient-to-br from-[#FFF7CD] via-[#FFF7CD] to-[#FDC3A1]/70 px-4 py-4">
+                <div className="mb-6 rounded-2xl border border-[#E7E5E4] bg-white px-4 py-4 shadow-sm">
                   {isIdentityLoading ? (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F57799] text-white shadow-sm">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1C1917] text-[#D4A373] shadow-sm">
                         <Loader2 size={18} className="animate-spin" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#78716C]">
                           Signed in as
                         </p>
                         <p className="text-sm font-medium text-gray-500">
@@ -382,14 +382,14 @@ export default function Header() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F57799] text-white shadow-sm">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1C1917] text-[#D4A373] shadow-sm">
                         <User size={18} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#78716C]">
                           Signed in as
                         </p>
-                        <h3 className="truncate text-lg font-serif font-semibold text-gray-900">
+                        <h3 className="truncate text-lg font-serif font-semibold text-[#1C1917]">
                           {visibleProfileName || "Your Account"}
                         </h3>
                       </div>
@@ -398,25 +398,25 @@ export default function Header() {
                 </div>
               ) : null}
 
-              <nav className="flex flex-col divide-y">
+              <nav className="flex flex-col divide-y divide-[#E7E5E4]">
                 <Link
                   href="/#browse-by-category"
                   onClick={() => setIsMenuOpen(false)}
-                  className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
+                  className="py-4 text-lg font-medium text-[#78716C] hover:text-[#1C1917] transition"
                 >
                   Catalog
                 </Link>
                 <Link
                   href={trackOrderHref}
                   onClick={() => setIsMenuOpen(false)}
-                  className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
+                  className="py-4 text-lg font-medium text-[#78716C] hover:text-[#1C1917] transition"
                 >
                   Track Order
                 </Link>
                 <Link
                   href="/sale"
                   onClick={() => setIsMenuOpen(false)}
-                  className="py-4 text-lg font-semibold text-rose-600"
+                  className="py-4 text-lg font-semibold text-[#D4A373] hover:text-[#B07946] transition"
                 >
                   Sale
                 </Link>
@@ -426,14 +426,14 @@ export default function Header() {
                     <Link
                       href="/account"
                       onClick={() => setIsMenuOpen(false)}
-                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
+                      className="py-4 text-lg font-medium text-[#78716C] hover:text-[#1C1917] transition"
                     >
                       My Account
                     </Link>
                     <Link
                       href="/orders"
                       onClick={() => setIsMenuOpen(false)}
-                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
+                      className="py-4 text-lg font-medium text-[#78716C] hover:text-[#1C1917] transition"
                     >
                       My Orders
                     </Link>
@@ -452,14 +452,14 @@ export default function Header() {
                     <Link
                       href="/login"
                       onClick={() => setIsMenuOpen(false)}
-                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
+                      className="py-4 text-lg font-medium text-[#78716C] hover:text-[#1C1917] transition"
                     >
                       Login
                     </Link>
                     <Link
                       href="/signup"
                       onClick={() => setIsMenuOpen(false)}
-                      className="py-4 text-lg font-medium text-gray-800 hover:text-black transition"
+                      className="py-4 text-lg font-medium text-[#78716C] hover:text-[#1C1917] transition"
                     >
                       Sign Up
                     </Link>
@@ -470,7 +470,7 @@ export default function Header() {
           </>
         )}
       </AnimatePresence>
-
+      
       {/* CART DRAWER */}
       {!isCheckoutPage && (
         <CartDrawer isCartOpen={isCartOpen} setIsCartOpen={setIsCartOpen} />

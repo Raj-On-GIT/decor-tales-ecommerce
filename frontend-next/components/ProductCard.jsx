@@ -62,22 +62,22 @@ export default function ProductCard({ product }) {
   };
 
   return (
-    <div className="group relative rounded-2xl border border-[#F5B6B6] bg-gradient-to-b from-[#FFF7CD] via-[#FFF1D8] to-[#FDC3A1] p-1 sm:p-1.5 shadow-[0_4px_14px_rgba(245,119,153,0.14)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-[#F57799]/55 hover:shadow-[0_14px_34px_rgba(251,155,143,0.22)]">
+    <div className="premium-card group relative p-1 sm:p-1.5 transition-all duration-500 ease-out hover:-translate-y-1 bg-[#FAFAF9] hover:bg-[#F0F0EF] rounded-xl border-[#E7E5E4]">
       <Link href={`/products/${product.id}`} className="block">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-[#FFF7CD]/65">
+        <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-[#F5F5F4]">
           <img
             src={product.image}
             alt={product.title}
-            className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-103"
+            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
           />
         </div>
 
-        <div className="mb-1 mt-3 min-w-0 pr-12">
-          <h3 className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold sm:text-base lg:text-lg">
+        <div className="mb-1 mt-3 min-w-0 pr-12 pl-1">
+          <h3 className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-[#1C1917] sm:text-base lg:text-lg">
             {product.title}
           </h3>
 
-          {categoryName ? <p className="text-sm text-gray-500">{categoryName}</p> : null}
+          {categoryName ? <p className="text-sm text-[#78716C]">{categoryName}</p> : null}
 
           {noStock ? (
             <p className="mt-1 font-semibold text-red-600">Out of stock</p>
@@ -85,38 +85,38 @@ export default function ProductCard({ product }) {
             primaryVariant.slashed_price ? (
               <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 line-through sm:text-sm">
+                  <span className="text-xs text-[#A8A29E] line-through sm:text-sm">
                     ₹{formatPrice(primaryVariant.mrp)}
                   </span>
-                  <span className="text-sm font-semibold text-gray-900 sm:text-base">
+                  <span className="text-sm font-semibold text-[#1C1917] sm:text-base">
                     ₹{formatPrice(primaryVariant.slashed_price)}
                   </span>
                 </div>
-              <span className="inline-flex w-fit items-center self-start rounded-md bg-green-700 px-1.5 py-[2px] text-[10px] font-semibold text-white sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs">
+              <span className="inline-flex w-fit items-center self-start rounded-md bg-[#E6CCBE] px-1.5 py-[2px] text-[10px] font-semibold text-[#1C1917] sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs tracking-wide">
                 {primaryVariant.discount_percent}% OFF
               </span>
               </div>
             ) : (
-              <p className="mt-1 font-semibold text-gray-900">
+              <p className="mt-1 font-semibold text-[#1C1917]">
                 ₹{formatPrice(primaryVariant.mrp)}
               </p>
             )
           ) : product.slashed_price ? (
             <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 line-through sm:text-sm">
+                <span className="text-xs text-[#A8A29E] line-through sm:text-sm">
                   ₹{formatPrice(product.mrp)}
                 </span>
-                <span className="text-sm font-semibold text-gray-900 sm:text-base">
+                <span className="text-sm font-semibold text-[#1C1917] sm:text-base">
                   ₹{formatPrice(product.slashed_price)}
                 </span>
               </div>
-              <span className="inline-flex w-fit items-center self-start rounded-md bg-green-700 px-1.5 py-[2px] text-[10px] font-semibold text-white sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs">
+              <span className="inline-flex w-fit items-center self-start rounded-md bg-[#E6CCBE] px-1.5 py-[2px] text-[10px] font-semibold text-[#1C1917] sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs tracking-wide">
                 {product.discount_percent}% OFF
               </span>
             </div>
           ) : (
-            <p className="mt-1 font-semibold text-gray-900">
+            <p className="mt-1 font-semibold text-[#1C1917]">
               ₹{formatPrice(product.mrp)}
             </p>
           )}
@@ -128,18 +128,18 @@ export default function ProductCard({ product }) {
           <Link href={`/products/${product.id}`}>
             <button
               type="button"
-              className="rounded-full bg-[#FB9B8F]/24 p-2 text-gray-800 transition-colors hover:bg-[#FB9B8F]/38"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 transition-colors hover:bg-red-100 border border-red-100"
             >
-              <img src="/out_of_stock.svg" alt="Out of stock" className="h-5 w-5" />
+              <img src="/out_of_stock.svg" alt="Out of stock" className="h-5 w-5 opacity-70" />
             </button>
           </Link>
         ) : requiresCustomization ? (
           <Link href={`/products/${product.id}`}>
             <button
               type="button"
-              className="rounded-full bg-[#F57799]/18 p-2 text-gray-800 transition-colors hover:bg-[#F57799]/30"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#1C1917] transition-all duration-300 hover:bg-[#1C1917] hover:text-white border border-[#E7E5E4] shadow-sm hover:shadow-md group/btn"
             >
-              <img src="/customize.svg" alt="Customize" className="h-5 w-5" />
+              <img src="/customize.svg" alt="Customize" className="h-5 w-5 opacity-70 group-hover/btn:opacity-100 group-hover/btn:invert" />
             </button>
           </Link>
         ) : (
@@ -148,16 +148,16 @@ export default function ProductCard({ product }) {
             onClick={handleAddToCart}
             disabled={isAdding}
             aria-label={isAdding ? "Adding to cart" : "Add to cart"}
-            className={`rounded-full p-2 text-gray-800 transition-all duration-200 active:scale-95 ${
+            className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 active:scale-95 shadow-sm hover:shadow-md border border-[#E7E5E4] ${
               isAdding
-                ? "bg-[#F57799] text-white shadow-lg shadow-[#F57799]/25"
-                : "bg-[#FDC3A1]/45 hover:bg-[#FDC3A1]/70"
+                ? "bg-[#D4A373] text-[#1C1917] border-[#D4A373]"
+                : "bg-white text-[#1C1917] hover:bg-[#1C1917] hover:text-white hover:border-[#1C1917]"
             }`}
           >
             {isAdding ? (
-              <Loader2 size={20} className="animate-spin" />
+              <Loader2 size={18} className="animate-spin" />
             ) : (
-              <ShoppingBag size={20} />
+              <ShoppingBag size={18} className="transition-transform group-hover:scale-110" />
             )}
           </button>
         )}

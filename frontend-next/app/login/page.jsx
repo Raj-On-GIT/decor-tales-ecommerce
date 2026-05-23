@@ -119,9 +119,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#e8f3f1] via-white to-[#f6efe2] px-5 sm:px-10">
-      <div className="absolute -top-24 -left-24 h-[320px] w-[320px] rounded-full bg-[#2f5d56]/18 blur-[72px]" />
-      <div className="absolute -bottom-24 -right-24 h-[320px] w-[320px] rounded-full bg-[#ffb347]/14 blur-[72px]" />
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#fff8ef] via-white to-[#fff3df] px-5 sm:px-10">
+      <div className="absolute -top-24 -left-24 h-[320px] w-[320px] rounded-full bg-[#FDC3A1]/24 blur-[72px]" />
+      <div className="absolute -bottom-24 -right-24 h-[320px] w-[320px] rounded-full bg-[#FDC3A1]/20 blur-[72px]" />
 
       <motion.div
         initial={{ opacity: 0, y: 18, scale: 0.995 }}
@@ -130,25 +130,25 @@ export default function LoginPage() {
         className="
           relative
           w-full max-w-5xl
-          bg-white/90
-          md:bg-white/78
+          bg-white/92
+          md:bg-white/84
           md:backdrop-blur-sm
-          border border-white/40
+          border border-[#F0D1C2]/70
           rounded-xl
-          shadow-[0_20px_60px_rgba(0,0,0,0.15)]
+          shadow-[0_24px_70px_rgba(199,141,101,0.14)]
           overflow-hidden
           grid grid-cols-1 md:grid-cols-2
           will-change-transform
         "
       >
         <div className="p-5 md:p-12 flex flex-col justify-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">Sign In</h1>
+          <h1 className="mb-6 text-3xl font-bold text-[#1B000D]">Sign In</h1>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div className="relative">
               <Mail
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B89B88]"
                 size={18}
               />
               <input
@@ -159,9 +159,10 @@ export default function LoginPage() {
                 }
                 disabled={isFormLocked}
                 placeholder="Email Address"
-                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg
-                           focus:outline-none focus:border-gray-900 transition
-                           disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-4
+                           text-[#1B000D] placeholder:text-[#9A8C8F]
+                           focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
+                           disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
               />
             </div>
@@ -169,7 +170,7 @@ export default function LoginPage() {
             {/* Password */}
             <div className="relative">
               <Lock
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B89B88]"
                 size={18}
               />
               <input
@@ -180,16 +181,17 @@ export default function LoginPage() {
                 }
                 disabled={isFormLocked}
                 placeholder="Password"
-                className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-lg
-                           focus:outline-none focus:border-gray-900 transition
-                           disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-12
+                           text-[#1B000D] placeholder:text-[#9A8C8F]
+                           focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
+                           disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
               />
               <button
                 type="button"
                 disabled={isFormLocked}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 disabled:cursor-not-allowed disabled:opacity-40"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#B89B88] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -202,7 +204,7 @@ export default function LoginPage() {
                 className={`text-sm ${
                   isFormLocked
                     ? "pointer-events-none text-gray-400"
-                    : "text-gray-600 hover:text-gray-900"
+                    : "text-[#6F5960] hover:text-[#C78556]"
                 }`}
               >
                 Forgot password?
@@ -226,7 +228,7 @@ export default function LoginPage() {
               disabled={isFormLocked}
               className="
                 w-full
-                bg-[#2f5d56] hover:bg-[#244944]
+                bg-[#C78556] hover:bg-[#B67446]
                 text-white font-semibold
                 py-3 rounded-lg
                 transition
@@ -242,9 +244,9 @@ export default function LoginPage() {
 
             {/* Divider */}
             <div className="flex items-center gap-3 my-2">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-gray-500 text-sm">Or</span>
-              <div className="flex-1 h-px bg-gray-200" />
+              <div className="flex-1 h-px bg-[#EADACF]" />
+              <span className="text-[#8E7A80] text-sm">Or</span>
+              <div className="flex-1 h-px bg-[#EADACF]" />
             </div>
 
             {/* Google button area */}
@@ -252,10 +254,10 @@ export default function LoginPage() {
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="w-full rounded-lg border border-[#d9e5e2] bg-white px-4 py-3"
+                className="w-full rounded-lg border border-[#E8D7CB] bg-[#fffaf7] px-4 py-3"
               >
-                <div className="flex items-center justify-center gap-3 text-sm font-medium text-[#244944]">
-                  <span className="h-4 w-4 rounded-full border-2 border-[#2f5d56]/20 border-t-[#2f5d56] animate-spin" />
+                <div className="flex items-center justify-center gap-3 text-sm font-medium text-[#6F4555]">
+                  <span className="h-4 w-4 rounded-full border-2 border-[#D89A6B]/20 border-t-[#D89A6B] animate-spin" />
                   Completing Google sign in...
                 </div>
                 <p className="mt-2 text-center text-xs text-gray-500">
@@ -277,7 +279,7 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">
-            <Shield size={14} className="text-gray-400" />
+            <Shield size={14} className="text-[#C78556]" />
             <span>Your information is securely encrypted</span>
           </div>
         </div>
@@ -287,17 +289,17 @@ export default function LoginPage() {
           <div
             className="absolute inset-0 
                 bg-gradient-to-br 
-                from-[#2f5d56] 
-                via-[#3c7a70] 
-                to-[#1f3f3b]"
+                from-[#8B6246]/22 
+                via-[#D89A6B]/14 
+                to-[#FFF7CD]"
           />
 
           <div
-            className="absolute inset-0 scale-105 bg-cover bg-center opacity-38 blur-[2px]"
+            className="absolute inset-0 scale-[1.02] bg-cover bg-center opacity-78"
             style={{ backgroundImage: "url('/login-bg.jpg')" }}
           />
 
-          <div className="absolute inset-0 bg-black/10" />
+          <div className="absolute inset-0 bg-black/12" />
 
           <div className="relative text-white text-center max-w-xs flex flex-col items-center">
             <h2 className="text-3xl font-bold mb-4">Hey There!</h2>
@@ -306,7 +308,7 @@ export default function LoginPage() {
             </p>
             <Link
               href="/signup"
-              className="inline-block border border-white px-6 py-2 rounded-full hover:bg-white hover:text-[#2f5d56] transition"
+              className="inline-block rounded-full border border-white px-6 py-2 transition hover:bg-white hover:text-[#C78556]"
             >
               Sign Up
             </Link>
@@ -319,8 +321,7 @@ export default function LoginPage() {
                text-white text-sm font-medium
                flex items-center gap-2
                transition-all duration-300
-               hover:bg-white hover:text-[#2f5d56]
-               hover:scale-105 hover:-translate-y-0.5
+               hover:bg-white hover:text-[#C78556]
                group"
             >
               <ArrowLeft

@@ -258,7 +258,7 @@ export default function SearchBar({ isOpen, onClose }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="absolute top-full left-0 right-0 z-50 mt-3 max-h-96 overflow-y-auto rounded-lg border border-gray-200 bg-[#F0FFF0] shadow-xl md:left-auto md:right-0 md:w-96"
+            className="absolute top-full left-0 right-0 z-50 mt-3 max-h-96 overflow-y-auto rounded-lg border border-[#FDC3A1] bg-gradient-to-b from-[#FFF7CD] to-[#FFF1D8] shadow-[0_14px_34px_rgba(253,195,161,0.22)] md:left-auto md:right-0 md:w-96"
           >
             {loading ? (
               <div className="flex items-center justify-center gap-3 p-6 text-sm text-gray-500">
@@ -275,7 +275,7 @@ export default function SearchBar({ isOpen, onClose }) {
               <>
                 {results.products?.length > 0 && (
                   <div>
-                    <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 bg-black/5 border-b border-gray-200">
+                    <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#F57799] bg-[#FDC3A1]/30 border-b border-[#FDC3A1]/50">
                       Products
                     </div>
                     {results.products.map((product, index) => {
@@ -347,7 +347,7 @@ export default function SearchBar({ isOpen, onClose }) {
 
                 {results.categories?.length > 0 && (
                   <div>
-                    <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 bg-black/5 border-b border-gray-200">
+                    <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#F57799] bg-[#FDC3A1]/30 border-b border-[#FDC3A1]/50">
                       Categories
                     </div>
                     {results.categories.map((category, index) => {
@@ -379,7 +379,7 @@ export default function SearchBar({ isOpen, onClose }) {
 
                 {results.subcategories?.length > 0 && (
                   <div>
-                    <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 bg-black/5 border-b border-gray-200">
+                    <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#F57799] bg-[#FDC3A1]/30 border-b border-[#FDC3A1]/50">
                       Subcategories
                     </div>
                     {results.subcategories.map((subcategory, index) => {

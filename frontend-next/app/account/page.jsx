@@ -244,7 +244,7 @@ export default function AccountPage() {
       <section className="rounded-2xl border border-[#d9e5e2] bg-[#f8fbfa] p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-[#244944]">
+            <div className="flex items-center gap-2 text-[#e96b91]">
               <ShieldCheck size={18} />
               <h2 className="text-lg font-semibold">Account Security</h2>
             </div>
@@ -254,7 +254,7 @@ export default function AccountPage() {
           </div>
           <Link
             href={security?.has_password ? "/account/change-password" : "/account/change-password"}
-            className="inline-flex items-center gap-2 rounded-full border border-[#2f5d56]/15 bg-white px-4 py-2 text-sm font-semibold text-[#244944] transition hover:border-[#2f5d56] hover:text-[#1f3f3b]"
+            className="inline-flex items-center gap-2 rounded-full border border-[#F57799]/15 bg-white px-4 py-2 text-sm font-semibold text-[#e96b91] transition hover:border-[#F57799] hover:text-[#1f3f3b]"
           >
             <KeyRound size={16} />
             {security?.has_password ? "Change Password" : "Set Password"}
@@ -284,7 +284,7 @@ export default function AccountPage() {
               {security?.linked_identities?.map((identity) => (
                 <span
                   key={`${identity.provider}-${identity.email}`}
-                  className="rounded-full bg-[#2f5d56] px-3 py-1 text-xs font-semibold text-white"
+                  className="rounded-full bg-[#F57799] px-3 py-1 text-xs font-semibold text-white"
                 >
                   {identity.provider === "google" ? "Google" : identity.provider}
                 </span>

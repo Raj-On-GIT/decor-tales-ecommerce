@@ -2,35 +2,35 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="bg-[#1b000d] pt-10 pb-5 text-white">
-      <div className="max-w-screen-2xl mx-auto grid grid-cols-1 gap-8 px-5 sm:grid-cols-2 sm:px-6 md:px-10 xl:grid-cols-4 xl:px-35 md:gap-10">
+    <footer className="bg-[#1C1917] pt-12 pb-6 text-white border-t border-[#E7E5E4]">
+      <div className="max-w-screen-2xl mx-auto grid grid-cols-1 gap-10 px-5 sm:grid-cols-2 sm:px-6 md:px-10 xl:grid-cols-4 xl:px-35 md:gap-12">
         <div>
-          <h3 className="mb-4 text-2xl font-serif font-bold">Decor Tales</h3>
-          <p className="text-sm text-white/80">
+          <h3 className="mb-4 text-2xl font-serif font-bold text-[#FAFAF9]">Decor Tales</h3>
+          <p className="text-sm text-[#D6D3D1] leading-relaxed">
             Premium handcrafted decor pieces designed for modern homes.
           </p>
         </div>
 
         <div>
-          <h4 className="mb-4 font-bold">Shop</h4>
-          <ul className="space-y-2 text-sm text-white/80">
+          <h4 className="mb-5 font-bold tracking-wide text-[#FAFAF9] uppercase text-xs">Shop</h4>
+          <ul className="space-y-3 text-sm text-[#D6D3D1]">
             <li>
-              <Link href="/#browse-by-category" className="transition hover:text-white">
+              <Link href="/#browse-by-category" className="transition-colors duration-300 hover:text-[#D4A373]">
                 All Products
               </Link>
             </li>
             <li>
-              <Link href="/latest" className="transition hover:text-white">
+              <Link href="/latest" className="transition-colors duration-300 hover:text-[#D4A373]">
                 Latest Collection
               </Link>
             </li>
             <li>
-              <Link href="/trending" className="transition hover:text-white">
+              <Link href="/trending" className="transition-colors duration-300 hover:text-[#D4A373]">
                 Trending Now
               </Link>
             </li>
             <li>
-              <Link href="/#browse-by-category" className="transition hover:text-white">
+              <Link href="/#browse-by-category" className="transition-colors duration-300 hover:text-[#D4A373]">
                 Browse by Category
               </Link>
             </li>
@@ -38,25 +38,25 @@ export default function Footer() {
         </div>
 
         <div>
-          <h4 className="mb-4 font-bold">Support</h4>
-          <ul className="space-y-2 text-sm text-white/80">
+          <h4 className="mb-5 font-bold tracking-wide text-[#FAFAF9] uppercase text-xs">Support</h4>
+          <ul className="space-y-3 text-sm text-[#D6D3D1]">
             <li>
-              <Link href="/shipping" className="transition hover:text-white">
+              <Link href="/shipping" className="transition-colors duration-300 hover:text-[#D4A373]">
                 Shipping & Delivery
               </Link>
             </li>
             <li>
-              <Link href="/returns" className="transition hover:text-white">
+              <Link href="/returns" className="transition-colors duration-300 hover:text-[#D4A373]">
                 Returns Policy
               </Link>
             </li>
             <li>
-              <Link href="/track" className="transition hover:text-white">
+              <Link href="/track" className="transition-colors duration-300 hover:text-[#D4A373]">
                 Track Order
               </Link>
             </li>
             <li>
-              <Link href="/contact" className="transition hover:text-white">
+              <Link href="/contact" className="transition-colors duration-300 hover:text-[#D4A373]">
                 Contact Us
               </Link>
             </li>
@@ -64,26 +64,26 @@ export default function Footer() {
         </div>
 
         <div>
-          <h4 className="mb-4 font-bold">Newsletter</h4>
-          <p className="mb-3 text-sm text-white/80">
+          <h4 className="mb-5 font-bold tracking-wide text-[#FAFAF9] uppercase text-xs">Newsletter</h4>
+          <p className="mb-4 text-sm text-[#D6D3D1] leading-relaxed">
             Get updates & exclusive offers.
           </p>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:gap-0">
             <input
-              placeholder="Email"
-              className="w-full rounded-md border border-[#FFF7CD]/45 bg-[#FFF7CD]/18 px-4 py-2 text-white placeholder-white/60 focus:outline-none sm:rounded-l sm:rounded-r-none"
+              placeholder="Email address"
+              className="w-full rounded-md border border-[#44403C] bg-[#292524] px-4 py-2.5 text-[#FAFAF9] placeholder-[#A8A29E] focus:border-[#D4A373] focus:outline-none focus:ring-1 focus:ring-[#D4A373] transition-colors sm:rounded-l-md sm:rounded-r-none"
             />
-            <button className="rounded-md bg-[#FFF7CD] px-4 py-2 font-semibold text-black hover:bg-[#fff1a8] sm:rounded-l-none sm:rounded-r">
-              Go
+            <button className="rounded-md bg-[#D4A373] px-5 py-2.5 font-semibold text-[#1C1917] transition-colors hover:bg-[#E6CCBE] sm:rounded-l-none sm:rounded-r-md">
+              Subscribe
             </button>
           </div>
         </div>
       </div>
 
-      <div className="mt-8 flex flex-col items-center space-y-3 px-5 sm:px-6 md:px-10 xl:px-35">
-        <div className="h-px w-72 bg-[#FFF7CD]/45"></div>
-        <p className="text-xs text-white/60">
+      <div className="mt-12 flex flex-col items-center space-y-4 px-5 sm:px-6 md:px-10 xl:px-35">
+        <div className="h-px w-full max-w-sm bg-[#44403C]"></div>
+        <p className="text-xs text-[#A8A29E]">
           © {new Date().getFullYear()} Decor Tales. All rights reserved.
         </p>
       </div>

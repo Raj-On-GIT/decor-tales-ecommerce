@@ -170,7 +170,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-2xl"
           >
-            <div className="flex items-center justify-between border-b p-6">
+            <div className="flex items-center justify-between border-b border-[#FDC3A1] p-6">
               <h2 className="text-xl font-serif font-bold">Your Cart</h2>
 
               <button
@@ -334,7 +334,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
             </div>
 
             {cartReady && !authLoading && cart.length > 0 && (
-              <div className="border-t bg-gray-50 p-6">
+              <div className="border-t border-[#FDC3A1] bg-[#FDC3A1]/30 p-6">
                 <div className="mb-4 flex justify-between text-lg font-bold">
                   <span>Subtotal</span>
                   <span>₹{formatPrice(total)}</span>
@@ -353,7 +353,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                   type="button"
                   onClick={handleProceedToCheckout}
                   disabled={checkingOut}
-                  className="flex w-full items-center justify-center rounded-lg bg-gray-900 py-3 font-medium text-white transition hover:bg-black disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex w-full items-center justify-center rounded-lg bg-[#F57799] py-3 font-medium text-white transition hover:bg-[#e96b91] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {checkingOut ? "Checking Stock..." : "Proceed to Checkout"}
                   <ArrowRight size={16} className="ml-2" />

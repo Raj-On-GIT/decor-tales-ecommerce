@@ -36,7 +36,7 @@ export default function ProductListItem({
 
   return (
     <div
-      className={`rounded-[1.5rem] border border-gray-100 bg-white/90 p-1 ${className}`.trim()}
+      className={`rounded-[1.5rem] border border-[#FDC3A1]/50 bg-gradient-to-br from-[#FFF7CD]/60 to-white/90 p-1 ${className}`.trim()}
     >
       <div
         className={`flex flex-col gap-4 mb-1 sm:flex-row sm:items-start sm:justify-between ${rowClassName}`.trim()}
@@ -112,7 +112,7 @@ export default function ProductListItem({
       </div>
 
       {renderCustomizationBelow ? (
-        <div className="border-t border-gray-100 pt-1">
+        <div className="border-t border-[#FDC3A1]/40 pt-1">
           {customizationContent}
         </div>
       ) : null}
