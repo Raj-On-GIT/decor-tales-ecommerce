@@ -67,6 +67,118 @@ class ProductVariantInline(admin.TabularInline):
     model = ProductVariant
     extra = 1
     fields = ['size', 'color', 'mrp', 'slashed_price', 'discount_percent', 'stock']
+
+    default_variant_rows = [
+        {
+            "size": "12X18 in",
+            "color": "Black",
+            "mrp": 500,
+            "slashed_price": 480,
+            "discount_percent": 4,
+            "stock": 10,
+        },
+        {
+            "size": "12X18 in",
+            "color": "Dark brown",
+            "mrp": 500,
+            "slashed_price": 480,
+            "discount_percent": 4,
+            "stock": 10,
+        },
+        {
+            "size": "18X24 in",
+            "color": "Black",
+            "mrp": 1500,
+            "slashed_price": 1350,
+            "discount_percent": 10,
+            "stock": 10,
+        },
+        {
+            "size": "18X24 in",
+            "color": "Dark brown",
+            "mrp": 1500,
+            "slashed_price": 1350,
+            "discount_percent": 10,
+            "stock": 10,
+        },
+        {
+            "size": "2ft by 3ft",
+            "color": "Black",
+            "mrp": 2500,
+            "slashed_price": 2350,
+            "discount_percent": 6,
+            "stock": 10,
+        },
+        {
+            "size": "2ft by 3ft",
+            "color": "Dark brown",
+            "mrp": 2500,
+            "slashed_price": 2350,
+            "discount_percent": 6,
+            "stock": 10,
+        },
+        {
+            "size": "8X12 in",
+            "color": "Black",
+            "mrp": 450,
+            "slashed_price": 320,
+            "discount_percent": 29,
+            "stock": 10,
+        },
+        {
+            "size": "8X12 in",
+            "color": "Dark brown",
+            "mrp": 450,
+            "slashed_price": 320,
+            "discount_percent": 29,
+            "stock": 10,
+        },
+    ]
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj is None:
+            return len(self.default_variant_rows)
+        return self.extra
+
+    def _build_default_initial_rows(self):
+        size_ids = {
+            size.name.lower(): size.pk
+            for size in Size.objects.filter(
+                name__in=[row["size"] for row in self.default_variant_rows]
+            )
+        }
+        color_ids = {
+            color.name.lower(): color.pk
+            for color in Color.objects.filter(
+                name__in=[row["color"] for row in self.default_variant_rows]
+            )
+        }
+
+        initial_rows = []
+        for row in self.default_variant_rows:
+            initial_rows.append(
+                {
+                    "size": size_ids.get(row["size"].lower()),
+                    "color": color_ids.get(row["color"].lower()),
+                    "mrp": row["mrp"],
+                    "slashed_price": row["slashed_price"],
+                    "discount_percent": row["discount_percent"],
+                    "stock": row["stock"],
+                }
+            )
+        return initial_rows
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        default_initial_rows = self._build_default_initial_rows()
+
+        class PrefilledProductVariantFormSet(formset):
+            def __init__(self, *args, **inner_kwargs):
+                if obj is None and not inner_kwargs.get("data") and not inner_kwargs.get("files"):
+                    inner_kwargs["initial"] = default_initial_rows
+                super().__init__(*args, **inner_kwargs)
+
+        return PrefilledProductVariantFormSet
     
     def has_add_permission(self, request, obj=None):
         return True
