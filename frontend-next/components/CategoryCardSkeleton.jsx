@@ -1,6 +1,8 @@
 "use client";
 
 import { Skeleton } from "boneyard-js/react";
+import { boneyardCategory } from "./boneyardCardFixtureData";
+import CategoryCard from "./CategoryCard";
 
 function CategoryCardFallback() {
   return (
@@ -22,6 +24,8 @@ export default function CategoryCardSkeleton() {
       loading
       fallback={<CategoryCardFallback />}
       select="viewport"
-    />
+    >
+      <CategoryCard category={boneyardCategory} />
+    </Skeleton>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { Skeleton } from "boneyard-js/react";
+import { boneyardProduct } from "./boneyardCardFixtureData";
+import ProductCard from "./ProductCard";
 
 function ProductCardFallback() {
   return (
@@ -23,6 +25,8 @@ export default function ProductCardSkeleton() {
       loading
       fallback={<ProductCardFallback />}
       select="viewport"
-    />
+    >
+      <ProductCard product={boneyardProduct} />
+    </Skeleton>
   );
 }

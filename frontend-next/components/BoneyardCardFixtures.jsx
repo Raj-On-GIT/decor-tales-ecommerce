@@ -1,29 +1,12 @@
 "use client";
 
 import { Skeleton } from "boneyard-js/react";
+import {
+  boneyardCategory,
+  boneyardProduct,
+} from "./boneyardCardFixtureData";
 import CategoryCard from "./CategoryCard";
 import ProductCard from "./ProductCard";
-
-const product = {
-  id: "skeleton-product",
-  title: "Handcrafted Oak Frame",
-  category: { name: "Wall Decor" },
-  image: "/out_of_stock.svg",
-  stock_type: "simple",
-  stock: 10,
-  mrp: 1899,
-  slashed_price: 1499,
-  discount_percent: 21,
-};
-
-const category = {
-  id: "skeleton-category",
-  name: "Wall Decor",
-  slug: "wall-decor",
-  image: "/out_of_stock.svg",
-  productCount: 12,
-  subcategoryCount: 0,
-};
 
 export default function BoneyardCardFixtures() {
   return (
@@ -32,7 +15,7 @@ export default function BoneyardCardFixtures() {
         <h1 className="mb-6 text-2xl font-bold">Product card capture</h1>
         <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-8 md:gap-10 lg:grid-cols-4">
           <Skeleton name="product-card" loading={false} select="viewport">
-            <ProductCard product={product} />
+            <ProductCard product={boneyardProduct} />
           </Skeleton>
         </div>
       </section>
@@ -41,7 +24,7 @@ export default function BoneyardCardFixtures() {
         <h2 className="mb-6 text-2xl font-bold">Category card capture</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
           <Skeleton name="category-card" loading={false} select="viewport">
-            <CategoryCard category={category} />
+            <CategoryCard category={boneyardCategory} />
           </Skeleton>
         </div>
       </section>
