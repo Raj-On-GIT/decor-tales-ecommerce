@@ -2,6 +2,7 @@ from io import BytesIO
 from pathlib import Path
 
 from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.core.exceptions import ValidationError
 from django.utils.html import strip_tags
 from PIL import Image, ImageOps, UnidentifiedImageError
 from rest_framework import serializers
@@ -140,6 +141,53 @@ def validate_custom_image(file):
         max_file_size=5 * 1024 * 1024,
         max_width=4096,
         max_height=4096,
+    )
+
+
+def optimize_catalog_image(file):
+    """Normalize new catalog uploads without altering customer-provided artwork."""
+    if not file:
+        return file
+
+    max_file_size = 12 * 1024 * 1024
+    max_dimension = 2560
+    extension = Path(file.name or "").suffix.lower()
+    if extension not in ALLOWED_IMAGE_EXTENSIONS:
+        raise ValidationError("Upload a JPG, PNG, or WebP image.")
+    if file.size > max_file_size:
+        raise ValidationError("Catalog images must be 12MB or smaller.")
+
+    raw_bytes = file.read()
+    file.seek(0)
+    try:
+        with Image.open(BytesIO(raw_bytes)) as probe_image:
+            probe_image.verify()
+        with Image.open(BytesIO(raw_bytes)) as opened_image:
+            image = ImageOps.exif_transpose(opened_image)
+            image.load()
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise ValidationError("Upload a valid image file.")
+
+    image.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
+    target_format = PILLOW_FORMAT_BY_EXTENSION[extension]
+    image = _normalize_image_mode(image, target_format)
+
+    output = BytesIO()
+    save_kwargs = {"optimize": True}
+    if target_format == "JPEG":
+        save_kwargs.update({"quality": 88, "progressive": True})
+    elif target_format == "WEBP":
+        save_kwargs.update({"quality": 85, "method": 6})
+    image.save(output, format=target_format, **save_kwargs)
+    output.seek(0)
+
+    return InMemoryUploadedFile(
+        file=output,
+        field_name=getattr(file, "field_name", None),
+        name=f"{Path(file.name).stem}{extension}",
+        content_type=CONTENT_TYPE_BY_FORMAT[target_format],
+        size=output.getbuffer().nbytes,
+        charset=None,
     )
 
 

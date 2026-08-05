@@ -7,14 +7,48 @@ from django.http import HttpResponseNotAllowed
 from django.shortcuts import redirect
 from django.urls import path, reverse
 from .models import Banner, Category, SubCategory, Product, ProductVariant, ProductImage, Size, Color
+from utils.validation import optimize_catalog_image
+
+
+class CatalogImageAdminForm(forms.ModelForm):
+    """Process catalog assets before they are sent to media storage."""
+
+    def clean_image(self):
+        return optimize_catalog_image(self.cleaned_data.get("image"))
+
+
+class BannerAdminForm(CatalogImageAdminForm):
+    class Meta:
+        model = Banner
+        fields = "__all__"
+
+
+class ProductImageAdminForm(CatalogImageAdminForm):
+    class Meta:
+        model = ProductImage
+        fields = "__all__"
+
+
+class CategoryAdminForm(CatalogImageAdminForm):
+    class Meta:
+        model = Category
+        fields = "__all__"
+
+
+class SubCategoryAdminForm(CatalogImageAdminForm):
+    class Meta:
+        model = SubCategory
+        fields = "__all__"
 
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
+    form = ProductImageAdminForm
     extra = 1
 
 
 @admin.register(Banner)
 class BannerAdmin(admin.ModelAdmin):
+    form = BannerAdminForm
     list_display = [
         "title",
         "type",
@@ -186,7 +220,7 @@ class ProductVariantInline(admin.TabularInline):
     def has_delete_permission(self, request, obj=None):
         return True
 
-class ProductAdminForm(forms.ModelForm):
+class ProductAdminForm(CatalogImageAdminForm):
     stock_type = forms.ChoiceField(
         choices=Product.STOCK_TYPE_CHOICES,
         widget=forms.RadioSelect,
@@ -472,11 +506,13 @@ class ProductVariantAdmin(admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
+    form = CategoryAdminForm
     list_display = ['name', 'slug']
     prepopulated_fields = {'slug': ('name',)}
 
 @admin.register(SubCategory)
 class SubCategoryAdmin(admin.ModelAdmin):
+    form = SubCategoryAdminForm
     list_display = ("name", "category")
     list_filter = ("category",)
     search_fields = ("name",)

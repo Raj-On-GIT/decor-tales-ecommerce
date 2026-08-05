@@ -83,8 +83,8 @@ function BannerMeta({ banner }) {
   );
 }
 
-function BannerImage({ banner, priority = false, backgroundColor = "#111827" }) {
-  if (!banner.image) {
+function BannerImage({ banner, priority = false, isActive = false, backgroundColor = "#111827" }) {
+  if (!banner.image || !isActive) {
     return null;
   }
 
@@ -138,7 +138,7 @@ function ImageOnlyBannerContent({ banner }) {
   );
 }
 
-function renderBannerByType(banner, isPriority) {
+function renderBannerByType(banner, isPriority, isActive) {
   const sharedStyle = {
     backgroundColor: banner.background_color || "#111827",
     color: banner.text_color || "#FFFFFF",
@@ -156,6 +156,7 @@ function renderBannerByType(banner, isPriority) {
             <BannerImage
               banner={banner}
               priority={isPriority}
+              isActive={isActive}
               backgroundColor={sharedStyle.backgroundColor}
             />
           </div>
@@ -188,6 +189,7 @@ function renderBannerByType(banner, isPriority) {
               <BannerImage
                 banner={banner}
                 priority={isPriority}
+                isActive={isActive}
                 backgroundColor={sharedStyle.backgroundColor}
               />
             </div>
@@ -282,7 +284,7 @@ export default function BannerSliderClient({ banners, interval = 4000 }) {
         >
           {orderedBanners.map((banner, index) => (
             <div key={banner.id} className="w-full shrink-0">
-              {renderBannerByType(banner, index === 0)}
+              {renderBannerByType(banner, index === 0, index === activeIndex)}
             </div>
           ))}
         </div>

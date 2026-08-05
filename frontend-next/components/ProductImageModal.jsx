@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { useStore } from "@/context/StoreContext";
 import { ShoppingBag } from "lucide-react";
 
@@ -28,16 +29,19 @@ export default function ProductImageModal({ product, isOpen, onClose }) {
     }
   }, [isOpen, product]);
 
-  useEffect(() => {
-    setIsImageLoading(true);
-  }, [currentImageIndex]);
-
   const handleNext = () => {
+    setIsImageLoading(true);
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
   };
 
   const handlePrev = () => {
+    setIsImageLoading(true);
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  const selectImage = (index) => {
+    setIsImageLoading(true);
+    setCurrentImageIndex(index);
   };
 
   const handleKeyDown = (e) => {
@@ -171,17 +175,18 @@ export default function ProductImageModal({ product, isOpen, onClose }) {
                   </div>
                 )}
 
-                <img
-                  src={currentImage?.image}
-                  alt={
-                    currentImage?.alt_text ||
-                    `${product.title} ${currentImageIndex + 1}`
-                  }
-                  onLoad={() => setIsImageLoading(false)}
-                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-                    isImageLoading ? "opacity-0" : "opacity-100"
-                  }`}
-                />
+                {currentImage?.image ? (
+                  <Image
+                    src={currentImage.image}
+                    alt={currentImage.alt_text || `${product.title} ${currentImageIndex + 1}`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 640px"
+                    onLoad={() => setIsImageLoading(false)}
+                    className={`object-cover transition-opacity duration-300 ${
+                      isImageLoading ? "opacity-0" : "opacity-100"
+                    }`}
+                  />
+                ) : null}
               </div>
 
               {/* Image Counter */}
@@ -219,17 +224,19 @@ export default function ProductImageModal({ product, isOpen, onClose }) {
                   {images.map((img, idx) => (
                     <button
                       key={idx}
-                      onClick={() => setCurrentImageIndex(idx)}
-                      className={`flex-shrink-0 w-14 h-14 rounded border-2 overflow-hidden transition-all ${
+                      onClick={() => selectImage(idx)}
+                      className={`relative flex-shrink-0 w-14 h-14 rounded border-2 overflow-hidden transition-all ${
                         idx === currentImageIndex
                           ? "border-black shadow-md"
                           : "border-gray-300 hover:border-gray-400"
                       }`}
                     >
-                      <img
+                      <Image
                         src={img.image}
                         alt={`Thumbnail ${idx + 1}`}
-                        className="w-full h-full object-cover"
+                        fill
+                        sizes="56px"
+                        className="object-cover"
                       />
                     </button>
                   ))}
