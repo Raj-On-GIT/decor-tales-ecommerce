@@ -124,7 +124,7 @@ export default function Header() {
               Decor Tales
             </Link>
 
-            <nav className="hidden md:flex space-x-6 text-sm font-medium text-gray-600">
+            <nav className="hidden md:flex space-x-6 text-sm font-medium text-[#363535]">
               <Link
                 href="/#browse-by-category"
                 className="hover:text-black transition-colors"
@@ -138,7 +138,7 @@ export default function Header() {
                 Track Order
               </Link>
               <span className="text-gray-300">|</span>
-              <Link href="/sale" className="text-rose-600 font-semibold">
+              <Link href="/sale" className="text-[#B22222] hover:text-[#7f2222] font-semibold">
                 Sale
               </Link>
             </nav>
@@ -247,7 +247,7 @@ export default function Header() {
                               <User size={18} />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#78716C]">
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#363535]">
                                 Signed in as
                               </p>
                               <h3 className="truncate text-lg font-serif font-semibold text-[#1C1917]">
@@ -261,14 +261,14 @@ export default function Header() {
                           <Link
                             href="/account"
                             onClick={() => setIsProfileOpen(false)}
-                            className="block rounded-xl px-4 py-3 text-sm font-medium text-[#78716C] transition hover:bg-[#FAFAF9] hover:text-[#1C1917]"
+                            className="block rounded-xl px-4 py-3 text-sm font-medium text-[#363535] transition hover:bg-[#FAFAF9] hover:text-[#1C1917]"
                           >
                             My Account
                           </Link>
                           <Link
                             href="/orders"
                             onClick={() => setIsProfileOpen(false)}
-                            className="block rounded-xl px-4 py-3 text-sm font-medium text-[#78716C] transition hover:bg-[#FAFAF9] hover:text-[#1C1917]"
+                            className="block rounded-xl px-4 py-3 text-sm font-medium text-[#363535] transition hover:bg-[#FAFAF9] hover:text-[#1C1917]"
                           >
                             My Orders
                           </Link>
@@ -358,7 +358,7 @@ export default function Header() {
                 <h2 className="text-xl font-serif font-bold text-[#1C1917]">Menu</h2>
                 <button
                   onClick={() => setIsMenuOpen(false)}
-                  className="rounded-full p-2 text-[#78716C] hover:bg-[#E7E5E4] hover:text-[#1C1917] transition-colors"
+                  className="rounded-full p-2 text-[#363535] hover:bg-[#E7E5E4] hover:text-[#1C1917] transition-colors"
                 >
                   ✕
                 </button>
@@ -372,7 +372,7 @@ export default function Header() {
                         <Loader2 size={18} className="animate-spin" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#78716C]">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#363535]">
                           Signed in as
                         </p>
                         <p className="text-sm font-medium text-gray-500">
@@ -386,7 +386,7 @@ export default function Header() {
                         <User size={18} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#78716C]">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#363535]">
                           Signed in as
                         </p>
                         <h3 className="truncate text-lg font-serif font-semibold text-[#1C1917]">
@@ -402,21 +402,21 @@ export default function Header() {
                 <Link
                   href="/#browse-by-category"
                   onClick={() => setIsMenuOpen(false)}
-                  className="py-4 text-lg font-medium text-[#78716C] hover:text-[#1C1917] transition"
+                  className="py-4 text-lg font-medium text-[#363535] hover:text-[#1C1917] transition"
                 >
                   Catalog
                 </Link>
                 <Link
                   href={trackOrderHref}
                   onClick={() => setIsMenuOpen(false)}
-                  className="py-4 text-lg font-medium text-[#78716C] hover:text-[#1C1917] transition"
+                  className="py-4 text-lg font-medium text-[#363535] hover:text-[#1C1917] transition"
                 >
                   Track Order
                 </Link>
                 <Link
                   href="/sale"
                   onClick={() => setIsMenuOpen(false)}
-                  className="py-4 text-lg font-semibold text-[#D4A373] hover:text-[#B07946] transition"
+                  className="py-4 text-lg font-semibold text-[#B22222] hover:text-[#7f2222] transition"
                 >
                   Sale
                 </Link>
@@ -426,14 +426,14 @@ export default function Header() {
                     <Link
                       href="/account"
                       onClick={() => setIsMenuOpen(false)}
-                      className="py-4 text-lg font-medium text-[#78716C] hover:text-[#1C1917] transition"
+                      className="py-4 text-lg font-medium text-[#363535] hover:text-[#1C1917] transition"
                     >
                       My Account
                     </Link>
                     <Link
                       href="/orders"
                       onClick={() => setIsMenuOpen(false)}
-                      className="py-4 text-lg font-medium text-[#78716C] hover:text-[#1C1917] transition"
+                      className="py-4 text-lg font-medium text-[#363535] hover:text-[#1C1917] transition"
                     >
                       My Orders
                     </Link>
@@ -452,14 +452,14 @@ export default function Header() {
                     <Link
                       href="/login"
                       onClick={() => setIsMenuOpen(false)}
-                      className="py-4 text-lg font-medium text-[#78716C] hover:text-[#1C1917] transition"
+                      className="py-4 text-lg font-medium text-[#363535] hover:text-[#1C1917] transition"
                     >
                       Login
                     </Link>
                     <Link
                       href="/signup"
                       onClick={() => setIsMenuOpen(false)}
-                      className="py-4 text-lg font-medium text-[#78716C] hover:text-[#1C1917] transition"
+                      className="py-4 text-lg font-medium text-[#363535] hover:text-[#1C1917] transition"
                     >
                       Sign Up
                     </Link>

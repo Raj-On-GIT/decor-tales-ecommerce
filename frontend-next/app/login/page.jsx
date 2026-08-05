@@ -228,7 +228,7 @@ export default function LoginPage() {
               disabled={isFormLocked}
               className="
                 w-full
-                bg-[#C78556] hover:bg-[#B67446]
+                bg-[#c87446] hover:bg-[#ab7446]
                 text-white font-semibold
                 py-3 rounded-lg
                 transition
@@ -278,7 +278,7 @@ export default function LoginPage() {
             )}
           </form>
 
-          <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">
+          <div className="mt-8 flex items-center justify-center gap-2 text-xs text-gray-500">
             <Shield size={14} className="text-[#C78556]" />
             <span>Your information is securely encrypted</span>
           </div>

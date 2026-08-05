@@ -168,9 +168,9 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-2xl"
+            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-[#E7E5E4] bg-[#FAFAF9] shadow-2xl"
           >
-            <div className="flex items-center justify-between border-b border-[#FDC3A1] p-6">
+            <div className="flex items-center justify-between border-b border-[#E7E5E4] p-6">
               <h2 className="text-xl font-serif font-bold">Your Cart</h2>
 
               <button
@@ -223,6 +223,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                         transition={{ duration: 0.2 }}
                       >
                         <ProductListItem
+                          plain
                           href={item.can_view ? `/products/${item.id}` : null}
                           image={item.image || "https://via.placeholder.com/100"}
                           title={item.title}
@@ -321,7 +322,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                               </div>
                             </div>
                           )}
-                          className="border-0 bg-transparent p-0"
+                          className=""
                           rowClassName="flex-row items-center justify-between"
                           contentClassName="min-w-0 flex-1 items-center"
                           asideClassName="self-center pt-0"
@@ -334,7 +335,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
             </div>
 
             {cartReady && !authLoading && cart.length > 0 && (
-              <div className="border-t border-[#FDC3A1] bg-[#FDC3A1]/30 p-6">
+              <div className="border-t border-[#E7E5E4] p-6">
                 <div className="mb-4 flex justify-between text-lg font-bold">
                   <span>Subtotal</span>
                   <span>₹{formatPrice(total)}</span>
@@ -353,7 +354,7 @@ export default function CartDrawer({ isCartOpen, setIsCartOpen }) {
                   type="button"
                   onClick={handleProceedToCheckout}
                   disabled={checkingOut}
-                  className="flex w-full items-center justify-center rounded-lg bg-[#F57799] py-3 font-medium text-white transition hover:bg-[#e96b91] disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex w-full items-center justify-center rounded-lg bg-[#1C1917] py-3 font-medium text-white transition hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {checkingOut ? "Checking Stock..." : "Proceed to Checkout"}
                   <ArrowRight size={16} className="ml-2" />

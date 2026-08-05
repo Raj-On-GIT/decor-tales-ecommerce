@@ -30,6 +30,7 @@ export default function ProductListItem({
   asideClassName = "",
   truncateText = false,
   customizationLayout = "inline",
+  plain = false,
 }) {
   const variantText = getVariantText(variant);
   const renderCustomizationBelow = customizationContent && customizationLayout === "below";
@@ -37,7 +38,7 @@ export default function ProductListItem({
 
   return (
     <div
-      className={`rounded-[1.5rem] border border-[#FDC3A1]/50 bg-gradient-to-br from-[#FFF7CD]/60 to-white/90 p-1 ${className}`.trim()}
+      className={`${plain ? "" : "rounded-[1.5rem] border border-[#FDC3A1]/50 bg-gradient-to-br from-[#FFF7CD]/60 to-white/90 p-1"} ${className}`.trim()}
     >
       <div
         className={`flex flex-col gap-4 mb-1 sm:flex-row sm:items-start sm:justify-between ${rowClassName}`.trim()}

@@ -456,7 +456,7 @@ export default function SignupPage() {
               disabled={otpStep ? otpLoading : isFormLocked}
               className="
                 w-full
-                bg-[#C78556] hover:bg-[#B67446]
+                bg-[#c87446] hover:bg-[#ab7446]
                 text-white font-semibold
                 py-3 rounded-lg
                 transition
@@ -473,7 +473,7 @@ export default function SignupPage() {
                   : "Verify Email"
                 : loading
                   ? "Sending Code..."
-                  : "Send Verification Code"}
+                  : "Sign Up"}
             </button>
 
             {otpStep && (
