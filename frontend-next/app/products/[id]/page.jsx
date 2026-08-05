@@ -119,33 +119,7 @@ export default function ProductDetailPage() {
         setProductState("loaded");
         setCurrentIndex(0);
 
-        // 2. Fetch & Filter Related Products
-        // Note: For better performance, consider a backend endpoint like /api/products/?category=...
-        const allData = await getProducts();
-
-        if (Array.isArray(allData)) {
-          const relatedPool = allData.filter((p) => {
-            if (p.id === data.id) return false;
-            if (isProductOutOfStock(p)) return false;
-
-            if (data.sub_category?.slug) {
-              return p.sub_category?.slug === data.sub_category.slug;
-            }
-
-            return p.category?.slug === data.category?.slug;
-          });
-
-          const related = relatedPool
-            .sort(
-              (a, b) =>
-                new Date(b.created_at || 0) - new Date(a.created_at || 0),
-            )
-            .slice(0, 8);
-
-          setRelatedProducts(related);
-        }
-
-        // 3. Initialise Variants
+        // 2. Initialise Variants
         if (data.stock_type === "variants" && data.variants?.length) {
           const saved = sessionStorage.getItem(`selectedVariant_${data.id}`);
 
@@ -174,6 +148,32 @@ export default function ProductDetailPage() {
               if (lowest.color_name) setSelectedColor(lowest.color_name);
             }
           }
+        }
+
+        // 3. Fetch & Filter Related Products
+        // Note: For better performance, consider a backend endpoint like /api/products/?category=...
+        const allData = await getProducts();
+
+        if (Array.isArray(allData)) {
+          const relatedPool = allData.filter((p) => {
+            if (p.id === data.id) return false;
+            if (isProductOutOfStock(p)) return false;
+
+            if (data.sub_category?.slug) {
+              return p.sub_category?.slug === data.sub_category.slug;
+            }
+
+            return p.category?.slug === data.category?.slug;
+          });
+
+          const related = relatedPool
+            .sort(
+              (a, b) =>
+                new Date(b.created_at || 0) - new Date(a.created_at || 0),
+            )
+            .slice(0, 8);
+
+          setRelatedProducts(related);
         }
       } catch (error) {
         console.error("Error loading product:", error);
