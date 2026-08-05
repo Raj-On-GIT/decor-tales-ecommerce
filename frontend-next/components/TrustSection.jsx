@@ -26,7 +26,7 @@ export default function TrustSection() {
         stagger
         className="mx-auto max-w-screen-xl"
       >
-        <div className="overflow-hidden rounded-[2rem] px-5 py-6 shadow-[0_20px_60px_rgba(245,119,153,0.12)] sm:px-8 sm:py-8">
+        <div className="overflow-hidden rounded-[2rem] px-5 py-6 shadow-[0_20px_60px_rgba(28,25,23,0.08)] sm:px-8 sm:py-8">
           <div className="flex flex-col lg:flex-row lg:items-stretch lg:justify-between">
             {items.map((item, index) => (
               <div
@@ -34,15 +34,15 @@ export default function TrustSection() {
                 className="relative flex-1"
               >
                 <div className="flex flex-col items-center gap-4 py-5 text-center sm:flex-row sm:items-start sm:gap-5 sm:text-left lg:h-full lg:flex-col lg:items-center lg:justify-center lg:px-8 lg:py-6 lg:text-center">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,rgba(253,195,161,0.45),rgba(245,119,153,0.16))] text-[#B8436B] shadow-[inset_0_0_0_1px_rgba(245,119,153,0.18),0_10px_24px_rgba(245,119,153,0.12)]">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#FAFAF9] text-[#1C1917] shadow-[inset_0_0_0_1px_#E7E5E4]">
                     {item.icon}
                   </div>
 
                   <div className="max-w-xs">
-                    <h3 className="text-base font-semibold tracking-[0.01em] text-[#1B000D] sm:text-lg">
+                    <h3 className="text-base font-semibold tracking-[0.01em] text-[#1C1917] sm:text-lg">
                       {item.title}
                     </h3>
-                    <p className="mt-1.5 text-sm leading-6 text-[#5F5560] sm:text-[15px]">
+                    <p className="mt-1.5 text-sm leading-6 text-[#78716C] sm:text-[15px]">
                       {item.desc}
                     </p>
                   </div>
@@ -52,11 +52,11 @@ export default function TrustSection() {
                   <>
                     <div
                       aria-hidden="true"
-                      className="mx-auto h-[2px] w-full bg-gradient-to-r from-transparent via-[#F5B6B6] to-transparent lg:hidden"
+                      className="mx-auto h-[2px] w-full bg-gradient-to-r from-transparent via-[#E7E5E4] to-transparent lg:hidden"
                     />
                     <div
                       aria-hidden="true"
-                      className="absolute right-0 top-1/2 hidden h-full w-[3px] -translate-y-1/2 bg-gradient-to-b from-transparent via-[#F5B6B6] to-transparent lg:block"
+                      className="absolute right-0 top-1/2 hidden h-full w-[3px] -translate-y-1/2 bg-gradient-to-b from-transparent via-[#E7E5E4] to-transparent lg:block"
                     />
                   </>
                 ) : null}

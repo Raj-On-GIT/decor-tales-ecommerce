@@ -7,10 +7,10 @@ export default function ViewAllLink({ href, label = "View All", className = "" }
       href={href}
       className={[
         "group ml-auto inline-flex shrink-0 items-center gap-2 rounded-full sm:gap-3",
-        "border border-[#F5B6B6] bg-white/90 px-3 py-2 text-xs font-semibold text-gray-900 sm:px-4 sm:py-2.5 sm:text-sm",
-        "shadow-[0_10px_30px_rgba(245,119,153,0.14)] backdrop-blur-sm",
-        "transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[#F57799]/60 hover:bg-[#FFF7CD] hover:shadow-[0_16px_36px_rgba(245,119,153,0.22)]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F57799]/40 focus-visible:ring-offset-2",
+        "border border-[#E7E5E4] bg-white px-3 py-2 text-xs font-semibold text-gray-900 sm:px-4 sm:py-2.5 sm:text-sm",
+        "shadow-[0_10px_30px_rgba(28,25,23,0.08)] backdrop-blur-sm",
+        "transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[#E7E5E4] hover:bg-[#FAFAF9] hover:shadow-[0_16px_36px_rgba(28,25,23,0.12)]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C1917]/40 focus-visible:ring-offset-2",
         className,
       ].join(" ")}
     >

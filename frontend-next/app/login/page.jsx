@@ -142,7 +142,7 @@ export default function LoginPage() {
         "
       >
         <div className="p-5 md:p-12 flex flex-col justify-center">
-          <h1 className="mb-6 text-3xl font-bold text-[#1B000D]">Sign In</h1>
+          <h1 className="mb-6 text-3xl font-bold text-[#1C1917]">Sign In</h1>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
@@ -160,7 +160,7 @@ export default function LoginPage() {
                 disabled={isFormLocked}
                 placeholder="Email Address"
                 className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-4
-                           text-[#1B000D] placeholder:text-[#9A8C8F]
+                           text-[#1C1917] placeholder:text-[#78716C]
                            focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
                            disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
@@ -182,7 +182,7 @@ export default function LoginPage() {
                 disabled={isFormLocked}
                 placeholder="Password"
                 className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-12
-                           text-[#1B000D] placeholder:text-[#9A8C8F]
+                           text-[#1C1917] placeholder:text-[#78716C]
                            focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
                            disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
@@ -204,7 +204,7 @@ export default function LoginPage() {
                 className={`text-sm ${
                   isFormLocked
                     ? "pointer-events-none text-gray-400"
-                    : "text-[#6F5960] hover:text-[#C78556]"
+                    : "text-[#78716C] hover:text-[#1C1917]"
                 }`}
               >
                 Forgot password?
@@ -279,7 +279,7 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-8 flex items-center justify-center gap-2 text-xs text-gray-500">
-            <Shield size={14} className="text-[#C78556]" />
+            <Shield size={14} className="text-[#1C1917]" />
             <span>Your information is securely encrypted</span>
           </div>
         </div>
@@ -308,7 +308,7 @@ export default function LoginPage() {
             </p>
             <Link
               href="/signup"
-              className="inline-block rounded-full border border-white px-6 py-2 transition hover:bg-white hover:text-[#C78556]"
+              className="inline-block rounded-full border border-white px-6 py-2 transition hover:bg-white hover:text-[#1C1917]"
             >
               Sign Up
             </Link>
@@ -321,7 +321,7 @@ export default function LoginPage() {
                text-white text-sm font-medium
                flex items-center gap-2
                transition-all duration-300
-               hover:bg-white hover:text-[#C78556]
+               hover:bg-white hover:text-[#1C1917]
                group"
             >
               <ArrowLeft

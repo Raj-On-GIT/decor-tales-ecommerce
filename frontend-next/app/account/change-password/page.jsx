@@ -273,7 +273,7 @@ export default function ChangePasswordPage() {
             type="checkbox"
             checked={logoutOtherDevices}
             onChange={(e) => setLogoutOtherDevices(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#F57799] focus:ring-[#F57799]"
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#1C1917] focus:ring-[#1C1917]"
           />
           <span>
             Sign out other devices after password {hasPassword ? "change" : "setup"}.
@@ -286,7 +286,7 @@ export default function ChangePasswordPage() {
         <button
           type="submit"
           disabled={loading}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-[#F57799] py-3 font-semibold text-white transition hover:bg-[#e96b91] disabled:cursor-not-allowed disabled:opacity-80"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-[#1C1917] py-3 font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-80"
         >
           {loading && (
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
@@ -307,7 +307,7 @@ export default function ChangePasswordPage() {
           Back to account
         </Link>
         <div className="flex items-center gap-2 text-xs text-gray-500">
-          <Shield size={14} className="text-[#F57799]" />
+          <Shield size={14} className="text-[#1C1917]" />
           <span>Secure password update</span>
         </div>
       </div>

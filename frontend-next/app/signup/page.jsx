@@ -242,7 +242,7 @@ export default function SignupPage() {
                  overflow-hidden grid grid-cols-1 md:grid-cols-2 will-change-transform"
       >
         <div className="p-5 md:p-12 flex flex-col justify-center">
-          <h1 className="mb-5 text-3xl font-bold text-[#1B000D]">
+          <h1 className="mb-5 text-3xl font-bold text-[#1C1917]">
             {otpStep ? "Verify Your Email" : "Create Account"}
           </h1>
 
@@ -252,9 +252,9 @@ export default function SignupPage() {
           >
             {otpStep ? (
               <>
-                <p className="text-sm text-[#6F5960]">
+                <p className="text-sm text-[#78716C]">
                   Enter the 6-digit code sent to{" "}
-                  <span className="font-semibold text-[#1B000D]">
+                  <span className="font-semibold text-[#1C1917]">
                     {signupEmail}
                   </span>
                   .
@@ -274,7 +274,7 @@ export default function SignupPage() {
                     disabled={otpLoading}
                     placeholder="6-digit verification code"
                     className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-4
-                         text-[#1B000D] placeholder:text-[#9A8C8F]
+                         text-[#1C1917] placeholder:text-[#78716C]
                          focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
                          disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                     required
@@ -297,7 +297,7 @@ export default function SignupPage() {
                 disabled={isFormLocked}
                 placeholder="Full Name"
                 className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-4
-                         text-[#1B000D] placeholder:text-[#9A8C8F]
+                         text-[#1C1917] placeholder:text-[#78716C]
                          focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
                          disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
@@ -318,7 +318,7 @@ export default function SignupPage() {
                 disabled={isFormLocked}
                 placeholder="Email Address"
                 className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-4
-                         text-[#1B000D] placeholder:text-[#9A8C8F]
+                         text-[#1C1917] placeholder:text-[#78716C]
                          focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
                          disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
@@ -339,7 +339,7 @@ export default function SignupPage() {
                 disabled={isFormLocked}
                 placeholder="Phone Number"
                 className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-2.5 pl-12 pr-4
-                          text-[#1B000D] placeholder:text-[#9A8C8F]
+                          text-[#1C1917] placeholder:text-[#78716C]
                           focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
                           disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
@@ -360,7 +360,7 @@ export default function SignupPage() {
                 disabled={isFormLocked}
                 placeholder="Password"
                 className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-12
-                         text-[#1B000D] placeholder:text-[#9A8C8F]
+                         text-[#1C1917] placeholder:text-[#78716C]
                          focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
                          disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
@@ -389,7 +389,7 @@ export default function SignupPage() {
                 disabled={isFormLocked}
                 placeholder="Confirm Password"
                 className="w-full rounded-lg border border-[#E8D7CB] bg-white px-4 py-3 pl-12 pr-12
-                         text-[#1B000D] placeholder:text-[#9A8C8F]
+                         text-[#1C1917] placeholder:text-[#78716C]
                          focus:border-[#D89A6B] focus:outline-none focus:ring-2 focus:ring-[#D89A6B]/15 transition
                          disabled:bg-[#fffaf7] disabled:text-gray-400 disabled:cursor-not-allowed"
                 required
@@ -417,12 +417,12 @@ export default function SignupPage() {
             )}
 
             {!otpStep && (
-            <div className="flex items-start gap-2 px-2 py-2 text-sm text-[#6F5960]">
+            <div className="flex items-start gap-2 px-2 py-2 text-sm text-[#78716C]">
               <input
                 type="checkbox"
                 required
                 disabled={isFormLocked}
-                className="mt-1 accent-[#C78556] disabled:cursor-not-allowed"
+                className="mt-1 accent-[#1C1917] disabled:cursor-not-allowed"
               />
               <span>
                 I agree to the{" "}
@@ -431,7 +431,7 @@ export default function SignupPage() {
                   className={`font-semibold ${
                     isFormLocked
                       ? "pointer-events-none text-gray-400"
-                      : "text-[#1B000D] hover:text-[#C78556]"
+                      : "text-[#1C1917] hover:text-black"
                   }`}
                 >
                   Terms
@@ -442,7 +442,7 @@ export default function SignupPage() {
                   className={`font-semibold ${
                     isFormLocked
                       ? "pointer-events-none text-gray-400"
-                      : "text-[#1B000D] hover:text-[#C78556]"
+                      : "text-[#1C1917] hover:text-black"
                   }`}
                 >
                   Privacy Policy
@@ -485,7 +485,7 @@ export default function SignupPage() {
                     setOtp("");
                     setError("");
                   }}
-                  className="text-[#6F5960] hover:text-[#C78556]"
+                  className="text-[#78716C] hover:text-black"
                 >
                   Edit details
                 </button>
@@ -493,7 +493,7 @@ export default function SignupPage() {
                   type="button"
                   onClick={handleResendOtp}
                   disabled={loading || resendCooldown > 0}
-                  className="font-semibold text-[#C78556] disabled:text-gray-400"
+                  className="font-semibold text-[#1C1917] disabled:text-gray-400"
                 >
                   {resendCooldown > 0
                     ? `Resend in ${resendCooldown}s`
@@ -561,7 +561,7 @@ export default function SignupPage() {
           </form>
 
           <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">
-            <Shield size={14} className="text-[#C78556]" />
+            <Shield size={14} className="text-[#1C1917]" />
             <span>Your information is securely encrypted</span>
           </div>
         </div>
@@ -591,7 +591,7 @@ export default function SignupPage() {
 
             <Link
               href="/login"
-              className="inline-block rounded-full border border-white px-6 py-2 transition hover:bg-white hover:text-[#C78556]"
+              className="inline-block rounded-full border border-white px-6 py-2 transition hover:bg-white hover:text-black"
             >
               Sign In
             </Link>
@@ -604,7 +604,7 @@ export default function SignupPage() {
              text-white text-sm font-medium
              flex items-center gap-2
              transition-all duration-300
-             hover:bg-white hover:text-[#C78556]
+             hover:bg-white hover:text-black
              group"
             >
               <ArrowLeft
