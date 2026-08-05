@@ -97,7 +97,7 @@ export default function ProductCard({ product }) {
                     ₹{formatPrice(primaryVariant.slashed_price)}
                   </span>
                 </div>
-              <span className="inline-flex w-fit items-center self-start rounded-md bg-[#E6CCBE] px-1.5 py-[2px] text-[10px] font-semibold text-[#1C1917] sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs tracking-wide">
+              <span className="inline-flex w-fit items-center rounded-md bg-[#E6CCBE] px-1.5 py-[2px] text-[10px] font-semibold text-[#1C1917] sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs tracking-wide">
                 {primaryVariant.discount_percent}% OFF
               </span>
               </div>
@@ -116,7 +116,7 @@ export default function ProductCard({ product }) {
                   ₹{formatPrice(product.slashed_price)}
                 </span>
               </div>
-              <span className="inline-flex w-fit items-center self-start rounded-md bg-[#E6CCBE] px-1.5 py-[2px] text-[10px] font-semibold text-[#1C1917] sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs tracking-wide">
+              <span className="inline-flex w-fit items-center rounded-md bg-[#E6CCBE] px-1.5 py-[2px] text-[10px] font-semibold text-[#1C1917] sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs tracking-wide">
                 {product.discount_percent}% OFF
               </span>
             </div>

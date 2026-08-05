@@ -35,7 +35,7 @@ export default function PriceDisplay({
           </span>
           {resolvedDiscount > 0 ? (
             <span
-              className={`inline-flex w-fit items-center self-start rounded-md bg-[#E6CCBE] px-1.5 py-[2px] text-[10px] font-semibold text-[#1C1917] sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs tracking-wide ${badgeClassName}`.trim()}
+              className={`inline-flex w-fit items-center rounded-md bg-[#E6CCBE] px-1.5 py-[2px] text-[10px] font-semibold text-[#1C1917] sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs tracking-wide ${badgeClassName}`.trim()}
             >
               {resolvedDiscount}% OFF
             </span>
