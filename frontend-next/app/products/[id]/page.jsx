@@ -833,7 +833,6 @@ export default function ProductDetailPage() {
                     discountPercent={selectedVariant.discount_percent}
                     currentPriceClassName="text-2xl sm:text-3xl"
                     originalPriceClassName="text-base sm:text-lg"
-                    badgeClassName="px-3 py-1 text-xs sm:text-sm"
                     currencyPrefix="₹"
                   />
                 ) : (
@@ -844,7 +843,6 @@ export default function ProductDetailPage() {
                       discountPercent={product.discount_percent}
                       currentPriceClassName="text-2xl sm:text-3xl"
                       originalPriceClassName="text-base sm:text-lg"
-                      badgeClassName="px-3 py-1 text-xs sm:text-sm"
                       currencyPrefix="₹"
                     />
                   </div>
