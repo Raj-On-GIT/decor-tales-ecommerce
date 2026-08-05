@@ -466,7 +466,7 @@ export default function CheckoutPage() {
             </div>
 
             <div className="flex flex-wrap gap-3 text-sm text-gray-600">
-              <div className="rounded-full bg-[#F57799] px-4 py-2 font-medium text-white">
+              <div className="rounded-full bg-[#1C1917] px-4 py-2 font-medium text-white">
                 {itemCount} item{itemCount === 1 ? "" : "s"}
               </div>
               <div className="rounded-full border border-gray-200 bg-white px-4 py-2 font-medium">
@@ -495,7 +495,7 @@ export default function CheckoutPage() {
               {addresses.length > 0 && (
                 <button
                   onClick={() => router.push("/account/addresses")}
-                  className="w-full rounded-full bg-[#F57799] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#e96b91] sm:w-auto"
+                  className="w-full rounded-full bg-[#1C1917] px-4 py-2 text-sm font-medium text-white transition hover:bg-black sm:w-auto"
                 >
                   + Add Address
                 </button>
@@ -511,7 +511,7 @@ export default function CheckoutPage() {
 
                   <button
                     onClick={() => router.push("/account/addresses")}
-                    className="rounded-full bg-[#F57799] px-6 py-2 text-white transition hover:bg-[#e96b91]"
+                    className="rounded-full bg-[#1C1917] px-6 py-2 text-white transition hover:bg-black"
                   >
                     Add Address
                   </button>
@@ -750,7 +750,7 @@ export default function CheckoutPage() {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2.5">
-                              <span className="rounded-full bg-[#F57799] px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-white">
+                              <span className="rounded-full bg-[#1C1917] px-3 py-1 text-[11px] font-semibold tracking-[0.24em] text-white">
                                 {coupon.code}
                               </span>
                               {coupon.first_order_only ? (
@@ -813,7 +813,7 @@ export default function CheckoutPage() {
                                 onClick={() => setSelectedCoupon(coupon)}
                                 className={`w-full rounded-full px-4 py-2 text-sm font-medium transition sm:w-auto ${
                                   isEligible
-                                    ? "bg-[#F57799] text-white hover:bg-[#e96b91]"
+                                    ? "bg-[#1C1917] text-white hover:bg-black"
                                     : "cursor-not-allowed bg-gray-200 text-gray-500"
                                 }`}
                               >
@@ -831,7 +831,7 @@ export default function CheckoutPage() {
               )}
             </div>
 
-            <div className="mt-8 rounded-[1.5rem] bg-[#F57799] px-5 py-5 text-white">
+            <div className="mt-8 rounded-[1.5rem] bg-[#1C1917] px-5 py-5 text-white">
               <div className="flex justify-between text-sm text-white/70">
                 <span>Items</span>
                 <span>{itemCount}</span>
