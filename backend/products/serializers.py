@@ -4,11 +4,11 @@ from .media_utils import build_media_url
 from django.db.models import Count, Q
 
 
-def build_safe_media_url(request, file_field):
+def build_safe_media_url(request, file_field, *, preset="catalog"):
     if not file_field:
         return None
 
-    url = build_media_url(file_field)
+    url = build_media_url(file_field, preset=preset)
     if not url:
         return None
 
@@ -44,7 +44,7 @@ class BannerSerializer(serializers.ModelSerializer):
         ]
 
     def get_image(self, obj):
-        return build_safe_media_url(self.context.get("request"), obj.image)
+        return build_safe_media_url(self.context.get("request"), obj.image, preset="banner")
 
 class ProductVariantSerializer(serializers.ModelSerializer):
     size_name = serializers.SerializerMethodField()
@@ -174,7 +174,7 @@ class CategorySerializer(serializers.ModelSerializer):
         ).filter(productCount__gt=0).count()
 
     def get_image(self, obj):
-        return build_safe_media_url(self.context.get("request"), obj.image)
+        return build_safe_media_url(self.context.get("request"), obj.image, preset="category")
 
 
 class SubCategorySerializer(serializers.ModelSerializer):
@@ -203,7 +203,7 @@ class SubCategorySerializer(serializers.ModelSerializer):
         }
 
     def get_image(self, obj):
-        return build_safe_media_url(self.context.get("request"), obj.image)
+        return build_safe_media_url(self.context.get("request"), obj.image, preset="category")
 
 class CategoryProductSerializer(ProductSerializer):
     class Meta(ProductSerializer.Meta):

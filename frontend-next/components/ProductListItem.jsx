@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import CategoryTrail from "@/components/CategoryTrail";
 
 function getVariantText(variant) {
@@ -47,15 +48,15 @@ export default function ProductListItem({
               <Link
                 href={href}
                 onClick={onNavigate}
-                className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:h-20 sm:w-20 ${imageClassName}`.trim()}
+                className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:h-20 sm:w-20 ${imageClassName}`.trim()}
               >
-                <img src={image} alt={title} className="h-full w-full object-cover" />
+                <Image src={image} alt={title} fill sizes="(max-width: 640px) 64px, 80px" className="object-cover" />
               </Link>
             ) : (
               <div
-                className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:h-20 sm:w-20 ${imageClassName}`.trim()}
+                className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:h-20 sm:w-20 ${imageClassName}`.trim()}
               >
-                <img src={image} alt={title} className="h-full w-full object-cover" />
+                <Image src={image} alt={title} fill sizes="(max-width: 640px) 64px, 80px" className="object-cover" />
               </div>
             )
           ) : null}

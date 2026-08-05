@@ -25,9 +25,9 @@ export default function BrowseByCategoryClient({ categories, reveal = false }) {
                 src={category.image}
                 alt={category.name}
                 fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                 style={{ objectFit: "cover" }}
                 className="transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-                unoptimized={true}
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-[#E7E5E4]/50">

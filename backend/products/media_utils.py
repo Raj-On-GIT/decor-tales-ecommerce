@@ -2,6 +2,15 @@ from cloudinary.utils import cloudinary_url
 from django.conf import settings
 
 
+# These are delivery-only transformations. Cloudinary keeps the uploaded
+# original intact and creates/caches an appropriately sized browser version.
+MEDIA_PRESETS = {
+    "catalog": {"width": 1600, "crop": "limit"},
+    "category": {"width": 960, "crop": "limit"},
+    "banner": {"width": 2000, "crop": "limit"},
+}
+
+
 def normalize_media_name(file_name):
     if not file_name:
         return file_name
@@ -13,7 +22,7 @@ def normalize_media_name(file_name):
     return normalized
 
 
-def build_media_url(file_field):
+def build_media_url(file_field, *, preset="catalog"):
     if not file_field:
         return None
 
@@ -24,7 +33,14 @@ def build_media_url(file_field):
                 # Use the exact stored public_id/path from the database.
                 # Older records may be stored as "products/..." while newer
                 # ones may be stored as "media/products/...".
-                return cloudinary_url(stored_name, resource_type="image")[0]
+                return cloudinary_url(
+                    stored_name,
+                    resource_type="image",
+                    secure=True,
+                    quality="auto",
+                    fetch_format="auto",
+                    **MEDIA_PRESETS.get(preset, MEDIA_PRESETS["catalog"]),
+                )[0]
 
         return file_field.url
     except Exception:

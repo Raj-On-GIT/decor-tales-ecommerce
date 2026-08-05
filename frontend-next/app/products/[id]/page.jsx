@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Loader2, ShoppingBag } from "lucide-react";
@@ -487,12 +488,16 @@ export default function ProductDetailPage() {
                 }}
               >
                 {allImages.map((img, index) => (
-                  <img
-                    key={index}
-                    src={img}
-                    alt={`product-${index}`}
-                    className="w-full h-full flex-shrink-0 object-contain bg-white"
-                  />
+                  <div key={index} className="relative h-full w-full shrink-0 bg-white">
+                    <Image
+                      src={img}
+                      alt={`product-${index + 1}`}
+                      fill
+                      priority={index === 0}
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className="object-contain"
+                    />
+                  </div>
                 ))}
               </div>
 
@@ -557,10 +562,13 @@ export default function ProductDetailPage() {
                   style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
                 >
                   {allImages.map((img, index) => (
-                    <img
+                    <Image
                       key={index}
                       src={img}
                       onClick={() => setCurrentIndex(index)}
+                      width={60}
+                      height={60}
+                      sizes="60px"
                       className={`h-14 w-14 flex-shrink-0 rounded-lg border cursor-pointer bg-white object-contain sm:h-15 sm:w-15 ${
                         index === currentIndex
                           ? "border-black"

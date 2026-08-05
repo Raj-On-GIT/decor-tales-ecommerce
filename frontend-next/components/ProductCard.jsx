@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Loader2, ShoppingBag } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
@@ -65,11 +66,15 @@ export default function ProductCard({ product }) {
     <div className="premium-card group relative p-1 sm:p-1.5 transition-all duration-500 ease-out hover:-translate-y-1 bg-[#FAFAF9] hover:bg-[#F0F0EF] rounded-xl border-[#E7E5E4]">
       <Link href={`/products/${product.id}`} className="block">
         <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-[#F5F5F4]">
-          <img
-            src={product.image}
-            alt={product.title}
-            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-          />
+          {product.image ? (
+            <Image
+              src={product.image}
+              alt={product.title}
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
+              className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+            />
+          ) : null}
         </div>
 
         <div className="mb-1 mt-3 min-w-0 pr-12 pl-1">
