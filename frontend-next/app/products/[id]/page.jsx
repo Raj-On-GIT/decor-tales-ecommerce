@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { Loader2, ShoppingBag } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import ProductCard from "@/components/ProductCard";
+import ProductCardSkeleton from "@/components/ProductCardSkeleton";
 import { getDelhiveryExpectedTat, getProducts } from "@/lib/api";
 import { API_BASE } from "@/lib/config";
 import { useAuth } from "@/context/AuthContext";
@@ -19,7 +20,6 @@ import { isProductOutOfStock } from "@/lib/utils";
 
 const MAX_CUSTOM_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_CUSTOM_TEXT_LENGTH = 120;
-const PRODUCT_DELIVERY_PINCODE_KEY = "productDeliveryPincode";
 
 function formatDeliveryDate(dateValue) {
   if (!dateValue) {
@@ -46,6 +46,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState(null);
   const [productState, setProductState] = useState("loading");
   const [relatedProducts, setRelatedProducts] = useState([]); // ✅ Related products state
+  const [relatedLoading, setRelatedLoading] = useState(false);
 
   // ✅ Gallery State
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -82,17 +83,6 @@ export default function ProductDetailPage() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [id]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const savedPincode = window.localStorage.getItem(PRODUCT_DELIVERY_PINCODE_KEY) || "";
-    if (/^\d{6}$/.test(savedPincode)) {
-      setDeliveryPincode(savedPincode);
-    }
-  }, []);
-
   // ================= FETCH PRODUCT =================
   useEffect(() => {
     if (!id) return;
@@ -102,6 +92,7 @@ export default function ProductDetailPage() {
         setProductState("loading");
         setProduct(null);
         setRelatedProducts([]);
+        setRelatedLoading(true);
 
         // 1. Fetch Main Product
         const res = await fetch(`${API_BASE}/api/products/${id}/`);
@@ -175,6 +166,8 @@ export default function ProductDetailPage() {
 
           setRelatedProducts(related);
         }
+
+        setRelatedLoading(false);
       } catch (error) {
         console.error("Error loading product:", error);
         setProductState("not_found");
@@ -346,10 +339,6 @@ export default function ProductDetailPage() {
             date: "",
           });
           return;
-        }
-
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(PRODUCT_DELIVERY_PINCODE_KEY, deliveryPincode);
         }
 
         setDeliveryEstimate({
@@ -1074,38 +1063,59 @@ export default function ProductDetailPage() {
         </section>
 
         {/* ================= SIMILAR PRODUCTS SECTION ================= */}
-        {relatedProducts.length > 0 && (
+        {relatedLoading || relatedProducts.length > 0 ? (
           <section className="mb-10 mt-16 sm:mt-24">
-            {/* Heading Row */}
-            <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 sm:mb-8 sm:items-end">
-              <div className="min-w-0">
-                <h2 className="font-serif text-2xl font-bold text-black sm:text-4xl">
-                  Similar products
-                </h2>
-              </div>
+            {relatedLoading ? (
+              <>
+                <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <div className="h-8 w-56 rounded bg-gray-200 animate-pulse sm:h-10" />
+                    <div className="mt-2 h-4 w-48 rounded bg-gray-200 animate-pulse" />
+                  </div>
 
-              <ViewAllLink
-                href={
-                  product.sub_category
-                    ? `/catalog/${product.category?.slug}/${product.sub_category?.slug}`
-                    : `/catalog/${product.category?.slug}`
-                }
-                className="col-start-2 row-start-1"
-              />
+                  <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
+                </div>
 
-              <p className="col-span-full text-sm text-gray-600 sm:mt-2 sm:text-base">
-                Discover more from {product.sub_category?.name || product.category?.name}.
-              </p>
-            </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 sm:gap-4 md:gap-6 lg:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <ProductCardSkeleton key={index} />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Heading Row */}
+                <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 sm:mb-8 sm:items-end">
+                  <div className="min-w-0">
+                    <h2 className="font-serif text-2xl font-bold text-black sm:text-4xl">
+                      Similar products
+                    </h2>
+                  </div>
 
-            {/* Product Grid */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 sm:gap-4 md:gap-6 lg:grid-cols-4">
-              {relatedProducts.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
+                  <ViewAllLink
+                    href={
+                      product.sub_category
+                        ? `/catalog/${product.category?.slug}/${product.sub_category?.slug}`
+                        : `/catalog/${product.category?.slug}`
+                    }
+                    className="col-start-2 row-start-1"
+                  />
+
+                  <p className="col-span-full text-sm text-gray-600 sm:mt-2 sm:text-base">
+                    Discover more from {product.sub_category?.name || product.category?.name}.
+                  </p>
+                </div>
+
+                {/* Product Grid */}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 sm:gap-4 md:gap-6 lg:grid-cols-4">
+                  {relatedProducts.map((p) => (
+                    <ProductCard key={p.id} product={p} />
+                  ))}
+                </div>
+              </>
+            )}
           </section>
-        )}
+        ) : null}
       </div>
     </>
   );
