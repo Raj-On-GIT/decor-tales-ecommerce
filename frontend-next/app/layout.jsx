@@ -4,6 +4,7 @@ import Footer from "../components/Footer";
 import { StoreProvider } from "@/context/StoreContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
+import BoneyardRegistry from "@/components/BoneyardRegistry";
 import { Inter } from "next/font/google";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
@@ -24,6 +25,7 @@ export default function RootLayout({ children }) {
           <ToastProvider>
             <AuthProvider>
               <StoreProvider>
+                <BoneyardRegistry />
                 <div className="flex min-h-screen flex-col">
                   <Header />
                   <main className="flex-1">{children}</main>
