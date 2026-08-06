@@ -1894,7 +1894,20 @@ def delhivery_scan_push_webhook(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_my_orders(request):
-    orders = Order.objects.filter(user=request.user).order_by("-created_at")
+    order_qs = Order.objects.filter(user=request.user).order_by("-created_at")
+    total_count = order_qs.count()
+
+    try:
+        limit = max(1, min(int(request.GET.get("limit", 10)), 50))
+    except (TypeError, ValueError):
+        limit = 10
+
+    try:
+        offset = max(0, int(request.GET.get("offset", 0)))
+    except (TypeError, ValueError):
+        offset = 0
+
+    orders = order_qs[offset : offset + limit]
 
     data = [
         {
@@ -1927,7 +1940,15 @@ def get_my_orders(request):
         for order in orders
     ]
 
-    return Response({"orders": data, "count": len(data)})
+    return Response(
+        {
+            "orders": data,
+            "count": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + limit < total_count,
+        }
+    )
 
 
 def serialize_order_shipment_tracking(order):

@@ -13,6 +13,8 @@ const orderNumberFont = Ubuntu({
   weight: ["400", "500", "700"],
 });
 
+const ORDERS_PER_PAGE = 10;
+
 function formatOrderDate(value) {
   return new Date(value).toLocaleString("en-IN", {
     dateStyle: "medium",
@@ -168,7 +170,10 @@ export default function OrdersPage() {
   const { isAuthenticated, loading, isLoggingOut } = useAuth();
   const router = useRouter();
   const [orders, setOrders] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated && !isLoggingOut) {
@@ -177,21 +182,56 @@ export default function OrdersPage() {
   }, [loading, isAuthenticated, isLoggingOut, router]);
 
   useEffect(() => {
+    let active = true;
+
     async function loadOrders() {
       try {
-        const data = await getMyOrders();
+        const data = await getMyOrders({
+          limit: ORDERS_PER_PAGE,
+          offset: 0,
+        });
+
+        if (!active) return;
+
         setOrders(data.orders || []);
+        setTotalCount(data.count || 0);
+        setHasMore(Boolean(data.has_more));
       } catch {
-        console.error("Failed to fetch orders");
+        if (active) console.error("Failed to fetch orders");
       } finally {
-        setLoadingOrders(false);
+        if (active) setLoadingOrders(false);
       }
     }
 
     if (isAuthenticated) {
       loadOrders();
     }
+
+    return () => {
+      active = false;
+    };
   }, [isAuthenticated]);
+
+  const handleLoadMore = async () => {
+    if (loadingMore) return;
+
+    setLoadingMore(true);
+
+    try {
+      const data = await getMyOrders({
+        limit: ORDERS_PER_PAGE,
+        offset: orders.length,
+      });
+
+      setOrders((prev) => [...prev, ...(data.orders || [])]);
+      setTotalCount(data.count || totalCount);
+      setHasMore(Boolean(data.has_more));
+    } catch {
+      console.error("Failed to load more orders");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   if (loadingOrders) {
     return (
@@ -224,7 +264,7 @@ export default function OrdersPage() {
             </div>
 
             <div className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700">
-              {orders.length} order{orders.length === 1 ? "" : "s"}
+              {totalCount} order{totalCount === 1 ? "" : "s"}
             </div>
           </div>
         </div>
@@ -237,6 +277,7 @@ export default function OrdersPage() {
             </p>
           </div>
         ) : (
+          <>
           <div className="grid gap-5">
             {orders.map((order) => {
               const effectiveStatus = getEffectiveProgressStatus(order);
@@ -347,6 +388,27 @@ export default function OrdersPage() {
               );
             })}
           </div>
+
+          {hasMore && (
+            <div className="mt-8 flex justify-center">
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-900 shadow-sm transition hover:border-gray-400 hover:bg-[#FAFAF9] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loadingMore ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-black" />
+                    Loading more...
+                  </>
+                ) : (
+                  "Load more orders"
+                )}
+              </button>
+            </div>
+          )}
+          </>
         )}
       </div>
     </section>

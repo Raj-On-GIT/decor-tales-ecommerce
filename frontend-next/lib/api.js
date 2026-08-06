@@ -616,8 +616,15 @@ export async function clearCart() {
   return response.json();
 }
 
-export async function getMyOrders() {
-  const response = await fetchWithAuth(`${API_BASE}/api/orders/my-orders/`);
+export async function getMyOrders({ limit = 10, offset = 0 } = {}) {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/orders/my-orders/?${params.toString()}`,
+  );
 
   if (!response.ok) {
     throw new Error("Failed to fetch orders");
