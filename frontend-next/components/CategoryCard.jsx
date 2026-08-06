@@ -4,7 +4,7 @@ import Link from "next/link";
 export default function CategoryCard({ category }) {
   return (
     <Link href={`/catalog/${category.slug}`} className="group block h-full">
-      <article className="premium-card relative flex h-full flex-col overflow-hidden rounded-xl border-[#E7E5E4] bg-[#FAFAF9] p-1 transition-all duration-500 ease-out hover:-translate-y-1 sm:p-1.5">
+      <article className="premium-card relative flex h-full flex-col overflow-hidden rounded-xl border-[#E7E5E4] bg-[#FAFAF9] hover:bg-[#F0F0EF] p-1 transition-all duration-500 ease-out hover:-translate-y-1 sm:p-1.5">
         <div className="relative h-32 w-full shrink-0 overflow-hidden rounded-xl bg-[#F5F5F4] sm:h-48">
           {category.image ? (
             <Image
