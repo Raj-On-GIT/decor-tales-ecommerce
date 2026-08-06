@@ -4,7 +4,8 @@ from rest_framework import generics
 from rest_framework.views import APIView
 from .models import Banner, Product, Category, SubCategory, ProductActivity
 from .serializers import BannerSerializer, ProductSerializer, CategorySerializer, SubCategorySerializer, CategoryProductSerializer
-from django.db.models import Count, Q, Sum, Case, When, IntegerField, Value
+from django.db.models import Count, Q, Sum, Case, When, IntegerField, Value, BooleanField
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from datetime import timedelta
 import logging
@@ -114,6 +115,41 @@ class TrendingProductListView(generics.ListAPIView):
 
 # ================= CATEGORY DETAIL (Subcategory → Product Flow) =================
 
+def _parse_limit_offset(request, default_limit=None, max_limit=50):
+    raw_limit = request.GET.get("limit", "")
+
+    try:
+        limit = int(raw_limit)
+    except (TypeError, ValueError):
+        limit = default_limit
+
+    if limit is not None:
+        limit = max(1, min(limit, max_limit))
+
+    try:
+        offset = max(0, int(request.GET.get("offset", 0)))
+    except (TypeError, ValueError):
+        offset = 0
+
+    return limit, offset
+
+
+def _apply_catalog_ordering(queryset):
+    return queryset.annotate(
+        variant_stock_total=Coalesce(Sum("variants__stock"), Value(0)),
+        is_out_of_stock=Case(
+            When(
+                stock_type="variants",
+                variant_stock_total__lte=0,
+                then=Value(True),
+            ),
+            When(stock_type="main", stock__lte=0, then=Value(True)),
+            default=Value(False),
+            output_field=BooleanField(),
+        ),
+    ).order_by("is_out_of_stock", "-created_at", "-id")
+
+
 @api_view(["GET"])
 def category_detail(request, slug):
     try:
@@ -150,10 +186,18 @@ def category_detail(request, slug):
         })
 
     # Else → return products directly
-    products = Product.objects.filter(
+    base_products = Product.objects.filter(
         category=category,
         is_active=True
-    ).order_by("-created_at", "-id")
+    )
+    total_count = base_products.count()
+    limit, offset = _parse_limit_offset(request)
+
+    products = _apply_catalog_ordering(base_products)
+    if limit is not None:
+        products = products[offset : offset + limit]
+    else:
+        products = products[offset:]
 
     prod_serializer = CategoryProductSerializer(
         products,
@@ -165,7 +209,11 @@ def category_detail(request, slug):
         "category": category.name,
         "has_subcategories": False,
         "subcategories": [],
-        "products": prod_serializer.data
+        "products": prod_serializer.data,
+        "count": total_count,
+        "limit": limit,
+        "offset": offset,
+        "has_more": bool(limit is not None and offset + len(prod_serializer.data) < total_count),
     })
 
 # ================= SUBCATEGORY DETAIL =================
@@ -185,11 +233,19 @@ def subcategory_detail(request, category_slug, sub_slug):
             status=404
         )
 
-    products = Product.objects.filter(
+    base_products = Product.objects.filter(
         category=subcategory.category,
         sub_category=subcategory,
         is_active=True
-    ).order_by("-created_at", "-id")
+    )
+    total_count = base_products.count()
+    limit, offset = _parse_limit_offset(request)
+
+    products = _apply_catalog_ordering(base_products)
+    if limit is not None:
+        products = products[offset : offset + limit]
+    else:
+        products = products[offset:]
 
     serializer = CategoryProductSerializer(
         products,
@@ -200,7 +256,11 @@ def subcategory_detail(request, category_slug, sub_slug):
     return Response({
         "category": subcategory.category.name,
         "subcategory": subcategory.name,
-        "products": serializer.data
+        "products": serializer.data,
+        "count": total_count,
+        "limit": limit,
+        "offset": offset,
+        "has_more": bool(limit is not None and offset + len(serializer.data) < total_count),
     })
 
 

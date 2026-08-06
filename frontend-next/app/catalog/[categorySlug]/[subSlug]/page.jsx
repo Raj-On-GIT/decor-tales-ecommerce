@@ -1,12 +1,13 @@
 import { BACKEND } from "@/lib/api";
-import ProductCard from "@/components/ProductCard";
-import ViewportReveal from "@/components/ViewportReveal";
-import { sortProductsInStockFirst } from "@/lib/utils";
+import ProductGridWithLoadMore from "@/components/ProductGridWithLoadMore";
+
+const PRODUCTS_PER_PAGE = 12;
 
 async function getSubcategoryData(category, sub) {
-  const res = await fetch(`${BACKEND}/api/categories/${category}/${sub}/`, {
-    cache: "no-store",
-  });
+  const res = await fetch(
+    `${BACKEND}/api/categories/${category}/${sub}/?limit=${PRODUCTS_PER_PAGE}&offset=0`,
+    { cache: "no-store" },
+  );
 
   if (!res.ok) {
     throw new Error("Failed to fetch subcategory");
@@ -19,7 +20,7 @@ export default async function SubcategoryPage({ params }) {
   const { categorySlug, subSlug } = await params;
 
   const data = await getSubcategoryData(categorySlug, subSlug);
-  const sortedProducts = sortProductsInStockFirst(data.products || []);
+  const products = data.products || [];
 
   return (
     <section className="mx-auto max-w-screen-xl px-4 py-10 sm:px-6 sm:py-14 md:py-16">
@@ -29,20 +30,13 @@ export default async function SubcategoryPage({ params }) {
 
       <p className="mb-6 text-sm text-gray-600 sm:mb-8 sm:text-base">{data.subcategory}</p>
 
-      <ViewportReveal
-        stagger
-        className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-8 md:gap-10 lg:grid-cols-4"
-      >
-        {sortedProducts.length > 0 ? (
-          sortedProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))
-        ) : (
-          <p className="col-span-full text-center text-gray-500">
-            No products found in this subcategory.
-          </p>
-        )}
-      </ViewportReveal>
+      <ProductGridWithLoadMore
+        initialProducts={products}
+        count={data.count ?? products.length}
+        hasMore={Boolean(data.has_more)}
+        apiPath={`/api/categories/${categorySlug}/${subSlug}/`}
+        emptyMessage="No products found in this subcategory."
+      />
     </section>
   );
 }
