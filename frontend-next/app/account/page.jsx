@@ -10,7 +10,7 @@ import { getAccountSecurity, getProfile, updateProfile } from "@/lib/api";
 import { useGlobalToast } from "@/context/ToastContext";
 
 export default function AccountPage() {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, isLoggingOut } = useAuth();
   const router = useRouter();
   const { success, error } = useGlobalToast();
 
@@ -26,10 +26,10 @@ export default function AccountPage() {
   const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (!authLoading && !isAuthenticated && !isLoggingOut) {
       router.push("/login");
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, isLoggingOut, router]);
 
   useEffect(() => {
     async function loadProfile() {

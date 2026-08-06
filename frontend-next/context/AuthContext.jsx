@@ -13,6 +13,7 @@ const AuthContext = createContext({
   user: null,
   isAuthenticated: false,
   loading: true,
+  isLoggingOut: false,
   login: () => {},
   logout: () => {},
 });
@@ -67,6 +68,7 @@ function mergeCartMetadata(previousCart = [], nextCart = []) {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [loading, setLoading] = useState(true);
   const authRequestIdRef = useRef(0);
   const router = useRouter();
@@ -176,7 +178,7 @@ export function AuthProvider({ children }) {
             return;
           }
 
-          void clearAuthSession();
+          clearAuthSession();
           setUser(null);
           setIsAuthenticated(false);
         }
@@ -272,23 +274,27 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = async () => {
-    try {
-      beginAuthRequest();
-      setUser(null);
-      setIsAuthenticated(false);
-      setLoading(false);
-      await clearAuthSession();
-      router.push("/");
-    } catch (error) {
-      console.error("Error in logout():", error);
-    }
+  const logout = () => {
+    beginAuthRequest();
+    setIsLoggingOut(true);
+    setUser(null);
+    setIsAuthenticated(false);
+    setLoading(false);
+
+    clearAuthSession();
+
+    router.push("/");
+
+    setTimeout(() => {
+      setIsLoggingOut(false);
+    }, 500);
   };
 
   const value = {
     user,
     isAuthenticated,
     loading,
+    isLoggingOut,
     login,
     logout,
   };

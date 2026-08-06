@@ -106,7 +106,7 @@ function formatAddressMissingFields(fields) {
 }
 
 export default function CheckoutPage() {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, isLoggingOut } = useAuth();
   const { replaceCart, setCartLock } = useStore();
   const router = useRouter();
   const { success, error } = useGlobalToast();
@@ -132,10 +132,10 @@ export default function CheckoutPage() {
   }, [setCartLock]);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (!authLoading && !isAuthenticated && !isLoggingOut) {
       router.push("/login");
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, isLoggingOut, router]);
 
   useEffect(() => {
     if (!isAuthenticated) return;

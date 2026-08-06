@@ -366,17 +366,17 @@ function OrderProgress({ order }) {
 }
 
 export default function OrderDetailPage() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, isLoggingOut } = useAuth();
   const router = useRouter();
   const { id } = useParams();
 
   const [order, setOrder] = useState(null);
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    if (!loading && !isAuthenticated && !isLoggingOut) {
       router.push("/login");
     }
-  }, [loading, isAuthenticated, router]);
+  }, [loading, isAuthenticated, isLoggingOut, router]);
 
   useEffect(() => {
     async function loadOrder() {

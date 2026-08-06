@@ -79,12 +79,10 @@ export default function Header() {
    * - Resets auth state
    * - Redirects to homepage
    */
-  const handleLogout = async () => {
-    await logout();
+  const handleLogout = () => {
     setIsProfileOpen(false);
-
+    logout();
     toast.info("You’ve been signed out! See you soon 👋", 2500);
-
   };
   const trackOrderHref = "/track";
 // F0FFDF

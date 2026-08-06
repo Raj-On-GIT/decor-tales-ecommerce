@@ -165,16 +165,16 @@ function getProductStateMessage(product, variant) {
 }
 
 export default function OrdersPage() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, isLoggingOut } = useAuth();
   const router = useRouter();
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    if (!loading && !isAuthenticated && !isLoggingOut) {
       router.push("/login");
     }
-  }, [loading, isAuthenticated, router]);
+  }, [loading, isAuthenticated, isLoggingOut, router]);
 
   useEffect(() => {
     async function loadOrders() {

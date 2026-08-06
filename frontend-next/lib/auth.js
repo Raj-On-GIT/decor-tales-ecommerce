@@ -340,17 +340,13 @@ export function dispatchUserLogout() {
   window.dispatchEvent(new Event("user-logout"));
 }
 
-export function clearAuthSession({ redirectTo = null } = {}) {
+export function clearAuthSession() {
   clearLegacyTokenStorage();
   clearStoredCart();
   dispatchUserLogout();
 
-  const logoutPromise = logoutRequest();
-
-  return logoutPromise.finally(() => {
-    if (redirectTo && isBrowser) {
-      window.location.href = redirectTo;
-    }
+  logoutRequest().catch((error) => {
+    console.error("Server logout request failed (session already cleared):", error);
   });
 }
 
