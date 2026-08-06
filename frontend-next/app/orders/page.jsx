@@ -278,11 +278,17 @@ export default function OrdersPage() {
                             key={`${order.id}-${item.product.id || "missing"}-${index}`}
                             href={item.product?.can_view ? `/products/${item.product.id}` : null}
                             image={item.product.image}
+                            imageClassName="self-center"
                             title={item.product.title}
                             category={item.product.category}
                             subCategory={item.product.sub_category}
+                            categoryTrailProps={{
+                              singleLine: true,
+                              chipClassName: "text-gray-600",
+                              linkClassName:
+                                "text-gray-600 transition hover:text-gray-800 hover:underline underline-offset-2",
+                            }}
                             variant={item.variant}
-                            quantity={item.quantity}
                             secondaryContent={
                               <>
                                 {customizationTag ? (
@@ -297,10 +303,17 @@ export default function OrdersPage() {
                                 ) : null}
                               </>
                             }
-                            className="rounded-[1.25rem] bg-[#fafcf7] p-3"
-                            rowClassName="items-center"
-                            imageClassName="self-center h-14 w-14 rounded-lg sm:h-14 sm:w-14"
-                            contentClassName="items-center"
+                            actions={
+                              <div className="text-right">
+                                <p className="text-sm font-semibold text-gray-900">
+                                  Qty: {item.quantity}
+                                </p>
+                              </div>
+                            }
+                            rowClassName="flex-row items-start justify-between"
+                            contentClassName="min-w-0 flex-1 items-center"
+                            asideClassName="self-start sm:self-center"
+                            truncateText
                           />
                           );
                         })}
