@@ -17,6 +17,10 @@ from accounts.models import Address
 from products.models import Product, ProductVariant
 from utils.delhivery_service import DelhiveryService, DelhiveryServiceError
 
+from .email_services import (
+    send_order_confirmation_email,
+    send_store_order_notification,
+)
 from .models import (
     Cart,
     CartItem,
@@ -595,6 +599,13 @@ def process_successful_payment(*, order, razorpay_order_id, razorpay_payment_id,
             "payment_verified_at",
             "updated_at",
         ]
+    )
+
+    transaction.on_commit(
+        lambda: send_order_confirmation_email(order)
+    )
+    transaction.on_commit(
+        lambda: send_store_order_notification(order)
     )
 
     ensure_coupon_usage(order)

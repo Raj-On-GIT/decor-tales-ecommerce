@@ -2,7 +2,6 @@ import secrets
 import logging
 from datetime import timedelta
 
-import requests
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User
@@ -12,6 +11,8 @@ from django.utils import timezone
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import serializers
+
+from utils.email_service import send_email
 
 from .email_utils import normalize_email_address
 from .models import SignupOTPChallenge, UserAuthIdentity
@@ -50,30 +51,8 @@ def _generate_numeric_otp():
     return f"{secrets.randbelow(900000) + 100000:06d}"
 
 
-def _send_resend_email(*, to_email, subject, html):
-    if not settings.RESEND_API_KEY:
-        raise RuntimeError("RESEND_API_KEY is not configured.")
-
-    response = requests.post(
-        settings.RESEND_API_URL,
-        headers={
-            "Authorization": f"Bearer {settings.RESEND_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "from": settings.RESEND_FROM_EMAIL,
-            "to": [to_email],
-            "subject": subject,
-            "html": html,
-        },
-        timeout=15,
-    )
-    response.raise_for_status()
-    return response.json()
-
-
 def send_signup_otp_email(*, to_email, otp_code):
-    return _send_resend_email(
+    return send_email(
         to_email=to_email,
         subject="Your DecorTales signup verification code",
         html=(
@@ -86,7 +65,7 @@ def send_signup_otp_email(*, to_email, otp_code):
 
 
 def send_password_reset_email(*, to_email, reset_url):
-    return _send_resend_email(
+    return send_email(
         to_email=to_email,
         subject="Reset your DecorTales password",
         html=(

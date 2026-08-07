@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 from django.test.utils import override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -2631,3 +2631,345 @@ class OrderAdminDelhiveryShipmentTests(TestCase):
         self.assertEqual(self.order.delhivery_tracking_status_code, "OFD")
         self.assertEqual(self.order.delhivery_last_scan_location, "Noida")
         self.assertContains(response, "Tracking refreshed for order")
+
+
+class OrderConfirmationEmailUnitTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="email-user",
+            email="customer@example.com",
+            password="testpass123",
+        )
+        self.category = Category.objects.create(name="Email Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Email Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Email Frame",
+            mrp=Decimal("500.00"),
+            slashed_price=Decimal("400.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("500.00"),
+            discount_amount=Decimal("100.00"),
+            total_amount=Decimal("400.00"),
+            coupon_code="SAVE100",
+            shipping_email=self.user.email,
+            shipping_full_name="Test User",
+            shipping_address="Street 1",
+            city="Delhi",
+            shipping_state="Delhi",
+            shipping_country="India",
+            postal_code="110001",
+            phone="9999999999",
+            status="paid",
+            payment_processed=True,
+        )
+        self.order_item = OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=2,
+            price=Decimal("250.00"),
+        )
+        self.order_item.capture_product_snapshot(product=self.product)
+        self.order_item.save(update_fields=["product_title"])
+
+    def test_build_order_confirmation_html_contains_order_details(self):
+        from orders.email_services import build_order_confirmation_html
+
+        html = build_order_confirmation_html(self.order)
+
+        self.assertIn("Email Frame", html)
+        self.assertIn(self.order.order_number, html)
+        self.assertIn("Rs. 500.00", html)
+        self.assertIn("Rs. 400.00", html)
+        self.assertIn("SAVE100", html)
+        self.assertIn("Street 1", html)
+        self.assertIn("Track your order", html)
+        self.assertIn("/track", html)
+
+    def test_build_store_notification_html_contains_order_details(self):
+        from orders.email_services import build_store_notification_html
+
+        html = build_store_notification_html(self.order)
+
+        self.assertIn("New Order Received", html)
+        self.assertIn(self.order.order_number, html)
+        self.assertIn("customer@example.com", html)
+        self.assertIn("2x Email Frame", html)
+        self.assertIn("Rs. 400.00", html)
+
+    @patch("orders.email_services.send_email")
+    def test_send_order_confirmation_email_is_idempotent(self, mock_send_email):
+        from orders.email_services import send_order_confirmation_email
+
+        send_order_confirmation_email(self.order)
+        send_order_confirmation_email(self.order)
+
+        mock_send_email.assert_called_once()
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.confirmation_email_sent_at)
+
+    @patch("orders.email_services.send_email")
+    def test_send_order_confirmation_email_uses_shipping_email(self, mock_send_email):
+        from orders.email_services import send_order_confirmation_email
+
+        send_order_confirmation_email(self.order)
+
+        mock_send_email.assert_called_once()
+        self.assertEqual(mock_send_email.call_args.kwargs["to_email"], "customer@example.com")
+        self.assertIn(self.order.order_number, mock_send_email.call_args.kwargs["subject"])
+
+    @patch("orders.email_services.send_email")
+    def test_send_order_confirmation_email_falls_back_to_user_email(self, mock_send_email):
+        from orders.email_services import send_order_confirmation_email
+
+        self.order.shipping_email = ""
+        self.order.save(update_fields=["shipping_email"])
+
+        send_order_confirmation_email(self.order)
+
+        mock_send_email.assert_called_once()
+        self.assertEqual(mock_send_email.call_args.kwargs["to_email"], "customer@example.com")
+
+    @override_settings(STORE_ORDER_NOTIFY_EMAIL="")
+    @patch("orders.email_services.send_email")
+    def test_store_notification_skipped_when_not_configured(self, mock_send_email):
+        from orders.email_services import send_store_order_notification
+
+        send_store_order_notification(self.order)
+
+        mock_send_email.assert_not_called()
+
+    @patch("orders.email_services.send_email")
+    def test_store_notification_sends_to_configured_address(self, mock_send_email):
+        from orders.email_services import send_store_order_notification
+
+        send_store_order_notification(self.order)
+
+        mock_send_email.assert_called_once()
+        self.assertEqual(
+            mock_send_email.call_args.kwargs["to_email"],
+            "shrikrishnahandicrafts30@gmail.com",
+        )
+        self.assertIn(self.order.order_number, mock_send_email.call_args.kwargs["subject"])
+
+    @patch("orders.email_services.send_email")
+    def test_send_order_confirmation_email_swallows_send_errors(self, mock_send_email):
+        from orders.email_services import send_order_confirmation_email
+
+        mock_send_email.side_effect = RuntimeError("boom")
+
+        send_order_confirmation_email(self.order)
+
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.confirmation_email_sent_at)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class OrderConfirmationEmailFlowTests(TransactionTestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="email-flow-user",
+            email="flow@example.com",
+            password="testpass123",
+        )
+        self.client.force_authenticate(user=self.user)
+
+        self.category = Category.objects.create(name="Flow Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Flow Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Flow Frame",
+            mrp=Decimal("500.00"),
+            slashed_price=Decimal("400.00"),
+            stock=1,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.cart = Cart.objects.create(user=self.user)
+        CartItem.objects.create(cart=self.cart, product=self.product, quantity=1)
+
+        from accounts.models import Address
+
+        self.address = Address.objects.create(
+            user=self.user,
+            full_name="Flow User",
+            phone="9999999999",
+            address_line_1="Street 1",
+            address_line_2="",
+            city="Delhi",
+            state="Delhi",
+            postal_code="110001",
+            is_default=True,
+        )
+        self.delhivery_serviceability_patcher = patch(
+            "orders.payment_services.DelhiveryService.get_pincode_serviceability",
+            return_value={
+                "delivery_codes": [
+                    {
+                        "postal_code": {
+                            "cod": "N",
+                            "pre_paid": "Y",
+                            "pickup": "Y",
+                            "is_oda": "N",
+                            "remarks": "",
+                        }
+                    }
+                ]
+            },
+        )
+        self.mock_delhivery_serviceability = self.delhivery_serviceability_patcher.start()
+        self.addCleanup(self.delhivery_serviceability_patcher.stop)
+
+    def create_payment_order(self, mock_client):
+        mock_client.return_value.order.create.return_value = {
+            "id": "order_rzp_email_1",
+            "amount": 40000,
+            "currency": "INR",
+        }
+        mock_client.return_value.order.payments.return_value = {
+            "items": [
+                {
+                    "id": "pay_email_1",
+                    "order_id": "order_rzp_email_1",
+                    "status": "captured",
+                }
+            ]
+        }
+
+        response = self.client.post(
+            reverse("create_payment_order"),
+            {"address_id": self.address.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        return response.data["order"]["id"]
+
+    @patch("orders.payment_services.verify_razorpay_webhook_signature", return_value=True)
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_successful_payment_sends_customer_and_store_emails_once(
+        self,
+        mock_client,
+        mock_verify_signature,
+    ):
+        order_id = self.create_payment_order(mock_client)
+
+        webhook_payload = {
+            "event": "payment.captured",
+            "payload": {
+                "payment": {
+                    "entity": {
+                        "id": "pay_email_1",
+                        "order_id": "order_rzp_email_1",
+                        "notes": {"order_id": str(order_id)},
+                    }
+                }
+            },
+        }
+
+        with patch("orders.email_services.send_email") as mock_send_email:
+            first_response = self.client.post(
+                reverse("razorpay_webhook"),
+                webhook_payload,
+                format="json",
+                HTTP_X_RAZORPAY_SIGNATURE="sig",
+            )
+            second_response = self.client.post(
+                reverse("razorpay_webhook"),
+                webhook_payload,
+                format="json",
+                HTTP_X_RAZORPAY_SIGNATURE="sig",
+            )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(order.status, "paid")
+        self.assertTrue(order.payment_processed)
+        self.assertIsNotNone(order.confirmation_email_sent_at)
+
+        self.assertEqual(mock_send_email.call_count, 2)
+        recipients = [call.kwargs["to_email"] for call in mock_send_email.call_args_list]
+        self.assertEqual(sorted(recipients), ["flow@example.com", "shrikrishnahandicrafts30@gmail.com"])
+        subjects = [call.kwargs["subject"] for call in mock_send_email.call_args_list]
+        self.assertTrue(all(order.order_number in subject for subject in subjects))
+        self.assertTrue(any("New Order Received" in subject for subject in subjects))
+        self.assertTrue(any("Order Confirmed" in subject for subject in subjects))
+
+    @patch("orders.payment_services.verify_razorpay_signature", return_value=True)
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_verify_payment_callback_sends_emails(self, mock_client, mock_verify_signature):
+        order_id = self.create_payment_order(mock_client)
+        mock_client.return_value.payment.fetch.return_value = {
+            "id": "pay_email_2",
+            "order_id": "order_rzp_email_1",
+            "status": "captured",
+            "amount": 40000,
+            "notes": {
+                "order_id": str(order_id),
+                "user_id": str(self.user.id),
+            },
+        }
+
+        with patch("orders.email_services.send_email") as mock_send_email:
+            response = self.client.post(
+                reverse("verify_payment"),
+                {
+                    "order_id": order_id,
+                    "razorpay_order_id": "order_rzp_email_1",
+                    "razorpay_payment_id": "pay_email_2",
+                    "razorpay_signature": "sig",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(order.status, "paid")
+        self.assertIsNotNone(order.confirmation_email_sent_at)
+        self.assertEqual(mock_send_email.call_count, 2)
+
+    @patch("orders.payment_services.verify_razorpay_webhook_signature", return_value=True)
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_failed_payment_sends_no_emails(self, mock_client, mock_verify_signature):
+        order_id = self.create_payment_order(mock_client)
+
+        self.product.stock = 0
+        self.product.save(update_fields=["stock"])
+
+        webhook_payload = {
+            "event": "payment.captured",
+            "payload": {
+                "payment": {
+                    "entity": {
+                        "id": "pay_email_3",
+                        "order_id": "order_rzp_email_1",
+                        "notes": {"order_id": str(order_id)},
+                    }
+                }
+            },
+        }
+
+        with patch("orders.email_services.send_email") as mock_send_email:
+            response = self.client.post(
+                reverse("razorpay_webhook"),
+                webhook_payload,
+                format="json",
+                HTTP_X_RAZORPAY_SIGNATURE="sig",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(order.status, "failed")
+        self.assertFalse(order.payment_processed)
+        mock_send_email.assert_not_called()

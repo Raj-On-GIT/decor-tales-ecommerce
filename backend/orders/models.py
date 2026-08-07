@@ -166,6 +166,7 @@ class Order(models.Model):
     payment_processed = models.BooleanField(default=False)
     refund_processed = models.BooleanField(default=False)
     customization_media_purged_at = models.DateTimeField(blank=True, null=True)
+    confirmation_email_sent_at = models.DateTimeField(blank=True, null=True)
     
     # Shipping details
     shipping_email = models.EmailField(blank=True)
