@@ -2973,3 +2973,227 @@ class OrderConfirmationEmailFlowTests(TransactionTestCase):
         self.assertEqual(order.status, "failed")
         self.assertFalse(order.payment_processed)
         mock_send_email.assert_not_called()
+
+
+@override_settings(
+    STORAGES={
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    },
+)
+class FailedPendingOrderPurgeTests(TestCase):
+    def setUp(self):
+        self.media_root = os.path.join(os.getcwd(), "test_media_order_purge")
+        shutil.rmtree(self.media_root, ignore_errors=True)
+        os.makedirs(self.media_root, exist_ok=True)
+
+        from django.conf import settings
+
+        self._original_media_root = settings.MEDIA_ROOT
+        settings.MEDIA_ROOT = self.media_root
+
+        self.user = User.objects.create_user(
+            username="purge-user",
+            email="purge@example.com",
+            password="testpass123",
+        )
+        self.category = Category.objects.create(name="Purge Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Purge Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Purge Frame",
+            mrp=Decimal("799.00"),
+            stock=10,
+            category=self.category,
+            sub_category=self.subcategory,
+            allow_custom_image=True,
+        )
+        self.coupon = Coupon.objects.create(
+            code="PURGE10",
+            title="Purge Coupon",
+            discount_type=Coupon.TYPE_FIXED,
+            discount_value=Decimal("50.00"),
+        )
+
+    def tearDown(self):
+        from django.conf import settings
+
+        settings.MEDIA_ROOT = self._original_media_root
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def create_order(
+        self,
+        status="failed",
+        *,
+        days_ago=10,
+        payment_processed=False,
+        payment_id="",
+        waybill="",
+        coupon_code="",
+    ):
+        order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("799.00"),
+            discount_amount=Decimal("50.00") if coupon_code else Decimal("0.00"),
+            total_amount=Decimal("749.00") if coupon_code else Decimal("799.00"),
+            coupon_code=coupon_code,
+            shipping_address="Address line",
+            city="Delhi",
+            postal_code="110001",
+            phone="9999999999",
+            status=status,
+            payment_processed=payment_processed,
+            razorpay_payment_id=payment_id,
+            delhivery_waybill=waybill,
+        )
+        Order.objects.filter(pk=order.pk).update(
+            created_at=timezone.now() - timedelta(days=days_ago)
+        )
+        return order
+
+    def run_command(self, *extra_args):
+        call_command("purge_failed_pending_orders", "--days", "7", *extra_args)
+
+    def test_deletes_old_failed_orders(self):
+        order = self.create_order("failed", payment_id="pay_failed_old")
+
+        self.run_command()
+
+        self.assertFalse(Order.objects.filter(pk=order.pk).exists())
+
+    def test_deletes_old_pending_orders_without_payment_id(self):
+        order = self.create_order("pending")
+
+        self.run_command()
+
+        self.assertFalse(Order.objects.filter(pk=order.pk).exists())
+
+    def test_keeps_old_paid_orders(self):
+        order = self.create_order("paid", payment_processed=True, payment_id="pay_1")
+
+        self.run_command()
+
+        self.assertTrue(Order.objects.filter(pk=order.pk).exists())
+
+    def test_keeps_old_processing_shipped_delivered_cancelled_orders(self):
+        for status in ("processing", "shipped", "delivered", "cancelled"):
+            order = self.create_order(status, payment_processed=True)
+            self.run_command()
+            self.assertTrue(
+                Order.objects.filter(pk=order.pk).exists(),
+                f"{status} order should survive the purge.",
+            )
+
+    def test_keeps_recent_failed_orders(self):
+        order = self.create_order("failed", days_ago=1)
+
+        self.run_command()
+
+        self.assertTrue(Order.objects.filter(pk=order.pk).exists())
+
+    def test_keeps_orders_with_delhivery_waybill(self):
+        order = self.create_order("failed", waybill="WB123")
+
+        self.run_command()
+
+        self.assertTrue(Order.objects.filter(pk=order.pk).exists())
+
+    def test_cascade_deletes_related_order_data(self):
+        order = self.create_order("failed")
+        order_item = OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("799.00"),
+            custom_image=build_test_image("purge-custom.png", size=(220, 220)),
+        )
+        stored_path = order_item.custom_image.path
+        OrderItemImage.objects.create(
+            order_item=order_item,
+            image=build_test_image("purge-custom-extra.png", size=(220, 220)),
+        )
+        StockReservation.objects.create(
+            order=order,
+            product=self.product,
+            quantity=1,
+            reserved_until=timezone.now() + timedelta(minutes=10),
+        )
+        CouponUsage.objects.create(
+            coupon=self.coupon,
+            user=self.user,
+            order=order,
+            discount_amount=Decimal("50.00"),
+        )
+
+        self.run_command()
+
+        self.assertFalse(Order.objects.filter(pk=order.pk).exists())
+        self.assertFalse(OrderItem.objects.filter(pk=order_item.pk).exists())
+        self.assertFalse(OrderItemImage.objects.filter(order_item_id=order_item.pk).exists())
+        self.assertFalse(StockReservation.objects.filter(order_id=order.pk).exists())
+        self.assertFalse(CouponUsage.objects.filter(order_id=order.pk).exists())
+        self.assertFalse(os.path.exists(stored_path))
+
+    @patch("orders.management.commands.purge_failed_pending_orders.reconcile_order_payment")
+    def test_pending_order_confirmed_unpaid_is_deleted(self, mock_reconcile):
+        order = self.create_order("pending", payment_id="pay_pending_unpaid")
+
+        def confirm_unpaid(instance):
+            return instance
+
+        mock_reconcile.side_effect = confirm_unpaid
+
+        self.run_command()
+
+        mock_reconcile.assert_called_once()
+        self.assertFalse(Order.objects.filter(pk=order.pk).exists())
+
+    @patch("orders.management.commands.purge_failed_pending_orders.reconcile_order_payment")
+    def test_pending_order_reconciled_as_paid_is_kept(self, mock_reconcile):
+        order = self.create_order("pending", payment_id="pay_pending_paid")
+
+        def confirm_paid(instance):
+            instance.payment_processed = True
+            return instance
+
+        mock_reconcile.side_effect = confirm_paid
+
+        self.run_command()
+
+        mock_reconcile.assert_called_once()
+        self.assertTrue(Order.objects.filter(pk=order.pk).exists())
+
+    @patch("orders.management.commands.purge_failed_pending_orders.reconcile_order_payment")
+    def test_no_reconcile_keeps_pending_orders_with_payment_id(self, mock_reconcile):
+        order = self.create_order("pending", payment_id="pay_pending_noreconcile")
+
+        self.run_command("--no-reconcile")
+
+        mock_reconcile.assert_not_called()
+        self.assertTrue(Order.objects.filter(pk=order.pk).exists())
+
+    @patch("orders.management.commands.purge_failed_pending_orders.reconcile_order_payment")
+    def test_reconcile_unavailable_keeps_pending_orders_with_payment_id(self, mock_reconcile):
+        from django.core.exceptions import ImproperlyConfigured
+
+        order = self.create_order("pending", payment_id="pay_pending_unavail")
+        mock_reconcile.side_effect = ImproperlyConfigured("No Razorpay creds.")
+
+        self.run_command()
+
+        self.assertTrue(Order.objects.filter(pk=order.pk).exists())
+
+    @patch("orders.management.commands.purge_failed_pending_orders.reconcile_order_payment")
+    def test_reconcile_error_keeps_pending_orders_with_payment_id(self, mock_reconcile):
+        order = self.create_order("pending", payment_id="pay_pending_error")
+        mock_reconcile.side_effect = RuntimeError("boom")
+
+        self.run_command()
+
+        self.assertTrue(Order.objects.filter(pk=order.pk).exists())
