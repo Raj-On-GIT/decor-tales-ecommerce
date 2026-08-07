@@ -314,9 +314,7 @@ def summarize_expected_tat(
 def build_delhivery_products_description(order):
     titles = []
     for item in order.items.all():
-        title = (item.product_title or "").strip()
-        if not title and item.product:
-            title = (item.product.title or "").strip()
+        title = (item.product.title if item.product else (item.product_title or "")).strip()
         if title:
             titles.append(title)
 
@@ -814,17 +812,27 @@ def serialize_order_item_product(item, request):
         image_url = request.build_absolute_uri(build_media_url(item.product_image))
 
     category = None
-    if item.product_category_name or (product_exists and product.category):
+    if product_exists and product.category:
         category = {
-            "name": item.product_category_name or product.category.name,
-            "slug": item.product_category_slug or product.category.slug,
+            "name": product.category.name,
+            "slug": product.category.slug,
+        }
+    elif item.product_category_name:
+        category = {
+            "name": item.product_category_name,
+            "slug": item.product_category_slug or "",
         }
 
     sub_category = None
-    if item.product_sub_category_name or (product_exists and product.sub_category):
+    if product_exists and product.sub_category:
         sub_category = {
-            "name": item.product_sub_category_name or product.sub_category.name,
-            "slug": item.product_sub_category_slug or product.sub_category.slug,
+            "name": product.sub_category.name,
+            "slug": product.sub_category.slug,
+        }
+    elif item.product_sub_category_name:
+        sub_category = {
+            "name": item.product_sub_category_name,
+            "slug": item.product_sub_category_slug or "",
         }
 
     pricing = (
@@ -840,8 +848,8 @@ def serialize_order_item_product(item, request):
 
     return {
         "id": product.id if product_exists else None,
-        "title": item.product_title or (product.title if product_exists else "Product no longer available"),
-        "slug": item.product_slug or (product.slug if product_exists else ""),
+        "title": product.title if product_exists else (item.product_title or "Product no longer available"),
+        "slug": product.slug if product_exists else item.product_slug,
         "image": image_url,
         "category": category,
         "sub_category": sub_category,

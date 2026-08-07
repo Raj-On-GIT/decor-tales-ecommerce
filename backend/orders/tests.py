@@ -1334,20 +1334,48 @@ class ProductAvailabilityHistoryTests(TestCase):
         self.assertEqual(self.order_item.product_id, self.product.id)
         self.assertEqual(self.order_item.product_title, "Legacy Frame")
 
-    def test_order_detail_uses_snapshot_when_live_product_changes(self):
+    def test_order_detail_prefers_live_product_over_snapshot(self):
         self.product.title = "Renamed Frame"
-        self.product.category = None
-        self.product.sub_category = None
-        self.product.save(update_fields=["title", "category", "sub_category"])
+        self.product.save(update_fields=["title"])
 
         response = self.client.get(reverse("order_detail", kwargs={"order_id": self.order.id}))
 
         self.assertEqual(response.status_code, 200)
         product_payload = response.data["order"]["items"][0]["product"]
-        self.assertEqual(product_payload["title"], "Legacy Frame")
+        self.assertEqual(product_payload["title"], "Renamed Frame")
         self.assertEqual(product_payload["category"]["name"], "Archive Frames")
         self.assertEqual(product_payload["status"], "available")
         self.assertTrue(product_payload["can_view"])
+
+    def test_order_detail_falls_back_to_snapshot_when_product_missing(self):
+        OrderItem.objects.create(
+            order=self.order,
+            product=None,
+            quantity=1,
+            price=Decimal("399.00"),
+            product_title="Deleted Frame",
+            product_slug="deleted-frame",
+            product_category_name="Archive Frames",
+        )
+
+        response = self.client.get(reverse("order_detail", kwargs={"order_id": self.order.id}))
+
+        self.assertEqual(response.status_code, 200)
+        products = [item["product"] for item in response.data["order"]["items"]]
+        deleted_payload = next(p for p in products if p["title"] == "Deleted Frame")
+        self.assertEqual(deleted_payload["status"], "missing")
+        self.assertFalse(deleted_payload["can_view"])
+        self.assertEqual(deleted_payload["category"]["name"], "Archive Frames")
+
+    def test_order_list_prefers_live_product_over_snapshot(self):
+        self.product.title = "Renamed Frame"
+        self.product.save(update_fields=["title"])
+
+        response = self.client.get(reverse("my_orders"))
+
+        self.assertEqual(response.status_code, 200)
+        order_payload = response.data["orders"][0]
+        self.assertEqual(order_payload["items"][0]["product"]["title"], "Renamed Frame")
 
 
 @override_settings(

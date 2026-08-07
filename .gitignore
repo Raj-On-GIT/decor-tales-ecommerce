@@ -82,3 +82,6 @@ Thumbs.db
 coverage/
 dist/
 build/
+
+
+backend/test_media_*/
