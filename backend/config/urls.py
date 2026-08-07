@@ -21,6 +21,7 @@ from django.conf.urls.static import static
 from django.http import JsonResponse
 from django.views.static import serve
 from orders.views import serve_order_media_direct
+from orders.maintenance_views import run_order_maintenance
 from accounts.views import (
     reset_password_view,
     signup_view,
@@ -64,6 +65,7 @@ urlpatterns = [
     path("api/", include("products.urls")),
     path("api/orders/", include("orders.urls")),
     path("api/payments/", include("orders.payment_urls")),
+    path("api/internal/maintenance/", run_order_maintenance, name="internal_maintenance"),
 
     path("api/auth/forgot-password/", forgot_password_view),
     path("api/auth/reset-password/", reset_password_view),

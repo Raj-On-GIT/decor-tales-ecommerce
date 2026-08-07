@@ -3197,3 +3197,81 @@ class FailedPendingOrderPurgeTests(TestCase):
         self.run_command()
 
         self.assertTrue(Order.objects.filter(pk=order.pk).exists())
+
+
+@override_settings(MAINTENANCE_CRON_TOKEN="test-maintenance-token")
+class MaintenanceEndpointTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def post_maintenance(self, token=None):
+        headers = {}
+        if token is not None:
+            headers["HTTP_X_MAINTENANCE_TOKEN"] = token
+        return self.client.post(
+            reverse("internal_maintenance"),
+            {},
+            format="json",
+            **headers,
+        )
+
+    def test_returns_403_without_token(self):
+        response = self.post_maintenance(token=None)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_returns_403_with_wrong_token(self):
+        response = self.post_maintenance(token="wrong-token")
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_returns_503_when_token_unset(self):
+        with override_settings(MAINTENANCE_CRON_TOKEN=""):
+            response = self.post_maintenance(token="anything")
+
+        self.assertEqual(response.status_code, 503)
+
+    @patch("orders.maintenance_views.call_command")
+    def test_runs_all_three_commands_with_correct_token(self, mock_call_command):
+        mock_call_command.side_effect = lambda name, *args, **kwargs: None
+
+        response = self.post_maintenance(token="test-maintenance-token")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["ran"],
+            [
+                "reconcile_pending_payments",
+                "purge_delivered_order_media",
+                "purge_failed_pending_orders",
+            ],
+        )
+        self.assertEqual(mock_call_command.call_count, 3)
+        call_names = [call.args[0] for call in mock_call_command.call_args_list]
+        self.assertEqual(
+            call_names,
+            [
+                "reconcile_pending_payments",
+                "purge_delivered_order_media",
+                "purge_failed_pending_orders",
+            ],
+        )
+        for call in mock_call_command.call_args_list:
+            self.assertIn("--limit", call.args)
+
+    @patch("orders.maintenance_views.call_command")
+    def test_reports_errors_without_aborting_batch(self, mock_call_command):
+        def side_effect(name, *args, **kwargs):
+            if name == "purge_delivered_order_media":
+                raise RuntimeError("boom")
+
+        mock_call_command.side_effect = side_effect
+
+        response = self.post_maintenance(token="test-maintenance-token")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["errors"],
+            {"purge_delivered_order_media": "boom"},
+        )
+        self.assertEqual(mock_call_command.call_count, 3)

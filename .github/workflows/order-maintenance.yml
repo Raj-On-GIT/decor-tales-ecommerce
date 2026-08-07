@@ -1,0 +1,17 @@
+name: Order maintenance
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+jobs:
+  run-order-maintenance:
+    name: Run order maintenance commands
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger maintenance endpoint
+        run: |
+          curl -sS -f -X POST \
+            "${{ secrets.API_BASE_URL }}/api/internal/maintenance/" \
+            -H "X-Maintenance-Token: ${{ secrets.MAINTENANCE_CRON_TOKEN }}"
