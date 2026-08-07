@@ -62,17 +62,6 @@ export default function ReturnsPage() {
             </article>
           ))}
         </div>
-
-        <div className="mt-8 rounded-[28px] border border-dashed border-[#b8cbc6] bg-white/60 p-6 sm:p-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#2f5d56]">
-            Edit Placeholder
-          </p>
-          <p className="mt-3 max-w-3xl text-sm leading-7 text-[#4c6765] sm:text-base">
-            Add future notes here such as packaging instructions, proof
-            requirements for transit damage, exchange approval process, or any
-            category-specific conditions.
-          </p>
-        </div>
       </div>
     </section>
   );

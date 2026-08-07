@@ -281,61 +281,27 @@ export default function ShippingPage() {
           ))}
         </div>
 
-        <div className="mt-12 grid gap-5 md:grid-cols-[0.98fr_1.02fr] lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="rounded-[30px] border border-[#d7e2de] bg-white/90 p-6 shadow-[0_18px_60px_rgba(16,39,38,0.08)] sm:p-8">
+        <div className="mt-12 rounded-[30px] border border-[#d7e2de] bg-white/90 p-6 shadow-[0_18px_60px_rgba(16,39,38,0.08)] sm:p-8">
+          <div className="flex items-center gap-3">
+            <CircleHelp className="text-[#2f5d56]" size={18} />
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#7b8f8d]">
-              Tracking
+              Shipping FAQ
             </p>
-            <h2 className="mt-4 text-2xl font-semibold text-[#173433]">
-              Track your order
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-[#4c6765]">
-              Use the official Delhivery tracking resource once shipment details
-              are shared. If you later build an internal tracker, this section
-              is ready to be replaced with a working form.
-            </p>
-
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <input
-                type="text"
-                readOnly
-                aria-label="Tracking placeholder"
-                value="AWB / tracking input can be connected here later"
-                className="w-full rounded-2xl border border-[#dbe6e2] bg-[#f8fbf9] px-4 py-3 text-sm text-[#6f8482] focus:outline-none"
-              />
-              <a
-                href="https://help.delhivery.com/docs/track-orders"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex shrink-0 items-center justify-center rounded-xl bg-[#173b38] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#102c2a]"
-              >
-                Open Tracking
-              </a>
-            </div>
           </div>
-
-          <div className="rounded-[30px] border border-[#d7e2de] bg-white/90 p-6 shadow-[0_18px_60px_rgba(16,39,38,0.08)] sm:p-8">
-            <div className="flex items-center gap-3">
-              <CircleHelp className="text-[#2f5d56]" size={18} />
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#7b8f8d]">
-                Shipping FAQ
-              </p>
-            </div>
-            <div className="mt-6 space-y-4">
-              {faqs.map((faq) => (
-                <div
-                  key={faq.question}
-                  className="rounded-2xl border border-[#e6eeeb] bg-[#f9fbfa] p-4"
-                >
-                  <h2 className="text-lg font-semibold text-[#173433]">
-                    {faq.question}
-                  </h2>
-                  <p className="mt-2 text-sm leading-7 text-[#4c6765]">
-                    {faq.answer}
-                  </p>
-                </div>
-              ))}
-            </div>
+          <div className="mt-6 space-y-4">
+            {faqs.map((faq) => (
+              <div
+                key={faq.question}
+                className="rounded-2xl border border-[#e6eeeb] bg-[#f9fbfa] p-4"
+              >
+                <h2 className="text-lg font-semibold text-[#173433]">
+                  {faq.question}
+                </h2>
+                <p className="mt-2 text-sm leading-7 text-[#4c6765]">
+                  {faq.answer}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 

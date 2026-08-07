@@ -24,12 +24,7 @@ export default async function Trending() {
     >
       <ViewportReveal>
         {/* Heading Row */}
-        <div
-          className="
-            mb-5 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 md:mb-10
-            sm:items-end
-          "
-        >
+        <div className="mb-5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 md:mb-10">
           <div className="min-w-0">
             <h2
               className="
@@ -40,13 +35,12 @@ export default async function Trending() {
             >
               Trending Now
             </h2>
+            <p className="mt-2 text-sm text-gray-600 sm:text-base">
+              Most loved by our customers right now.
+            </p>
           </div>
 
           <ViewAllLink href="/trending" className="col-start-2 row-start-1" />
-
-          <p className="col-span-full text-sm text-gray-600 sm:mt-2 sm:text-base">
-            Most loved by our customers right now.
-          </p>
         </div>
 
         {/* Products */}

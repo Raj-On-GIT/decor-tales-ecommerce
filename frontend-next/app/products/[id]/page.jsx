@@ -1085,11 +1085,14 @@ export default function ProductDetailPage() {
             ) : (
               <>
                 {/* Heading Row */}
-                <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 sm:mb-8 sm:items-end">
+                <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 sm:mb-8">
                   <div className="min-w-0">
                     <h2 className="font-serif text-2xl font-bold text-black sm:text-4xl">
                       Similar products
                     </h2>
+                    <p className="mt-2 text-sm text-gray-600 sm:text-base">
+                      Discover more from {product.sub_category?.name || product.category?.name}.
+                    </p>
                   </div>
 
                   <ViewAllLink
@@ -1100,10 +1103,6 @@ export default function ProductDetailPage() {
                     }
                     className="col-start-2 row-start-1"
                   />
-
-                  <p className="col-span-full text-sm text-gray-600 sm:mt-2 sm:text-base">
-                    Discover more from {product.sub_category?.name || product.category?.name}.
-                  </p>
                 </div>
 
                 {/* Product Grid */}
