@@ -55,7 +55,8 @@ class CategoryListView(generics.ListAPIView):
 
 class ProductDetailView(generics.RetrieveAPIView):
     serializer_class = ProductSerializer
-    queryset = Product.objects.all() \
+    queryset = Product.objects \
+        .filter(hidden_from_storefront=False) \
         .select_related("category", "sub_category") \
         .prefetch_related("images", "variants")
 

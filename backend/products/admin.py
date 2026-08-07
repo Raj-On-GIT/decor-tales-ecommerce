@@ -1,12 +1,15 @@
 from django.contrib import admin
 from django.contrib import messages
 from django import forms
+from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import IntegerField, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponseNotAllowed
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.urls import path, reverse
+from django.utils.html import format_html
+from urllib.parse import quote
 from .models import Banner, Category, SubCategory, Product, ProductVariant, ProductImage, Size, Color
 from utils.validation import optimize_catalog_image
 
@@ -279,23 +282,102 @@ class ProductAdminForm(CatalogImageAdminForm):
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
-    list_display = ['title', 'mrp', 'slashed_price', 'stock_type', 'get_total_stock', 'is_active']
+    list_display = ['title', 'category', 'mrp', 'slashed_price', 'stock_type', 'get_total_stock']
     list_select_related = ["category", "sub_category"]
     list_per_page = 50
-    list_filter = ['stock_type', 'is_active', 'category']
+    list_filter = ['stock_type', 'category']
     inlines = [ProductVariantInline, ProductImageInline]
     prepopulated_fields = {'slug': ('title',)}
-    actions = ["archive_selected_products"]
+    actions = ["archive_selected_products", "restore_selected_products", "permanently_delete_selected"]
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        return queryset.annotate(
+        queryset = super().get_queryset(request).annotate(
             variant_stock_total=Coalesce(
                 Sum("variants__stock"),
                 Value(0),
                 output_field=IntegerField(),
             )
         )
+        kind = getattr(request, "product_changelist_kind", None)
+        if kind == "archived":
+            return queryset.filter(is_active=False)
+        if kind == "active":
+            return queryset.filter(is_active=True)
+        return queryset
+
+    def changelist_view(self, request, extra_context=None):
+        if request.path.rstrip("/").endswith("/archived"):
+            request.product_changelist_kind = "archived"
+            extra_context = dict(extra_context or {})
+            extra_context["archived_list"] = True
+            extra_context["title"] = "Archived Products"
+        else:
+            request.product_changelist_kind = "active"
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def get_list_display(self, request):
+        if getattr(request, "product_changelist_kind", None) == "archived":
+            return (
+                "title",
+                "category",
+                "mrp",
+                "get_total_stock",
+                "archived_reason",
+                "archived_at_display",
+                "storefront_status",
+                "archived_actions",
+            )
+        return super().get_list_display(request)
+
+    def archived_reason(self, obj):
+        blockers = obj.get_delete_blockers()
+        return ", ".join(blockers) if blockers else "Archived manually"
+    archived_reason.short_description = "Archive reason"
+
+    def archived_at_display(self, obj):
+        if not obj.archived_at:
+            return "—"
+        return obj.archived_at.strftime("%d %b %Y, %H:%M")
+    archived_at_display.short_description = "Archived on"
+    archived_at_display.admin_order_field = "archived_at"
+
+    def storefront_status(self, obj):
+        if obj.hidden_from_storefront:
+            label = '<span style="color:#ba2121;font-weight:600;">Hidden</span>'
+            action = "Show"
+        else:
+            label = '<span style="color:#417690;font-weight:600;">Visible</span>'
+            action = "Hide"
+        toggle_url = reverse("admin:products_product_storefront_toggle", args=[obj.pk])
+        return format_html(
+            "{} &nbsp; <a href='{}'>{} on storefront</a>",
+            label,
+            toggle_url,
+            action,
+        )
+    storefront_status.short_description = "Storefront"
+
+    def archived_actions(self, obj):
+        restore_url = reverse("admin:products_product_restore", args=[obj.pk])
+        view_url = f"{settings.FRONTEND_URL.rstrip('/')}/products/{obj.pk}"
+        return format_html(
+            '<a href="{}">Restore</a> &nbsp;|&nbsp; '
+            '<a href="{}" target="_blank" rel="noopener">View</a>',
+            restore_url,
+            view_url,
+        )
+    archived_actions.short_description = "Actions"
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        kind = getattr(request, "product_changelist_kind", None)
+        if kind == "archived":
+            actions.pop("archive_selected_products", None)
+        else:
+            actions.pop("restore_selected_products", None)
+            actions.pop("permanently_delete_selected", None)
+        actions.pop("delete_selected", None)
+        return actions
     
     def get_fieldsets(self, request, obj=None):
         fieldsets = (
@@ -366,42 +448,71 @@ class ProductAdmin(admin.ModelAdmin):
 
     @admin.action(description="Archive selected products")
     def archive_selected_products(self, request, queryset):
-        archived_count = 0
-        already_archived_count = 0
+        ids = ",".join(str(pk) for pk in queryset.values_list("pk", flat=True))
+        url = reverse("admin:products_product_archive_confirm")
+        return redirect(f"{url}?ids={ids}&next={quote(request.path)}")
 
+    @admin.action(description="Restore selected archived products")
+    def restore_selected_products(self, request, queryset):
+        restored_count = 0
         for product in queryset:
-            if product.is_active:
-                product.archive()
-                archived_count += 1
-            else:
-                already_archived_count += 1
+            if not product.is_active:
+                product.restore()
+                restored_count += 1
+        self.message_user(
+            request,
+            f"Restored {restored_count} product(s).",
+            level=messages.SUCCESS,
+        )
 
-        if archived_count:
+    @admin.action(description="Permanently delete selected archived products")
+    def permanently_delete_selected(self, request, queryset):
+        deleted_count = 0
+        skipped = []
+        for product in queryset:
+            if product.can_hard_delete():
+                product.delete()
+                deleted_count += 1
+            else:
+                skipped.append(
+                    f"{product.title} ({', '.join(product.get_delete_blockers())})"
+                )
+
+        if deleted_count:
             self.message_user(
                 request,
-                f"Archived {archived_count} product(s).",
+                f"Permanently deleted {deleted_count} product(s).",
                 level=messages.SUCCESS,
             )
-
-        if already_archived_count:
+        if skipped:
             self.message_user(
                 request,
-                f"{already_archived_count} product(s) were already archived.",
-                level=messages.INFO,
+                "Skipped (still referenced): " + "; ".join(skipped),
+                level=messages.WARNING,
             )
-
-    def get_actions(self, request):
-        actions = super().get_actions(request)
-        actions.pop("delete_selected", None)
-        return actions
 
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
             path(
-                "<path:object_id>/archive/",
-                self.admin_site.admin_view(self.archive_product_view),
-                name="products_product_archive",
+                "archived/",
+                self.admin_site.admin_view(self.changelist_view),
+                name="products_product_archived",
+            ),
+            path(
+                "archive-confirm/",
+                self.admin_site.admin_view(self.archive_confirm_view),
+                name="products_product_archive_confirm",
+            ),
+            path(
+                "<path:object_id>/restore/",
+                self.admin_site.admin_view(self.restore_product_view),
+                name="products_product_restore",
+            ),
+            path(
+                "<path:object_id>/storefront-toggle/",
+                self.admin_site.admin_view(self.storefront_toggle_view),
+                name="products_product_storefront_toggle",
             ),
             path(
                 "<path:object_id>/permanently-delete/",
@@ -417,10 +528,17 @@ class ProductAdmin(admin.ModelAdmin):
         if object_id:
             product = self.get_object(request, object_id)
             if product:
-                extra_context["archive_product_url"] = reverse(
-                    "admin:products_product_archive",
-                    args=[product.pk],
-                )
+                change_url = reverse("admin:products_product_change", args=[product.pk])
+                if product.is_active:
+                    extra_context["archive_confirm_url"] = (
+                        reverse("admin:products_product_archive_confirm")
+                        + f"?ids={product.pk}&next={quote(change_url)}"
+                    )
+                else:
+                    extra_context["restore_product_url"] = (
+                        reverse("admin:products_product_restore", args=[product.pk])
+                        + f"?next={quote(change_url)}"
+                    )
                 extra_context["show_permanent_delete_button"] = product.can_hard_delete()
                 if product.can_hard_delete():
                     extra_context["permanent_delete_product_url"] = reverse(
@@ -436,32 +554,88 @@ class ProductAdmin(admin.ModelAdmin):
             extra_context=extra_context,
         )
 
-    def archive_product_view(self, request, object_id):
-        if request.method != "POST":
-            return HttpResponseNotAllowed(["POST"])
+    def _safe_redirect_target(self, request):
+        target = request.GET.get("next") or request.POST.get("next") or ""
+        if target.startswith("/") and not target.startswith("//"):
+            return target
+        return reverse("admin:products_product_archived")
 
+    def _parse_archive_ids(self, request):
+        ids = request.POST.getlist("product_ids") or request.GET.get("ids", "").split(",")
+        parsed = []
+        for value in ids:
+            try:
+                parsed.append(int(value))
+            except (TypeError, ValueError):
+                continue
+        return parsed
+
+    def archive_confirm_view(self, request):
+        products = Product.objects.filter(pk__in=self._parse_archive_ids(request))
+
+        if request.method == "POST":
+            archived_count = 0
+            hide_from_storefront = request.POST.get("hide_from_storefront") in {"1", "on", "true", "yes"}
+            for product in products:
+                if product.is_active:
+                    product.archive(hide_from_storefront=hide_from_storefront)
+                    archived_count += 1
+            self.message_user(
+                request,
+                f"Archived {archived_count} product(s).",
+                level=messages.SUCCESS,
+            )
+            return redirect(self._safe_redirect_target(request))
+
+        return render(
+            request,
+            "admin/products/product/archive_confirm.html",
+            {
+                "products": products,
+                "next": self._safe_redirect_target(request),
+                "opts": self.model._meta,
+                "title": "Archive products",
+            },
+        )
+
+    def restore_product_view(self, request, object_id):
         product = self.get_object(request, object_id)
         if not product:
             self.message_user(request, "Product not found.", level=messages.ERROR)
-            return redirect("admin:products_product_changelist")
+            return redirect(self._safe_redirect_target(request))
 
-        was_active = product.is_active
-        product.archive()
-
-        if was_active:
+        if not product.is_active:
+            product.restore()
             self.message_user(
                 request,
-                f'"{product.title}" has been archived.',
+                f'"{product.title}" has been restored.',
                 level=messages.SUCCESS,
             )
         else:
             self.message_user(
                 request,
-                f'"{product.title}" is already archived.',
+                f'"{product.title}" is already active.',
                 level=messages.INFO,
             )
 
-        return redirect("admin:products_product_change", product.pk)
+        return redirect(self._safe_redirect_target(request))
+
+    def storefront_toggle_view(self, request, object_id):
+        product = self.get_object(request, object_id)
+        if not product:
+            self.message_user(request, "Product not found.", level=messages.ERROR)
+            return redirect(self._safe_redirect_target(request))
+
+        product.hidden_from_storefront = not product.hidden_from_storefront
+        product.save(update_fields=["hidden_from_storefront"])
+        state = "hidden from" if product.hidden_from_storefront else "shown on"
+        self.message_user(
+            request,
+            f'"{product.title}" is now {state} the storefront.',
+            level=messages.SUCCESS,
+        )
+
+        return redirect(self._safe_redirect_target(request))
 
     def permanently_delete_product_view(self, request, object_id):
         if request.method != "POST":

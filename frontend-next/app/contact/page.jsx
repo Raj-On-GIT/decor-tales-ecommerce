@@ -36,19 +36,19 @@ const socialLinks = [
   {
     icon: Instagram,
     label: "Instagram",
-    value: "@decortales30",
+    value: "Follow @decortales30",
     href: "https://www.instagram.com/decortales30",
   },
   {
     icon: Facebook,
     label: "Facebook",
-    value: "To be added",
+    value: "Visit our Facebook page",
     href: "https://www.facebook.com/share/19UMGcpqo4/",
   },
   {
     icon: MessageCircle,
     label: "WhatsApp",
-    value: "To be added",
+    value: "Connect with us on WA",
     href: "https://wa.me/message/D24UIHQEQT3MH1",
   },
   {

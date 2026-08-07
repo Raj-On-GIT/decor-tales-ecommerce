@@ -176,13 +176,17 @@ class ProductAdminDeletionControlsTests(TestCase):
         product = self.create_product("Archive Me")
 
         response = self.client.post(
-            reverse("admin:products_product_archive", args=[product.pk]),
+            reverse("admin:products_product_archive_confirm"),
+            {
+                "product_ids": [str(product.pk)],
+                "next": "/admin/products/product/",
+            },
             follow=True,
         )
 
         product.refresh_from_db()
         self.assertFalse(product.is_active)
-        self.assertContains(response, "has been archived")
+        self.assertContains(response, "Archived 1 product")
 
     def test_admin_delete_confirmation_removes_eligible_product(self):
         product = self.create_product("Delete Me")
@@ -355,3 +359,200 @@ class CatalogImageAdminFormTests(TestCase):
         self.assertIsInstance(image_value, UploadedFile)
         self.assertEqual(image_value.name, "fresh.png")
         self.assertEqual(image_value.content_type, "image/png")
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    STORAGES={
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    },
+)
+class ProductArchiveAdminTests(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(name="Archive Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Archive Modern",
+        )
+        self.admin_user = User.objects.create_superuser(
+            username="archive-admin",
+            email="archive-admin@example.com",
+            password="adminpass123",
+        )
+        self.client.force_login(self.admin_user)
+
+    def create_product(self, title, **kwargs):
+        defaults = dict(
+            title=title,
+            mrp=Decimal("799.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        defaults.update(kwargs)
+        return Product.objects.create(**defaults)
+
+    def test_archive_and_restore_update_flags(self):
+        product = self.create_product("Flags Product")
+        product.archive(hide_from_storefront=True)
+        product.refresh_from_db()
+
+        self.assertFalse(product.is_active)
+        self.assertIsNotNone(product.archived_at)
+        self.assertTrue(product.hidden_from_storefront)
+
+        product.restore()
+        product.refresh_from_db()
+        self.assertTrue(product.is_active)
+        self.assertIsNone(product.archived_at)
+        self.assertFalse(product.hidden_from_storefront)
+
+    def test_main_changelist_hides_archived_products(self):
+        active = self.create_product("Visible List Product")
+        archived = self.create_product("Hidden List Product")
+        archived.archive()
+
+        response = self.client.get(reverse("admin:products_product_changelist"))
+
+        self.assertContains(response, active.title)
+        self.assertNotContains(response, archived.title)
+
+    def test_archived_view_lists_only_archived_products(self):
+        active = self.create_product("Active Elsewhere")
+        archived = self.create_product("Only Archived")
+        archived.archive()
+
+        response = self.client.get(reverse("admin:products_product_archived"))
+
+        self.assertContains(response, archived.title)
+        self.assertNotContains(response, active.title)
+        self.assertContains(response, "Archive reason")
+        self.assertContains(response, "Archived manually")
+
+    def test_archive_confirm_applies_hide_from_storefront(self):
+        product = self.create_product("Hide Me Product")
+
+        self.client.post(
+            reverse("admin:products_product_archive_confirm"),
+            {
+                "product_ids": [str(product.pk)],
+                "hide_from_storefront": "on",
+                "next": "/admin/products/product/",
+            },
+        )
+
+        product.refresh_from_db()
+        self.assertFalse(product.is_active)
+        self.assertIsNotNone(product.archived_at)
+        self.assertTrue(product.hidden_from_storefront)
+
+    def test_archive_confirm_defaults_to_visible(self):
+        product = self.create_product("Keep Visible Product")
+
+        self.client.post(
+            reverse("admin:products_product_archive_confirm"),
+            {
+                "product_ids": [str(product.pk)],
+                "next": "/admin/products/product/",
+            },
+        )
+
+        product.refresh_from_db()
+        self.assertFalse(product.is_active)
+        self.assertFalse(product.hidden_from_storefront)
+
+    def test_restore_view_reactivates_product(self):
+        product = self.create_product("Restore Me Product")
+        product.archive()
+
+        response = self.client.get(
+            reverse("admin:products_product_restore", args=[product.pk]),
+            {"next": "/admin/products/product/archived/"},
+            follow=True,
+        )
+
+        product.refresh_from_db()
+        self.assertTrue(product.is_active)
+        self.assertIsNone(product.archived_at)
+        self.assertContains(response, "has been restored")
+
+    def test_storefront_toggle_view_flips_hidden_flag(self):
+        product = self.create_product("Toggle Me Product")
+        product.archive()
+
+        self.client.get(
+            reverse("admin:products_product_storefront_toggle", args=[product.pk]),
+            follow=True,
+        )
+        product.refresh_from_db()
+        self.assertTrue(product.hidden_from_storefront)
+
+        self.client.get(
+            reverse("admin:products_product_storefront_toggle", args=[product.pk]),
+            follow=True,
+        )
+        product.refresh_from_db()
+        self.assertFalse(product.hidden_from_storefront)
+
+    def test_bulk_restore_action_reactivates_products(self):
+        product = self.create_product("Bulk Restore Product")
+        product.archive()
+
+        response = self.client.post(
+            reverse("admin:products_product_archived"),
+            {
+                "action": "restore_selected_products",
+                "_selected_action": [str(product.pk)],
+            },
+            follow=True,
+        )
+
+        product.refresh_from_db()
+        self.assertTrue(product.is_active)
+        self.assertContains(response, "Restored 1 product")
+
+    def test_bulk_permanent_delete_only_deletes_eligible(self):
+        eligible = self.create_product("Eligible Delete Product")
+        eligible.archive()
+        referenced = self.create_product("Referenced Delete Product")
+        referenced.archive()
+
+        user = User.objects.create_user("ref-archive-user", "refarchive@example.com", "pass12345")
+        cart = Cart.objects.create(user=user)
+        CartItem.objects.create(cart=cart, product=referenced, quantity=1)
+
+        response = self.client.post(
+            reverse("admin:products_product_archived"),
+            {
+                "action": "permanently_delete_selected",
+                "_selected_action": [str(eligible.pk), str(referenced.pk)],
+            },
+            follow=True,
+        )
+
+        self.assertFalse(Product.objects.filter(pk=eligible.pk).exists())
+        self.assertTrue(Product.objects.filter(pk=referenced.pk).exists())
+        self.assertContains(response, "Permanently deleted 1 product")
+
+    def test_storefront_detail_hides_hidden_archived_product(self):
+        product = self.create_product("Hidden Detail Product")
+        product.archive(hide_from_storefront=True)
+
+        response = self.client.get(reverse("product-detail", args=[product.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_storefront_detail_shows_visible_archived_product_as_unavailable(self):
+        product = self.create_product("Visible Detail Product")
+        product.archive()
+
+        response = self.client.get(reverse("product-detail", args=[product.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["availability_status"], "unavailable")
+        self.assertFalse(response.data["is_available_for_purchase"])

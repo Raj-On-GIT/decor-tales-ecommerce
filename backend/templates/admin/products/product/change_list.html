@@ -1,0 +1,21 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+  {{ block.super }}
+  {% if not archived_list %}
+    <li>
+      <a href="{% url 'admin:products_product_archived' %}" class="button">Archived Products</a>
+    </li>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  {% if archived_list %}
+    <div class="archived-notice" style="background:#fff;border:1px solid #d0d0d0;border-radius:4px;padding:10px 14px;margin-bottom:12px;">
+      Showing <strong>archived</strong> products only.
+      <a href="{% url 'admin:products_product_changelist' %}" style="margin-left:8px;">&larr; Back to active products</a>
+    </div>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

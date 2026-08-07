@@ -6,11 +6,16 @@
     <li>
       <a href="{% url opts|admin_urlname:'history' original.pk|admin_urlquote %}" class="historylink">History</a>
     </li>
-    {% if archive_product_url %}
+    {% if archive_confirm_url %}
       <li>
-        <form action="{{ archive_product_url }}" method="post" style="display:inline;">
+        <a href="{{ archive_confirm_url }}" class="button">Archive Product</a>
+      </li>
+    {% endif %}
+    {% if restore_product_url %}
+      <li>
+        <form action="{{ restore_product_url }}" method="post" style="display:inline;">
           {% csrf_token %}
-          <button type="submit" class="button">Archive Product</button>
+          <button type="submit" class="button">Restore Product</button>
         </form>
       </li>
     {% endif %}

@@ -1,0 +1,44 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; <a href="{% url 'admin:products_product_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; {% translate 'Archive' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <form method="post">{% csrf_token %}
+    {% if products %}
+      <p>Are you sure you want to archive the following product{{ products|length|pluralize }}?</p>
+      <ul>
+        {% for product in products %}
+          <li>{{ product.title }}</li>
+        {% endfor %}
+      </ul>
+      {% for product in products %}
+        <input type="hidden" name="product_ids" value="{{ product.pk }}">
+      {% endfor %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <p>
+        <label for="id_hide_from_storefront">
+          <input type="checkbox" name="hide_from_storefront" id="id_hide_from_storefront">
+          Also hide from the storefront (its product page will return 404)
+        </label>
+      </p>
+    {% else %}
+      <p>No products were selected.</p>
+    {% endif %}
+    <div class="submit-row">
+      {% if products %}
+        <input type="submit" value="{% translate 'Yes, archive' %}" class="default" name="confirm">
+      {% endif %}
+      <a href="{{ next }}" class="button cancel-link">{% translate "No, take me back" %}</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

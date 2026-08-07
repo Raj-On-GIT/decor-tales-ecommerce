@@ -202,6 +202,11 @@ class Product(models.Model):
 
     allow_custom_text = models.BooleanField(default=False, help_text="Allow customers to add custom text")
     is_active = models.BooleanField(default=True)
+    archived_at = models.DateTimeField(null=True, blank=True, help_text="Set when the product is archived")
+    hidden_from_storefront = models.BooleanField(
+        default=False,
+        help_text="Fully hide this product from the storefront (detail page returns 404). Only relevant for archived products.",
+    )
 
     def save(self, *args, **kwargs):
         # Auto slug
@@ -254,10 +259,20 @@ class Product(models.Model):
     def can_hard_delete(self):
         return not self.get_delete_blockers()
 
-    def archive(self):
+    def archive(self, *, hide_from_storefront=None):
         if self.is_active:
             self.is_active = False
-            self.save(update_fields=["is_active"])
+            self.archived_at = timezone.now()
+            if hide_from_storefront is not None:
+                self.hidden_from_storefront = hide_from_storefront
+            self.save(update_fields=["is_active", "archived_at", "hidden_from_storefront"])
+
+    def restore(self):
+        if not self.is_active:
+            self.is_active = True
+            self.archived_at = None
+            self.hidden_from_storefront = False
+            self.save(update_fields=["is_active", "archived_at", "hidden_from_storefront"])
 
     def delete(self, using=None, keep_parents=False):
         if not self.can_hard_delete():
