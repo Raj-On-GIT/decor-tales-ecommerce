@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib import messages
 from django import forms
+from django.core.files.uploadedfile import UploadedFile
 from django.db.models import IntegerField, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponseNotAllowed
@@ -14,7 +15,10 @@ class CatalogImageAdminForm(forms.ModelForm):
     """Process catalog assets before they are sent to media storage."""
 
     def clean_image(self):
-        return optimize_catalog_image(self.cleaned_data.get("image"))
+        value = self.cleaned_data.get("image")
+        if isinstance(value, UploadedFile):
+            return optimize_catalog_image(value)
+        return value
 
 
 class BannerAdminForm(CatalogImageAdminForm):
@@ -326,7 +330,7 @@ class ProductAdmin(admin.ModelAdmin):
     
     class Media:
         css = {'all': ('admin/css/admin_custom.css',)}
-        js = ('admin/js/toggle_stock_fields.js', "admin/js/hide-fields.js", 'admin/js/filter_subcategory.js',)
+        js = ('admin/js/toggle_stock_fields.js', "admin/js/hide-fields.js", 'admin/js/filter_subcategory.js', 'admin/js/product_form_progress.js',)
     
     def save_model(self, request, obj, form, change):
         """

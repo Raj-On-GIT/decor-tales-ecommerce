@@ -6,13 +6,14 @@ from datetime import timedelta
 
 from django.contrib.auth.models import User
 from django.core.management import call_command
-from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.files.uploadedfile import SimpleUploadedFile, UploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
 from orders.models import Cart, CartItem, MediaCleanupTask, Order, OrderItem, StockReservation
+from products.admin import ProductAdminForm
 from products.models import Category, Product, ProductImage, SubCategory
 
 
@@ -291,3 +292,66 @@ class ProductMediaDeletionTests(TestCase):
 
         self.assertFalse(os.path.exists(main_path))
         self.assertFalse(os.path.exists(gallery_path))
+
+
+@override_settings(
+    STORAGES={
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    },
+)
+class CatalogImageAdminFormTests(TestCase):
+    def setUp(self):
+        self.media_root = os.path.join(os.getcwd(), "test_media_catalog_image")
+        shutil.rmtree(self.media_root, ignore_errors=True)
+        os.makedirs(self.media_root, exist_ok=True)
+
+        from django.conf import settings
+
+        self._original_media_root = settings.MEDIA_ROOT
+        settings.MEDIA_ROOT = self.media_root
+
+        self.category = Category.objects.create(name="Image Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Image Modern",
+        )
+        self.product = Product.objects.create(
+            title="Image Product",
+            mrp=Decimal("799.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+            image=build_test_image("existing.png", size=(200, 200)),
+        )
+
+    def tearDown(self):
+        from django.conf import settings
+
+        settings.MEDIA_ROOT = self._original_media_root
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_existing_image_is_not_reprocessed_on_text_only_edit(self):
+        form = ProductAdminForm(data={"title": "Renamed"}, instance=self.product)
+        form.full_clean()
+
+        image_value = form.cleaned_data["image"]
+        self.assertFalse(isinstance(image_value, UploadedFile))
+        self.assertEqual(image_value.name, self.product.image.name)
+
+    def test_uploaded_image_is_optimized(self):
+        form = ProductAdminForm(
+            data={},
+            files={"image": build_test_image("fresh.png", size=(200, 200))},
+            instance=self.product,
+        )
+        form.full_clean()
+
+        image_value = form.cleaned_data["image"]
+        self.assertIsInstance(image_value, UploadedFile)
+        self.assertEqual(image_value.name, "fresh.png")
+        self.assertEqual(image_value.content_type, "image/png")

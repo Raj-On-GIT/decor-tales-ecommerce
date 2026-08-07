@@ -37,25 +37,25 @@ const socialLinks = [
     icon: Instagram,
     label: "Instagram",
     value: "@decortales30",
-    href: null,
+    href: "https://www.instagram.com/decortales30",
   },
   {
     icon: Facebook,
     label: "Facebook",
     value: "To be added",
-    href: null,
+    href: "https://www.facebook.com/share/19UMGcpqo4/",
   },
   {
     icon: MessageCircle,
     label: "WhatsApp",
     value: "To be added",
-    href: null,
+    href: "https://wa.me/message/D24UIHQEQT3MH1",
   },
   {
     icon: MapPin,
     label: "Location",
     value: "Locate Us on Google Maps",
-    href: null,
+    href: "https://maps.app.goo.gl/MJWeV6Bxqx4THTct7",
   }
 ];
 
