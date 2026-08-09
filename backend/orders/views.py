@@ -6,6 +6,7 @@ import logging
 import mimetypes
 
 from django.conf import settings
+from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import default_storage
 from django.http import FileResponse, Http404
@@ -1655,7 +1656,15 @@ def create_order(request):
 def get_delhivery_pincode_serviceability(request):
     try:
         pincode = validate_indian_pincode(request.query_params.get("pincode"))
-        payload = DelhiveryService().get_pincode_serviceability(pincode=pincode)
+        cache_key = f"delhivery:pincode-serviceability:{pincode}"
+        payload = cache.get(cache_key)
+        if payload is None:
+            payload = DelhiveryService().get_pincode_serviceability(pincode=pincode)
+            cache.set(
+                cache_key,
+                payload,
+                timeout=settings.DELHIVERY_SERVICEABILITY_CACHE_TTL_SECONDS,
+            )
     except ValueError as exc:
         return Response({"error": str(exc)}, status=400)
     except ImproperlyConfigured as exc:
@@ -1683,13 +1692,23 @@ def get_delhivery_expected_tat(request):
         expected_pickup_date = validate_expected_pickup_date(
             request.query_params.get("expected_pickup_date")
         )
-        payload = DelhiveryService().get_expected_tat(
-            origin_pin=origin_pin,
-            destination_pin=destination_pin,
-            mot=mot,
-            pdt=pdt,
-            expected_pickup_date=expected_pickup_date,
+        cache_key = (
+            f"delhivery:expected-tat:{origin_pin}:{destination_pin}:{mot}:{pdt}:{expected_pickup_date}"
         )
+        payload = cache.get(cache_key)
+        if payload is None:
+            payload = DelhiveryService().get_expected_tat(
+                origin_pin=origin_pin,
+                destination_pin=destination_pin,
+                mot=mot,
+                pdt=pdt,
+                expected_pickup_date=expected_pickup_date,
+            )
+            cache.set(
+                cache_key,
+                payload,
+                timeout=settings.DELHIVERY_TAT_CACHE_TTL_SECONDS,
+            )
     except ValueError as exc:
         return Response({"error": str(exc)}, status=400)
     except ImproperlyConfigured as exc:

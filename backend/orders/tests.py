@@ -3329,6 +3329,88 @@ class DelhiveryThrottleTests(TestCase):
         self.assertEqual(throttled_response.status_code, 429)
 
 
+SERVICEABLE_PAYLOAD = {
+    "delivery_codes": [
+        {
+            "postal_code": {
+                "cod": "Y",
+                "pre_paid": "Y",
+                "pickup": "Y",
+                "is_oda": "N",
+                "remarks": "",
+            }
+        }
+    ]
+}
+
+TAT_PAYLOAD = {
+    "success": True,
+    "msg": "Tat found",
+    "data": {"tat": 3},
+}
+
+
+class DelhiveryCacheTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+
+    def tearDown(self):
+        cache.clear()
+
+    @patch("orders.views.DelhiveryService")
+    def test_pincode_serviceability_is_cached(self, mock_service):
+        mock_service.return_value.get_pincode_serviceability.return_value = SERVICEABLE_PAYLOAD
+        url = reverse("delhivery_pincode_serviceability")
+
+        first_response = self.client.get(url, {"pincode": "110001"})
+        second_response = self.client.get(url, {"pincode": "110001"})
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(first_response.data, second_response.data)
+        mock_service.return_value.get_pincode_serviceability.assert_called_once_with(
+            pincode="110001"
+        )
+
+    @patch("orders.views.DelhiveryService")
+    def test_serviceability_cache_is_keyed_by_pincode(self, mock_service):
+        mock_service.return_value.get_pincode_serviceability.return_value = SERVICEABLE_PAYLOAD
+        url = reverse("delhivery_pincode_serviceability")
+
+        self.client.get(url, {"pincode": "110001"})
+        self.client.get(url, {"pincode": "560001"})
+
+        self.assertEqual(
+            mock_service.return_value.get_pincode_serviceability.call_count,
+            2,
+        )
+
+    @patch("orders.views.DelhiveryService")
+    def test_expected_tat_is_cached(self, mock_service):
+        mock_service.return_value.get_expected_tat.return_value = TAT_PAYLOAD
+        url = reverse("delhivery_expected_tat")
+        params = {"destination_pin": "560001", "mot": "S"}
+
+        first_response = self.client.get(url, params)
+        second_response = self.client.get(url, params)
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(first_response.data, second_response.data)
+        mock_service.return_value.get_expected_tat.assert_called_once()
+
+    @patch("orders.views.DelhiveryService")
+    def test_expected_tat_cache_is_keyed_by_params(self, mock_service):
+        mock_service.return_value.get_expected_tat.return_value = TAT_PAYLOAD
+        url = reverse("delhivery_expected_tat")
+
+        self.client.get(url, {"destination_pin": "560001", "mot": "S"})
+        self.client.get(url, {"destination_pin": "411001", "mot": "S"})
+
+        self.assertEqual(mock_service.return_value.get_expected_tat.call_count, 2)
+
+
 class OrderFlowThrottleTests(TestCase):
     def setUp(self):
         cache.clear()

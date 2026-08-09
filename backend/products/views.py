@@ -5,6 +5,8 @@ from rest_framework.views import APIView
 from .models import Banner, Product, Category, SubCategory, ProductActivity
 from .serializers import BannerSerializer, ProductSerializer, CategorySerializer, SubCategorySerializer, CategoryProductSerializer
 from .throttles import CartAddActivityThrottle, ProductViewThrottle, SearchThrottle
+from django.conf import settings
+from django.core.cache import cache
 from django.db.models import Count, Q, Sum, Case, When, IntegerField, Value, BooleanField
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -87,33 +89,54 @@ class TrendingProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
 
     def get_queryset(self):
-        since = timezone.now() - timedelta(days=30)
+        cache_key = "products:trending:v1"
+        product_ids = cache.get(cache_key)
 
-        return (
-            Product.objects
-            .filter(is_active=True)
-            .select_related("category")
-            .prefetch_related("images", "variants")
-            .annotate(
-                trend_score=Sum(
-                    Case(
-                        When(
-                            activities__event_type=ProductActivity.EVENT_CART_ADD,
-                            activities__created_at__gte=since,
-                            then=Value(3),
-                        ),
-                        When(
-                            activities__event_type=ProductActivity.EVENT_VIEW,
-                            activities__created_at__gte=since,
-                            then=Value(1),
-                        ),
-                        default=Value(0),
-                        output_field=IntegerField(),
+        if product_ids is None:
+            since = timezone.now() - timedelta(days=30)
+            product_ids = list(
+                Product.objects
+                .filter(is_active=True)
+                .annotate(
+                    trend_score=Sum(
+                        Case(
+                            When(
+                                activities__event_type=ProductActivity.EVENT_CART_ADD,
+                                activities__created_at__gte=since,
+                                then=Value(3),
+                            ),
+                            When(
+                                activities__event_type=ProductActivity.EVENT_VIEW,
+                                activities__created_at__gte=since,
+                                then=Value(1),
+                            ),
+                            default=Value(0),
+                            output_field=IntegerField(),
+                        )
                     )
                 )
+                .filter(trend_score__gt=0)
+                .order_by("-trend_score", "-created_at", "-id")[:20]
+                .values_list("id", flat=True)
             )
-            .filter(trend_score__gt=0)
-            .order_by("-trend_score", "-created_at", "-id")[:20]
+            cache.set(
+                cache_key,
+                product_ids,
+                timeout=settings.TRENDING_CACHE_TTL_SECONDS,
+            )
+
+        preserved_order = Case(
+            *[When(pk=pk, then=Value(index)) for index, pk in enumerate(product_ids)],
+            default=Value(len(product_ids)),
+            output_field=IntegerField(),
+        )
+        return (
+            Product.objects
+            .filter(pk__in=product_ids)
+            .select_related("category")
+            .prefetch_related("images", "variants")
+            .annotate(_trend_rank=preserved_order)
+            .order_by("_trend_rank")
         )
 
 # ================= CATEGORY DETAIL (Subcategory → Product Flow) =================

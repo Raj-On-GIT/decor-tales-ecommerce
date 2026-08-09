@@ -16,7 +16,7 @@ from rest_framework.test import APIClient
 
 from orders.models import Cart, CartItem, MediaCleanupTask, Order, OrderItem, StockReservation
 from products.admin import ProductAdminForm
-from products.models import Category, Product, ProductImage, SubCategory
+from products.models import Category, Product, ProductActivity, ProductImage, SubCategory
 
 
 def build_test_image(name, size=(100, 100), image_format="PNG", content_type="image/png"):
@@ -683,3 +683,67 @@ class RealIPMiddlewareTests(TestCase):
 
         self.assertIsNone(response)
         self.assertEqual(request.META["REMOTE_ADDR"], "203.0.113.9")
+
+
+class TrendingCacheTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.url = reverse("product-trending")
+        self.category = Category.objects.create(name="Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Modern",
+        )
+        self.product = Product.objects.create(
+            title="Trending Product",
+            mrp=Decimal("799.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        ProductActivity.objects.create(
+            product=self.product,
+            event_type=ProductActivity.EVENT_VIEW,
+        )
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_trending_result_is_served_from_cache(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        first_ids = [product["id"] for product in response.data["results"]]
+        self.assertIn(self.product.id, first_ids)
+
+        ProductActivity.objects.all().delete()
+
+        cached_response = self.client.get(self.url)
+        self.assertEqual(cached_response.status_code, 200)
+        cached_ids = [product["id"] for product in cached_response.data["results"]]
+        self.assertIn(self.product.id, cached_ids)
+
+        cache.clear()
+        recomputed_response = self.client.get(self.url)
+        recomputed_ids = [product["id"] for product in recomputed_response.data["results"]]
+        self.assertNotIn(self.product.id, recomputed_ids)
+
+    def test_rank_order_is_preserved_on_cache_hit(self):
+        other_product = Product.objects.create(
+            title="Trending Product 2",
+            mrp=Decimal("899.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        ProductActivity.objects.create(
+            product=other_product,
+            event_type=ProductActivity.EVENT_CART_ADD,
+        )
+
+        first_ids = [product["id"] for product in self.client.get(self.url).data["results"]]
+        second_ids = [product["id"] for product in self.client.get(self.url).data["results"]]
+
+        self.assertEqual(first_ids, second_ids)
+        self.assertEqual(first_ids.index(other_product.id), 0)
+        self.assertEqual(first_ids.index(self.product.id), 1)

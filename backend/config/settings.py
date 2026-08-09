@@ -424,6 +424,14 @@ DELHIVERY_PICKUP_LOCATION = os.getenv("DELHIVERY_PICKUP_LOCATION", "").strip()
 DELHIVERY_ORIGIN_PIN = os.getenv("DELHIVERY_ORIGIN_PIN", "110077").strip()
 DELHIVERY_WEBHOOK_SECRET = os.getenv("DELHIVERY_WEBHOOK_SECRET", "").strip()
 
+TRENDING_CACHE_TTL_SECONDS = int(os.getenv("TRENDING_CACHE_TTL_SECONDS", "120"))
+DELHIVERY_SERVICEABILITY_CACHE_TTL_SECONDS = int(
+    os.getenv("DELHIVERY_SERVICEABILITY_CACHE_TTL_SECONDS", "86400")
+)
+DELHIVERY_TAT_CACHE_TTL_SECONDS = int(
+    os.getenv("DELHIVERY_TAT_CACHE_TTL_SECONDS", "3600")
+)
+
 local_cookie_context = is_local_host(
     os.getenv("FRONTEND_URL", "https://decor-tales-ecommerce.vercel.app")
 )
