@@ -301,6 +301,22 @@ async function fetchWithAuth(url, options = {}) {
   return authFetchWithAuth(url, options);
 }
 
+export async function subscribeToNewsletter(email, source = "footer") {
+  const response = await apiFetch(`${API_BASE}/api/newsletter/subscribe/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, source }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.error || "Could not subscribe. Please try again.");
+  }
+
+  return data;
+}
+
 // Use in existing functions
 export async function addToCart(
   productId,

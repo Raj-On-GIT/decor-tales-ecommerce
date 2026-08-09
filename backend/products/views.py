@@ -1,9 +1,10 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, throttle_classes
 from rest_framework.response import Response
 from rest_framework import generics
 from rest_framework.views import APIView
 from .models import Banner, Product, Category, SubCategory, ProductActivity
 from .serializers import BannerSerializer, ProductSerializer, CategorySerializer, SubCategorySerializer, CategoryProductSerializer
+from .throttles import CartAddActivityThrottle, ProductViewThrottle, SearchThrottle
 from django.db.models import Count, Q, Sum, Case, When, IntegerField, Value, BooleanField
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -55,6 +56,7 @@ class CategoryListView(generics.ListAPIView):
 
 class ProductDetailView(generics.RetrieveAPIView):
     serializer_class = ProductSerializer
+    throttle_classes = [ProductViewThrottle]
     queryset = Product.objects \
         .filter(hidden_from_storefront=False) \
         .select_related("category", "sub_category") \
@@ -269,6 +271,7 @@ def subcategory_detail(request, category_slug, sub_slug):
 # ================= CART ADD ACTIVITY =================
 
 @api_view(["POST"])
+@throttle_classes([CartAddActivityThrottle])
 def record_cart_add(request, id):
     """
     Called fire-and-forget from the frontend whenever a product
@@ -293,6 +296,7 @@ class SearchView(APIView):
     DEFAULT_PRODUCT_LIMIT = 10
     DEFAULT_CATEGORY_LIMIT = 5
     DEFAULT_SUBCATEGORY_LIMIT = 5
+    throttle_classes = [SearchThrottle]
 
     def _parse_limit(self, raw_value, default):
         if raw_value is None or raw_value == "":

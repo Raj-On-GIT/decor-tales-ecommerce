@@ -7,6 +7,7 @@ import tempfile
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase, TransactionTestCase
 from django.test.utils import override_settings
@@ -607,6 +608,7 @@ class SecureOrderMediaTests(TestCase):
 @override_settings(SECURE_SSL_REDIRECT=False)
 class PaymentFlowSafetyTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
         self.user = User.objects.create_user(
             username="pay-user",
@@ -2802,6 +2804,7 @@ class OrderConfirmationEmailUnitTests(TestCase):
 @override_settings(SECURE_SSL_REDIRECT=False)
 class OrderConfirmationEmailFlowTests(TransactionTestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
         self.user = User.objects.create_user(
             username="email-flow-user",
@@ -3303,3 +3306,48 @@ class MaintenanceEndpointTests(TestCase):
             {"purge_delivered_order_media": "boom"},
         )
         self.assertEqual(mock_call_command.call_count, 3)
+
+
+class DelhiveryThrottleTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.url = reverse("delhivery_pincode_serviceability")
+
+    def tearDown(self):
+        cache.clear()
+
+    @patch("orders.views.DelhiveryService")
+    def test_throttle_returns_429_after_twenty_requests(self, mock_delhivery_service):
+        mock_delhivery_service.return_value.get_pincode_serviceability.return_value = {}
+
+        for _ in range(20):
+            response = self.client.get(self.url, {"pincode": "110001"})
+            self.assertIn(response.status_code, (200, 400, 500, 502))
+
+        throttled_response = self.client.get(self.url, {"pincode": "110001"})
+        self.assertEqual(throttled_response.status_code, 429)
+
+
+class OrderFlowThrottleTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="checkout-throttle-user",
+            email="checkout-throttle@example.com",
+            password="testpass123",
+        )
+        self.client.force_authenticate(user=self.user)
+        self.url = reverse("create_payment_order")
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_throttle_returns_429_after_ten_requests(self):
+        for _ in range(10):
+            response = self.client.post(self.url, {}, format="json")
+            self.assertIn(response.status_code, (400, 500))
+
+        throttled_response = self.client.post(self.url, {}, format="json")
+        self.assertEqual(throttled_response.status_code, 429)

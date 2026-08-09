@@ -5,12 +5,14 @@ import tempfile
 from datetime import timedelta
 
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile, UploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
+from rest_framework.test import APIClient
 
 from orders.models import Cart, CartItem, MediaCleanupTask, Order, OrderItem, StockReservation
 from products.admin import ProductAdminForm
@@ -556,3 +558,128 @@ class ProductArchiveAdminTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["availability_status"], "unavailable")
         self.assertFalse(response.data["is_available_for_purchase"])
+
+
+class ProductViewThrottleTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.category = Category.objects.create(name="Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Modern",
+        )
+        self.product = Product.objects.create(
+            title="Throttle Product",
+            mrp=Decimal("799.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.url = reverse("product-detail", args=[self.product.pk])
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_throttle_returns_429_after_sixty_requests(self):
+        for _ in range(60):
+            response = self.client.get(self.url)
+            self.assertEqual(response.status_code, 200)
+
+        throttled_response = self.client.get(self.url)
+        self.assertEqual(throttled_response.status_code, 429)
+
+
+class CartAddActivityThrottleTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.category = Category.objects.create(name="Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Modern",
+        )
+        self.product = Product.objects.create(
+            title="Cart Add Throttle Product",
+            mrp=Decimal("799.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.url = reverse("product-cart-add", args=[self.product.pk])
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_throttle_returns_429_after_twenty_requests(self):
+        for _ in range(20):
+            response = self.client.post(self.url)
+            self.assertEqual(response.status_code, 200)
+
+        throttled_response = self.client.post(self.url)
+        self.assertEqual(throttled_response.status_code, 429)
+
+
+class SearchThrottleTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.url = reverse("search")
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_throttle_returns_429_after_thirty_requests(self):
+        for _ in range(30):
+            response = self.client.get(self.url, {"q": "test"})
+            self.assertEqual(response.status_code, 200)
+
+        throttled_response = self.client.get(self.url, {"q": "test"})
+        self.assertEqual(throttled_response.status_code, 429)
+
+
+class RealIPMiddlewareTests(TestCase):
+    def test_resolves_leftmost_ff_entry_without_trusted_proxies(self):
+        from utils.proxy_headers import RealIPMiddleware
+
+        self.assertEqual(
+            RealIPMiddleware._resolve_client_ip(
+                "203.0.113.5, 198.51.100.2",
+                [],
+            ),
+            "203.0.113.5",
+        )
+
+    def test_skips_trusted_proxy_ips_from_the_right(self):
+        from utils.proxy_headers import RealIPMiddleware
+
+        self.assertEqual(
+            RealIPMiddleware._resolve_client_ip(
+                "203.0.113.5, 10.0.0.1, 10.0.0.2",
+                {"10.0.0.1", "10.0.0.2"},
+            ),
+            "203.0.113.5",
+        )
+
+    def test_returns_none_when_all_entries_are_trusted(self):
+        from utils.proxy_headers import RealIPMiddleware
+
+        self.assertIsNone(
+            RealIPMiddleware._resolve_client_ip(
+                "10.0.0.1, 10.0.0.2",
+                {"10.0.0.1", "10.0.0.2"},
+            ),
+        )
+
+    def test_middleware_sets_remote_addr_from_xff(self):
+        from django.test import RequestFactory
+        from utils.proxy_headers import RealIPMiddleware
+
+        request = RequestFactory().get("/health/")
+        request.META["HTTP_X_FORWARDED_FOR"] = "203.0.113.9, 10.0.0.1"
+        request.META["REMOTE_ADDR"] = "10.0.0.1"
+
+        response = RealIPMiddleware(lambda req: None)(request)
+
+        self.assertIsNone(response)
+        self.assertEqual(request.META["REMOTE_ADDR"], "203.0.113.9")

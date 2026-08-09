@@ -1,5 +1,5 @@
 from django.core.exceptions import ImproperlyConfigured
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
@@ -11,6 +11,7 @@ from .payment_services import (
     reconcile_stale_orders,
     verify_and_capture_payment,
 )
+from .throttles import OrderFlowThrottle
 
 
 def _coerce_positive_int(value, *, field_name):
@@ -29,6 +30,7 @@ def _coerce_positive_int(value, *, field_name):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@throttle_classes([OrderFlowThrottle])
 def create_payment_order(request):
     address_id = request.data.get("address_id")
     coupon_code = str(request.data.get("coupon_code", "") or "").strip()
@@ -80,6 +82,7 @@ def create_payment_order(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@throttle_classes([OrderFlowThrottle])
 def verify_payment(request):
     order_id = request.data.get("order_id")
     razorpay_order_id = str(request.data.get("razorpay_order_id", "") or "").strip()
@@ -131,6 +134,7 @@ def verify_payment(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@throttle_classes([OrderFlowThrottle])
 def mark_payment_failed(request):
     order_id = request.data.get("order_id")
 

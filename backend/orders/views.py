@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.urls import reverse
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
@@ -30,6 +30,7 @@ from .models import (
     OrderItemImage,
 )
 from .serializers import AddToCartSerializer
+from .throttles import DelhiveryThrottle, OrderFlowThrottle
 from products.models import Product, ProductVariant
 from products.media_utils import build_media_url, normalize_media_name
 from utils.delhivery_service import DelhiveryService, DelhiveryServiceError
@@ -1467,6 +1468,7 @@ def get_available_coupons(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@throttle_classes([OrderFlowThrottle])
 @transaction.atomic
 def create_order(request):
     try:
@@ -1649,6 +1651,7 @@ def create_order(request):
 
 
 @api_view(["GET"])
+@throttle_classes([DelhiveryThrottle])
 def get_delhivery_pincode_serviceability(request):
     try:
         pincode = validate_indian_pincode(request.query_params.get("pincode"))
@@ -1664,6 +1667,7 @@ def get_delhivery_pincode_serviceability(request):
 
 
 @api_view(["GET"])
+@throttle_classes([DelhiveryThrottle])
 def get_delhivery_expected_tat(request):
     try:
         origin_pin = validate_optional_text(request.query_params.get("origin_pin"))
@@ -1743,6 +1747,7 @@ def create_delhivery_shipment(request):
 
 
 @api_view(["GET"])
+@throttle_classes([DelhiveryThrottle])
 def track_delhivery_shipment(request):
     try:
         tracking_inputs = validate_tracking_lookup_inputs(

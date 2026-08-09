@@ -118,6 +118,7 @@ if not SECRET_KEY:
 ALLOWED_HOSTS = get_env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+TRUSTED_PROXY_IPS = get_env_list("TRUSTED_PROXY_IPS")
 
 
 # Application definition
@@ -138,6 +139,7 @@ INSTALLED_APPS = [
     'products',
     'orders',
     'accounts',
+    'newsletter',
 ]
 
 if USE_CLOUDINARY:
@@ -149,6 +151,7 @@ if USE_CLOUDINARY:
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'utils.proxy_headers.RealIPMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -197,6 +200,22 @@ DATABASES = {
         }
     )
 }
+
+CACHES = (
+    {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": os.getenv("REDIS_URL"),
+            "TIMEOUT": 300,
+        },
+    }
+    if os.getenv("REDIS_URL")
+    else {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        },
+    }
+)
 
 
 # Password validation
@@ -293,6 +312,12 @@ REST_FRAMEWORK = {
         'signup': '10/hour',
         'password_reset': '3/hour',
         'google_auth': '10/minute',
+        'newsletter': '5/hour',
+        'product_view': '60/minute',
+        'cart_add_activity': '20/minute',
+        'search': '30/minute',
+        'delhivery': '20/minute',
+        'checkout': '10/minute',
     },
 
     'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler',

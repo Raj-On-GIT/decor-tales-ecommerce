@@ -1,4 +1,5 @@
 import Link from "next/link";
+import NewsletterForm from "./NewsletterForm";
 
 export default function Footer() {
   return (
@@ -69,15 +70,7 @@ export default function Footer() {
             Get updates & exclusive offers.
           </p>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:gap-0">
-            <input
-              placeholder="Email address"
-              className="w-full rounded-md border border-[#44403C] bg-[#292524] px-4 py-2.5 text-[#FAFAF9] placeholder-[#A8A29E] focus:border-[#D4A373] focus:outline-none focus:ring-1 focus:ring-[#D4A373] transition-colors sm:rounded-l-md sm:rounded-r-none"
-            />
-            <button className="rounded-md bg-[#D4A373] px-5 py-2.5 font-semibold text-[#1C1917] transition-colors hover:bg-[#E6CCBE] sm:rounded-l-none sm:rounded-r-md">
-              Subscribe
-            </button>
-          </div>
+          <NewsletterForm source="footer" variant="dark" />
         </div>
       </div>
 
