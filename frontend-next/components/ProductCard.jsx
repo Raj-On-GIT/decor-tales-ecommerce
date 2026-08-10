@@ -19,6 +19,9 @@ export default function ProductCard({ product }) {
     product.allow_custom_image ||
     product.allow_custom_text;
 
+  const isCustomizable =
+    product.allow_custom_image || product.allow_custom_text;
+
   const hasVariants = product.stock_type === "variants";
 
   const primaryVariant = hasVariants
@@ -74,6 +77,12 @@ export default function ProductCard({ product }) {
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
               className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
             />
+          ) : null}
+
+          {isCustomizable ? (
+            <span className="absolute left-2 top-2 z-10 rounded-full bg-[#1C1917]/90 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white backdrop-blur-sm">
+              Customizable
+            </span>
           ) : null}
         </div>
 
