@@ -366,7 +366,10 @@ class ProductImage(models.Model):
         on_delete=models.CASCADE
     )
     image = models.ImageField(upload_to="products/gallery/")
+    order = models.PositiveIntegerField(default=0, blank=True)
 
+    class Meta:
+        ordering = ["order", "id"]
 
 
 class ProductActivity(models.Model):

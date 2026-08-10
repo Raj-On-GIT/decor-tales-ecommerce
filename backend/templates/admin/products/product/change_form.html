@@ -27,6 +27,10 @@
   {% endif %}
 {% endblock %}
 
+{% block after_related_objects %}
+  {% include "admin/products/product/image_manager.html" %}
+{% endblock %}
+
 {% block extrahead %}
   {{ block.super }}
   <style>

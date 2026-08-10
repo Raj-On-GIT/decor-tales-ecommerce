@@ -1,21 +1,23 @@
 from decimal import Decimal
+import json
 import os
 import shutil
 import tempfile
 from datetime import timedelta
 
+from django.contrib import admin
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile, UploadedFile
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APIClient
 
 from orders.models import Cart, CartItem, MediaCleanupTask, Order, OrderItem, StockReservation
-from products.admin import ProductAdminForm
+from products.admin import ProductAdmin, ProductAdminForm
 from products.models import Category, Product, ProductActivity, ProductImage, SubCategory
 
 
@@ -361,6 +363,175 @@ class CatalogImageAdminFormTests(TestCase):
         self.assertIsInstance(image_value, UploadedFile)
         self.assertEqual(image_value.name, "fresh.png")
         self.assertEqual(image_value.content_type, "image/png")
+
+
+@override_settings(
+    STORAGES={
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    },
+)
+class ProductImageManagerSyncTests(TestCase):
+    """Tests for the custom product image-manager save logic."""
+
+    def setUp(self):
+        self.media_root = os.path.join(os.getcwd(), "test_media_image_manager")
+        shutil.rmtree(self.media_root, ignore_errors=True)
+        os.makedirs(self.media_root, exist_ok=True)
+
+        from django.conf import settings
+
+        self._original_media_root = settings.MEDIA_ROOT
+        settings.MEDIA_ROOT = self.media_root
+
+        self.factory = RequestFactory()
+        self.admin = ProductAdmin(Product, admin.site)
+
+        self.admin_user = User.objects.create_superuser(
+            username="imageadmin",
+            email="imageadmin@example.com",
+            password="testpass",
+        )
+        self.client.force_login(self.admin_user)
+
+        self.category = Category.objects.create(name="Image Manager")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Modern",
+        )
+
+    def tearDown(self):
+        from django.conf import settings
+
+        settings.MEDIA_ROOT = self._original_media_root
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def create_product(self, image=None):
+        return Product.objects.create(
+            title="Managed Product",
+            mrp=Decimal("799.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+            image=image,
+        )
+
+    def build_request(self, meta, files):
+        data = {"product_images_meta": json.dumps(meta)}
+        if files:
+            data["product_image_new_files"] = list(files)
+        return self.factory.post("/admin/products/product/add/", data)
+
+    def test_new_uploads_set_main_and_ordered_gallery(self):
+        product = self.create_product()
+        files = [
+            build_test_image("main.png"),
+            build_test_image("first.png"),
+            build_test_image("second.png"),
+        ]
+        meta = {"order": ["n0", "n1", "n2"], "main": "n0", "deleted": []}
+
+        self.admin.sync_product_images(self.build_request(meta, files), product)
+
+        product.refresh_from_db()
+        self.assertTrue(product.image)
+        rows = list(product.images.all())
+        self.assertEqual(len(rows), 2)
+        self.assertEqual([row.order for row in rows], [1, 2])
+
+    def test_reorders_existing_rows(self):
+        product = self.create_product(image=build_test_image("main.png"))
+        row_a = ProductImage.objects.create(product=product, image=build_test_image("a.png"))
+        row_b = ProductImage.objects.create(product=product, image=build_test_image("b.png"))
+        row_c = ProductImage.objects.create(product=product, image=build_test_image("c.png"))
+
+        meta = {
+            "order": ["main", f"e{row_c.pk}", f"e{row_a.pk}", f"e{row_b.pk}"],
+            "main": "main",
+            "deleted": [],
+        }
+
+        self.admin.sync_product_images(self.build_request(meta, []), product)
+
+        ordered = list(product.images.all().order_by("order", "id"))
+        self.assertEqual([row.pk for row in ordered], [row_c.pk, row_a.pk, row_b.pk])
+
+    def test_change_main_to_existing_gallery_row(self):
+        product = self.create_product(image=build_test_image("main.png"))
+        row_a = ProductImage.objects.create(product=product, image=build_test_image("a.png"))
+        row_b = ProductImage.objects.create(product=product, image=build_test_image("b.png"))
+
+        meta = {
+            "order": [f"e{row_a.pk}", f"e{row_b.pk}"],
+            "main": f"e{row_a.pk}",
+            "deleted": [],
+        }
+
+        self.admin.sync_product_images(self.build_request(meta, []), product)
+
+        product.refresh_from_db()
+        self.assertTrue(product.image)
+        self.assertNotEqual(product.image.name, "products/main.png")
+        remaining = list(product.images.all())
+        self.assertEqual([row.pk for row in remaining], [row_b.pk])
+        self.assertEqual(remaining[0].order, 1)
+
+    def test_removes_selected_rows(self):
+        product = self.create_product(image=build_test_image("main.png"))
+        row_a = ProductImage.objects.create(product=product, image=build_test_image("a.png"))
+        row_b = ProductImage.objects.create(product=product, image=build_test_image("b.png"))
+
+        meta = {"order": ["main", f"e{row_b.pk}"], "main": "main", "deleted": [row_a.pk]}
+
+        self.admin.sync_product_images(self.build_request(meta, []), product)
+
+        remaining = list(product.images.all())
+        self.assertEqual([row.pk for row in remaining], [row_b.pk])
+
+    def test_removing_everything_clears_images(self):
+        product = self.create_product(image=build_test_image("main.png"))
+        ProductImage.objects.create(product=product, image=build_test_image("a.png"))
+
+        meta = {"order": [], "main": None, "deleted": []}
+
+        self.admin.sync_product_images(self.build_request(meta, []), product)
+
+        product.refresh_from_db()
+        self.assertFalse(product.image)
+        self.assertEqual(product.images.count(), 0)
+
+    def test_no_meta_is_a_noop(self):
+        product = self.create_product(image=build_test_image("main.png"))
+        original_name = product.image.name
+        ProductImage.objects.create(product=product, image=build_test_image("a.png"))
+
+        request = self.factory.post("/admin/products/product/add/")
+        self.admin.sync_product_images(request, product)
+
+        product.refresh_from_db()
+        self.assertEqual(product.image.name, original_name)
+        self.assertEqual(product.images.count(), 1)
+
+    def test_add_page_renders_image_manager(self):
+        response = self.client.get(reverse("admin:products_product_add"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "image-manager")
+        self.assertContains(response, "Add Images")
+        self.assertContains(response, "product_images_meta")
+
+    def test_change_page_renders_existing_images(self):
+        product = self.create_product(image=build_test_image("main.png"))
+        ProductImage.objects.create(product=product, image=build_test_image("gallery.png"))
+
+        response = self.client.get(reverse("admin:products_product_change", args=[product.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "main.png")
+        self.assertContains(response, "gallery.png")
+        self.assertContains(response, "product_images_meta")
 
 
 @override_settings(

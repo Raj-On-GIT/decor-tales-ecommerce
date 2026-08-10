@@ -601,7 +601,7 @@ export default function ProductDetailPage() {
                 <h1 className="text-3xl font-bold leading-tight sm:text-4xl">
                   {product.title}
                   {product.allow_custom_image || product.allow_custom_text ? (
-                    <span className="ml-2 inline-flex items-center whitespace-nowrap rounded-full bg-[#1C1917] px-2 py-0.5 align-middle text-[10px] font-semibold tracking-wide text-white sm:text-xs">
+                    <span className="ml-2 inline-flex items-center whitespace-nowrap rounded-md bg-[#E6CCBE] px-1.5 py-[2px] align-middle text-[10px] font-semibold text-[#1C1917] sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs tracking-wide">
                       Customizable
                     </span>
                   ) : null}

@@ -58,3 +58,116 @@
     line-height: 1.45;
     word-break: break-word;
 }
+
+/* ------------------------------------------------------------------ */
+/* Product image manager                                               */
+/* ------------------------------------------------------------------ */
+.image-manager {
+    max-width: 720px;
+}
+
+.image-manager__toolbar {
+    margin-bottom: 10px;
+}
+
+.image-manager__add-btn {
+    position: relative;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.image-manager__file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.image-manager__list {
+    list-style: none;
+    margin: 0 0 8px 0;
+    padding: 0;
+}
+
+.image-manager__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    border: 1px solid #d0d4d8;
+    background: #fff;
+    border-radius: 4px;
+}
+
+.image-manager__row--main {
+    border-color: #417690;
+    box-shadow: 0 0 0 1px #417690 inset;
+    background: #f5fafc;
+}
+
+.image-manager__row--main .image-manager__handle {
+    visibility: hidden;
+}
+
+.image-manager__row.dragging {
+    opacity: 0.45;
+}
+
+.image-manager__handle {
+    cursor: grab;
+    font-size: 20px;
+    line-height: 1;
+    color: #888;
+    user-select: none;
+    flex: 0 0 auto;
+}
+
+.image-manager__thumb {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    background: #f0f0f0;
+    flex: 0 0 auto;
+}
+
+.image-manager__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 13px;
+    word-break: break-all;
+}
+
+.image-manager__radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+
+.image-manager__remove {
+    background: transparent;
+    border: none;
+    color: #ba2121;
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 4px;
+    flex: 0 0 auto;
+}
+
+.image-manager__remove:hover {
+    color: #a41515;
+}
+
+.image-manager__empty {
+    font-style: italic;
+}

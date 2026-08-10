@@ -1,0 +1,22 @@
+<div class="js-image-manager" data-state="{{ image_manager_state|escapejs }}">
+  <fieldset class="module aligned">
+    <h2>Product Images</h2>
+    <div class="form-row">
+      <div class="image-manager">
+        <div class="image-manager__toolbar">
+          <label class="button image-manager__add-btn">
+            <input type="file" class="image-manager__file-input" accept="image/jpeg,image/png,image/webp" multiple>
+            <span>Add Images</span>
+          </label>
+          <p class="help">
+            Select one or more images. Check one as the <strong>main image</strong> (shown on the
+            product card and first on the detail page), and drag the rest to set their display order.
+          </p>
+        </div>
+        <ul class="image-manager__list"></ul>
+        <p class="image-manager__empty help">No images added yet.</p>
+        <input type="hidden" name="product_images_meta" class="image-manager__meta" value="">
+      </div>
+    </div>
+  </fieldset>
+</div>

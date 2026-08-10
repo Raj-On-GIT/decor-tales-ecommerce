@@ -1,7 +1,13 @@
+import json
+import os
+import uuid
+
 from django.contrib import admin
 from django.contrib import messages
 from django import forms
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import IntegerField, Sum, Value
 from django.db.models.functions import Coalesce
@@ -10,6 +16,7 @@ from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
 from urllib.parse import quote
+from .media_utils import build_media_url
 from .models import Banner, Category, SubCategory, Product, ProductVariant, ProductImage, Size, Color
 from utils.validation import optimize_catalog_image
 
@@ -46,11 +53,6 @@ class SubCategoryAdminForm(CatalogImageAdminForm):
     class Meta:
         model = SubCategory
         fields = "__all__"
-
-class ProductImageInline(admin.TabularInline):
-    model = ProductImage
-    form = ProductImageAdminForm
-    extra = 1
 
 
 @admin.register(Banner)
@@ -286,7 +288,7 @@ class ProductAdmin(admin.ModelAdmin):
     list_select_related = ["category", "sub_category"]
     list_per_page = 50
     list_filter = ['stock_type', 'category']
-    inlines = [ProductVariantInline, ProductImageInline]
+    inlines = [ProductVariantInline]
     prepopulated_fields = {'slug': ('title',)}
     actions = ["archive_selected_products", "restore_selected_products", "permanently_delete_selected"]
 
@@ -384,9 +386,6 @@ class ProductAdmin(admin.ModelAdmin):
             ('Basic Information', {
                 'fields': ('title', 'slug', 'description', 'category', 'sub_category', 'is_active')
             }),
-            ('Main Product Image', {
-                'fields': ('image',)
-            }),
             ('Customization', {
                 'fields': ('allow_custom_image', 'custom_image_limit', 'allow_custom_text'),
                 'description': 'Allow customers to customize this product'
@@ -412,7 +411,7 @@ class ProductAdmin(admin.ModelAdmin):
     
     class Media:
         css = {'all': ('admin/css/admin_custom.css',)}
-        js = ('admin/js/toggle_stock_fields.js', "admin/js/hide-fields.js", 'admin/js/filter_subcategory.js', 'admin/js/product_form_progress.js',)
+        js = ('admin/js/toggle_stock_fields.js', "admin/js/hide-fields.js", 'admin/js/filter_subcategory.js', 'admin/js/product_form_progress.js', 'admin/js/product_image_manager.js',)
     
     def save_model(self, request, obj, form, change):
         """
@@ -423,6 +422,158 @@ class ProductAdmin(admin.ModelAdmin):
             obj.stock = 0  # ✅ force database value
 
         super().save_model(request, obj, form, change)
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        self.sync_product_images(request, form.instance)
+
+    # ------------------------------------------------------------------
+    # Image manager (single multi-select + main radio + drag order)
+    # ------------------------------------------------------------------
+    def build_image_manager_context(self, product):
+        """
+        Serialize the product's current images into the JSON shape consumed
+        by the image-manager widget. Keys:
+          "main"     → the current main image (product.image)
+          "e<id>"    → an existing gallery ProductImage row
+          "n<idx>"   → a newly selected file (added client-side)
+        """
+        rows = []
+        main_key = None
+
+        if product.image:
+            main_key = "main"
+            rows.append({
+                "key": "main",
+                "name": os.path.basename(str(product.image.name)),
+                "url": build_media_url(product.image, preset="catalog"),
+            })
+
+        for image in product.images.all():
+            rows.append({
+                "key": f"e{image.pk}",
+                "name": os.path.basename(str(image.image.name)),
+                "url": build_media_url(image.image, preset="catalog"),
+            })
+
+        return {
+            "rows": rows,
+            "main": main_key,
+            "deleted": [],
+        }
+
+    def sync_product_images(self, request, product):
+        """
+        Apply the image-manager state on save.
+
+        Reads:
+          POST["product_images_meta"]        → JSON {"order": [...], "main": key, "deleted": [id, ...]}
+          FILES["product_image_new_files"]   → the newly selected files, in row order
+
+        - The main image is stored on Product.image and is never duplicated as
+          a gallery row.
+        - Remaining images become ProductImage rows whose `order` mirrors the
+          order they are listed in (top → bottom).
+        """
+        meta_raw = request.POST.get("product_images_meta")
+        if not meta_raw:
+            return
+
+        try:
+            meta = json.loads(meta_raw)
+            order_keys = meta.get("order") or []
+            main_key = meta.get("main")
+            deleted_ids = [int(pk) for pk in meta.get("deleted", []) if str(pk).isdigit()]
+        except (TypeError, ValueError):
+            return
+
+        new_files = request.FILES.getlist("product_image_new_files")
+        existing = {image.pk: image for image in product.images.all()}
+
+        # Remove gallery rows explicitly removed in the widget.
+        for pk in deleted_ids:
+            row = existing.pop(pk, None)
+            if row is not None:
+                row.delete()
+
+        # Validate/optimize new files up-front so a single bad file aborts the
+        # whole image update (the product itself still saves).
+        optimized = []
+        for raw in new_files:
+            try:
+                optimized.append(optimize_catalog_image(raw))
+            except ValidationError as exc:
+                self.message_user(
+                    request,
+                    f"Image '{getattr(raw, 'name', 'file')}' was not saved: {'; '.join(exc.messages)}",
+                    level=messages.ERROR,
+                )
+                return
+
+        def set_main_from_existing(row):
+            """Copy a gallery row's file onto Product.image, then drop the row."""
+            try:
+                with row.image.open("rb") as src:
+                    content = src.read()
+            except (OSError, ValueError, IOError):
+                content = b""
+            ext = os.path.splitext(row.image.name or "")[1]
+            product.image.save(f"products/{uuid.uuid4().hex}{ext}", ContentFile(content))
+            row.delete()
+
+        # Walk the widget order once. New files are consumed in the exact order
+        # the widget lists them (the order the file inputs were created), so the
+        # running counter is the correct index into ``optimized``.
+        new_counter = 0
+        main_resolved = False
+        for position, key in enumerate(order_keys):
+            if key == main_key:
+                # The main image lives only on Product.image — never duplicated.
+                if key == "main":
+                    main_resolved = True
+                elif key.startswith("e"):
+                    row = existing.pop(int(key[1:]), None)
+                    if row is not None:
+                        set_main_from_existing(row)
+                        main_resolved = True
+                elif key.startswith("n"):
+                    main_file = optimized[new_counter] if new_counter < len(optimized) else None
+                    new_counter += 1
+                    if main_file is not None:
+                        product.image.save(
+                            f"products/{uuid.uuid4().hex}{os.path.splitext(main_file.name)[1]}",
+                            main_file,
+                        )
+                        main_resolved = True
+                continue
+
+            if key.startswith("e"):
+                row = existing.pop(int(key[1:]), None)
+                if row is not None:
+                    row.order = position
+                    row.save(update_fields=["order"])
+            elif key.startswith("n"):
+                if new_counter >= len(optimized):
+                    continue
+                gallery_file = optimized[new_counter]
+                new_counter += 1
+                ProductImage.objects.create(
+                    product=product,
+                    image=gallery_file,
+                    order=position,
+                )
+
+        # No valid main selection → clear the main image.
+        if not main_resolved:
+            if product.image:
+                product.image.delete(save=False)
+                product.image = None
+
+        # Rows that were not listed in the widget are treated as removed.
+        for row in existing.values():
+            row.delete()
+
+        product.save(update_fields=["image"])
 
     def get_total_stock(self, obj):
         if obj.stock_type == "main":
@@ -528,6 +679,9 @@ class ProductAdmin(admin.ModelAdmin):
         if object_id:
             product = self.get_object(request, object_id)
             if product:
+                extra_context["image_manager_state"] = json.dumps(
+                    self.build_image_manager_context(product)
+                )
                 change_url = reverse("admin:products_product_change", args=[product.pk])
                 if product.is_active:
                     extra_context["archive_confirm_url"] = (
@@ -546,6 +700,10 @@ class ProductAdmin(admin.ModelAdmin):
                         args=[product.pk],
                     )
                 extra_context["show_delete"] = False
+        else:
+            extra_context["image_manager_state"] = json.dumps(
+                {"rows": [], "main": None, "deleted": []}
+            )
 
         return super().changeform_view(
             request,
