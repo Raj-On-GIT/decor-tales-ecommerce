@@ -7,6 +7,7 @@ import tempfile
 from datetime import timedelta
 
 from django.contrib import admin
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.management import call_command
@@ -22,9 +23,9 @@ from products.admin import ProductAdmin, ProductAdminForm
 from products.models import Category, Product, ProductActivity, ProductImage, SubCategory
 
 
-def build_test_image(name, size=(100, 100), image_format="PNG", content_type="image/png"):
+def build_test_image(name, size=(100, 100), image_format="PNG", content_type="image/png", color=(120, 160, 220)):
     image_io = tempfile.SpooledTemporaryFile()
-    image = Image.new("RGB", size, color=(120, 160, 220))
+    image = Image.new("RGB", size, color=color)
     image.save(image_io, format=image_format)
     image_io.seek(0)
     return SimpleUploadedFile(name, image_io.read(), content_type=content_type)
@@ -427,6 +428,11 @@ class ProductImageManagerSyncTests(TestCase):
             data["product_image_new_files"] = list(files)
         return self.factory.post("/admin/products/product/add/", data)
 
+    def image_color(self, field):
+        field.file.seek(0)
+        with Image.open(field.file) as image:
+            return image.convert("RGB").getpixel((1, 1))
+
     def test_new_uploads_set_main_and_ordered_gallery(self):
         product = self.create_product()
         files = [
@@ -462,12 +468,18 @@ class ProductImageManagerSyncTests(TestCase):
         self.assertEqual([row.pk for row in ordered], [row_c.pk, row_a.pk, row_b.pk])
 
     def test_change_main_to_existing_gallery_row(self):
-        product = self.create_product(image=build_test_image("main.png"))
-        row_a = ProductImage.objects.create(product=product, image=build_test_image("a.png"))
-        row_b = ProductImage.objects.create(product=product, image=build_test_image("b.png"))
+        product = self.create_product(image=build_test_image("main.png", color=(255, 0, 0)))
+        row_a = ProductImage.objects.create(
+            product=product, image=build_test_image("a.png", color=(0, 255, 0))
+        )
+        row_b = ProductImage.objects.create(
+            product=product, image=build_test_image("b.png", color=(0, 0, 255))
+        )
 
+        # Exact meta the widget submits after clicking "Main" on row_a:
+        # the old main row stays in the list, just demoted.
         meta = {
-            "order": [f"e{row_a.pk}", f"e{row_b.pk}"],
+            "order": [f"e{row_a.pk}", "main", f"e{row_b.pk}"],
             "main": f"e{row_a.pk}",
             "deleted": [],
         }
@@ -475,11 +487,104 @@ class ProductImageManagerSyncTests(TestCase):
         self.admin.sync_product_images(self.build_request(meta, []), product)
 
         product.refresh_from_db()
-        self.assertTrue(product.image)
-        self.assertNotEqual(product.image.name, "products/main.png")
-        remaining = list(product.images.all())
-        self.assertEqual([row.pk for row in remaining], [row_b.pk])
-        self.assertEqual(remaining[0].order, 1)
+        self.assertEqual(self.image_color(product.image), (0, 255, 0))  # a.png is now main
+        rows = list(product.images.all().order_by("order", "id"))
+        self.assertEqual([row.order for row in rows], [1, 2])
+        # Nothing lost: old main (red) preserved as a row, plus b.png (blue).
+        self.assertEqual(
+            sorted(self.image_color(row.image) for row in rows),
+            [(0, 0, 255), (255, 0, 0)],
+        )
+
+    def test_change_main_to_new_file_keeps_old_main_row(self):
+        product = self.create_product(image=build_test_image("main.png", color=(255, 0, 0)))
+        row_a = ProductImage.objects.create(
+            product=product, image=build_test_image("a.png", color=(0, 0, 255))
+        )
+        new_file = build_test_image("new.png", color=(0, 255, 0))
+
+        meta = {"order": ["n0", "main", f"e{row_a.pk}"], "main": "n0", "deleted": []}
+
+        self.admin.sync_product_images(self.build_request(meta, [new_file]), product)
+
+        product.refresh_from_db()
+        self.assertEqual(self.image_color(product.image), (0, 255, 0))  # new file is main
+        rows = list(product.images.all().order_by("order", "id"))
+        self.assertEqual([row.order for row in rows], [1, 2])
+        # Old main (red) preserved as a row, plus a.png (blue).
+        self.assertEqual(
+            sorted(self.image_color(row.image) for row in rows),
+            [(0, 0, 255), (255, 0, 0)],
+        )
+
+    def test_change_main_preserves_full_series_order(self):
+        product = self.create_product(image=build_test_image("main.png", color=(255, 0, 0)))
+        row_a = ProductImage.objects.create(
+            product=product, image=build_test_image("a.png", color=(0, 255, 0))
+        )
+        row_b = ProductImage.objects.create(
+            product=product, image=build_test_image("b.png", color=(0, 0, 255))
+        )
+        row_c = ProductImage.objects.create(
+            product=product, image=build_test_image("c.png", color=(255, 255, 0))
+        )
+
+        # Main moved to b.png and the old main sits at the third slot.
+        meta = {
+            "order": [f"e{row_a.pk}", f"e{row_b.pk}", "main", f"e{row_c.pk}"],
+            "main": f"e{row_b.pk}",
+            "deleted": [],
+        }
+
+        self.admin.sync_product_images(self.build_request(meta, []), product)
+
+        product.refresh_from_db()
+        self.assertEqual(self.image_color(product.image), (0, 0, 255))  # b.png is main
+        rows = list(product.images.all().order_by("order", "id"))
+        # Series: a (green), old main (red), c (yellow) — nothing lost, order intact.
+        self.assertEqual(
+            [self.image_color(row.image) for row in rows],
+            [(0, 255, 0), (255, 0, 0), (255, 255, 0)],
+        )
+        # Rows keep their flat-list positions (slot 1 is the main image).
+        self.assertEqual([row.order for row in rows], [0, 2, 3])
+
+    def test_dropping_main_row_removes_orphaned_file(self):
+        product = self.create_product(image=build_test_image("main.png", color=(255, 0, 0)))
+        row_a = ProductImage.objects.create(
+            product=product, image=build_test_image("a.png", color=(0, 255, 0))
+        )
+        old_main_path = os.path.join(
+            settings.MEDIA_ROOT, product.image.name.replace("/", os.sep)
+        )
+        self.assertTrue(os.path.exists(old_main_path))
+
+        # User removed the main row (✕) in the widget: the old main is not in
+        # the list and a.png becomes the new main.
+        meta = {"order": [f"e{row_a.pk}"], "main": f"e{row_a.pk}", "deleted": []}
+
+        self.admin.sync_product_images(self.build_request(meta, []), product)
+
+        product.refresh_from_db()
+        self.assertEqual(self.image_color(product.image), (0, 255, 0))
+        self.assertEqual(product.images.count(), 0)
+        self.assertFalse(os.path.exists(old_main_path))
+
+    def test_demoted_main_keeps_its_content(self):
+        product = self.create_product(image=build_test_image("main.png", color=(255, 0, 0)))
+        row_a = ProductImage.objects.create(
+            product=product, image=build_test_image("a.png", color=(0, 255, 0))
+        )
+
+        meta = {"order": [f"e{row_a.pk}", "main"], "main": f"e{row_a.pk}", "deleted": []}
+
+        self.admin.sync_product_images(self.build_request(meta, []), product)
+
+        product.refresh_from_db()
+        self.assertEqual(self.image_color(product.image), (0, 255, 0))
+        self.assertEqual(product.images.count(), 1)
+        # The old main file survives — it is now the gallery row.
+        self.assertEqual(self.image_color(product.images.get().image), (255, 0, 0))
 
     def test_removes_selected_rows(self):
         product = self.create_product(image=build_test_image("main.png"))

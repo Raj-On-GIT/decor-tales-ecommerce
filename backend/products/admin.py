@@ -470,10 +470,12 @@ class ProductAdmin(admin.ModelAdmin):
           POST["product_images_meta"]        → JSON {"order": [...], "main": key, "deleted": [id, ...]}
           FILES["product_image_new_files"]   → the newly selected files, in row order
 
-        - The main image is stored on Product.image and is never duplicated as
-          a gallery row.
-        - Remaining images become ProductImage rows whose `order` mirrors the
-          order they are listed in (top → bottom).
+        The widget submits a single flat list of rows. Exactly one row is the
+        main image; it lives on Product.image and is never duplicated as a
+        gallery row. Every other listed row becomes a ProductImage whose
+        `order` mirrors its position in the list (top → bottom). Rows the user
+        removed in the widget are deleted; rows not listed at all are treated
+        as removed. No listed image is ever dropped silently.
         """
         meta_raw = request.POST.get("product_images_meta")
         if not meta_raw:
@@ -489,6 +491,7 @@ class ProductAdmin(admin.ModelAdmin):
 
         new_files = request.FILES.getlist("product_image_new_files")
         existing = {image.pk: image for image in product.images.all()}
+        old_main_name = product.image.name if product.image else None
 
         # Remove gallery rows explicitly removed in the widget.
         for pk in deleted_ids:
@@ -510,58 +513,100 @@ class ProductAdmin(admin.ModelAdmin):
                 )
                 return
 
-        def set_main_from_existing(row):
-            """Copy a gallery row's file onto Product.image, then drop the row."""
+        def read_bytes(file_field):
             try:
-                with row.image.open("rb") as src:
-                    content = src.read()
+                with file_field.open("rb") as src:
+                    return src.read()
             except (OSError, ValueError, IOError):
-                content = b""
-            ext = os.path.splitext(row.image.name or "")[1]
-            product.image.save(f"products/{uuid.uuid4().hex}{ext}", ContentFile(content))
-            row.delete()
+                return b""
 
-        # Walk the widget order once. New files are consumed in the exact order
-        # the widget lists them (the order the file inputs were created), so the
-        # running counter is the correct index into ``optimized``.
+        # Resolve every listed key to the file source it represents, keeping
+        # the flat list order (new files are consumed in slot order):
+        #   ("main", None)             → the current main image (Product.image)
+        #   ("existing", ProductImage) → an existing gallery row
+        #   ("new", File)              → a newly uploaded file
+        slots = []
         new_counter = 0
-        main_resolved = False
         for position, key in enumerate(order_keys):
-            if key == main_key:
-                # The main image lives only on Product.image — never duplicated.
-                if key == "main":
-                    main_resolved = True
-                elif key.startswith("e"):
-                    row = existing.pop(int(key[1:]), None)
-                    if row is not None:
-                        set_main_from_existing(row)
-                        main_resolved = True
-                elif key.startswith("n"):
-                    main_file = optimized[new_counter] if new_counter < len(optimized) else None
-                    new_counter += 1
-                    if main_file is not None:
-                        product.image.save(
-                            f"products/{uuid.uuid4().hex}{os.path.splitext(main_file.name)[1]}",
-                            main_file,
-                        )
-                        main_resolved = True
-                continue
-
-            if key.startswith("e"):
+            if key == "main":
+                slots.append((key, position, ("main", None)))
+            elif key.startswith("e"):
                 row = existing.pop(int(key[1:]), None)
                 if row is not None:
-                    row.order = position
-                    row.save(update_fields=["order"])
+                    slots.append((key, position, ("existing", row)))
             elif key.startswith("n"):
-                if new_counter >= len(optimized):
+                if new_counter < len(optimized):
+                    slots.append((key, position, ("new", optimized[new_counter])))
+                    new_counter += 1
+            # Unknown or already-deleted keys are simply ignored.
+
+        # If the current main image is demoted to a plain gallery row, snapshot
+        # it into a ProductImage BEFORE Product.image is overwritten below.
+        if product.image and main_key != "main":
+            for key, position, source in slots:
+                if key != "main":
                     continue
-                gallery_file = optimized[new_counter]
-                new_counter += 1
+                content = read_bytes(product.image)
+                if content:
+                    ext = os.path.splitext(product.image.name or "")[1]
+                    ProductImage.objects.create(
+                        product=product,
+                        image=ContentFile(content, name=f"{uuid.uuid4().hex}{ext}"),
+                        order=position,
+                    )
+                break
+
+        # Resolve the selected main image.
+        main_resolved = False
+        for key, position, source in slots:
+            if key != main_key:
+                continue
+            kind, value = source
+            if kind == "existing":
+                content = read_bytes(value.image)
+                if content:
+                    ext = os.path.splitext(value.image.name or "")[1]
+                    product.image.save(f"{uuid.uuid4().hex}{ext}", ContentFile(content))
+                    main_resolved = True
+                value.delete()
+            elif kind == "new":
+                ext = os.path.splitext(value.name or "")[1]
+                product.image.save(f"{uuid.uuid4().hex}{ext}", value)
+                main_resolved = True
+            elif kind == "main":
+                # Product.image already holds the main image — keep it.
+                main_resolved = bool(product.image)
+            break
+
+        # Assign the remaining rows to the gallery in list order.
+        for key, position, source in slots:
+            if key == main_key:
+                continue
+            kind, value = source
+            if kind == "existing":
+                value.order = position
+                value.save(update_fields=["order"])
+            elif kind == "new":
                 ProductImage.objects.create(
                     product=product,
-                    image=gallery_file,
+                    image=value,
                     order=position,
                 )
+            # kind == "main" was already snapshotted into a gallery row above.
+
+        # The previous main image was replaced and is no longer referenced by
+        # any ProductImage row (demoted rows are fresh copies), so remove its
+        # file from storage to avoid leaving an orphaned asset behind.
+        if (
+            main_resolved
+            and old_main_name
+            and main_key != "main"
+            and not ProductImage.objects.filter(product=product, image=old_main_name).exists()
+        ):
+            try:
+                product.image.storage.delete(old_main_name)
+            except (OSError, ValueError, IOError):
+                pass
 
         # No valid main selection → clear the main image.
         if not main_resolved:
