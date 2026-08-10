@@ -7,6 +7,7 @@ import { Loader2, ShoppingBag } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { normalizeCategory } from "@/lib/utils";
 import { formatPrice } from "@/lib/formatPrice";
+import CyclingBadge from "@/components/CyclingBadge";
 
 export default function ProductCard({ product }) {
   const { addToCart } = useStore();
@@ -36,6 +37,8 @@ export default function ProductCard({ product }) {
   const noStock =
     (hasVariants && product.variants?.every((variant) => variant.stock === 0)) ||
     (!hasVariants && product.stock === 0);
+
+  const priceInfo = hasVariants ? primaryVariant : product;
 
   const handleAddToCart = async () => {
     if (isAdding) return;
@@ -78,12 +81,6 @@ export default function ProductCard({ product }) {
               className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
             />
           ) : null}
-
-          {isCustomizable ? (
-            <span className="absolute left-2 top-2 z-10 rounded-full bg-[#1C1917]/90 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white backdrop-blur-sm">
-              Customizable
-            </span>
-          ) : null}
         </div>
 
         <div className="mb-1 mt-3 min-w-0 pr-12 pl-1">
@@ -95,44 +92,23 @@ export default function ProductCard({ product }) {
 
           {noStock ? (
             <p className="mt-1 font-semibold text-red-600">Out of stock</p>
-          ) : hasVariants && primaryVariant ? (
-            primaryVariant.slashed_price ? (
-              <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#A8A29E] line-through sm:text-sm">
-                    ₹{formatPrice(primaryVariant.mrp)}
-                  </span>
-                  <span className="text-sm font-semibold text-[#1C1917] sm:text-base">
-                    ₹{formatPrice(primaryVariant.slashed_price)}
-                  </span>
-                </div>
-              <span className="inline-flex w-fit items-center rounded-md bg-[#E6CCBE] px-1.5 py-[2px] text-[10px] font-semibold text-[#1C1917] sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs tracking-wide">
-                {primaryVariant.discount_percent}% OFF
-              </span>
-              </div>
-            ) : (
-              <p className="mt-1 font-semibold text-[#1C1917]">
-                ₹{formatPrice(primaryVariant.mrp)}
-              </p>
-            )
-          ) : product.slashed_price ? (
+          ) : (
             <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#A8A29E] line-through sm:text-sm">
-                  ₹{formatPrice(product.mrp)}
-                </span>
+                {priceInfo.slashed_price ? (
+                  <span className="text-xs text-[#A8A29E] line-through sm:text-sm">
+                    ₹{formatPrice(priceInfo.mrp)}
+                  </span>
+                ) : null}
                 <span className="text-sm font-semibold text-[#1C1917] sm:text-base">
-                  ₹{formatPrice(product.slashed_price)}
+                  ₹{formatPrice(priceInfo.slashed_price || priceInfo.mrp)}
                 </span>
               </div>
-              <span className="inline-flex w-fit items-center rounded-md bg-[#E6CCBE] px-1.5 py-[2px] text-[10px] font-semibold text-[#1C1917] sm:rounded-full sm:px-2 sm:py-0.5 sm:text-xs tracking-wide">
-                {product.discount_percent}% OFF
-              </span>
+              <CyclingBadge
+                discountPercent={priceInfo.discount_percent}
+                isCustomizable={isCustomizable}
+              />
             </div>
-          ) : (
-            <p className="mt-1 font-semibold text-[#1C1917]">
-              ₹{formatPrice(product.mrp)}
-            </p>
           )}
         </div>
       </Link>

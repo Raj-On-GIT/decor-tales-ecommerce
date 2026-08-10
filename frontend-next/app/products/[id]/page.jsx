@@ -598,12 +598,14 @@ export default function ProductDetailPage() {
             <div className="flex h-full flex-col justify-center gap-5 sm:gap-6">
               {/* Title + Price */}
               <div>
-                <h1 className="text-3xl font-bold leading-tight sm:text-4xl">{product.title}</h1>
-                {product.allow_custom_image || product.allow_custom_text ? (
-                  <span className="mt-3 inline-flex w-fit items-center rounded-full bg-[#1C1917] px-2.5 py-1 text-[11px] font-semibold tracking-wide text-white sm:text-xs">
-                    Customizable
-                  </span>
-                ) : null}
+                <h1 className="text-3xl font-bold leading-tight sm:text-4xl">
+                  {product.title}
+                  {product.allow_custom_image || product.allow_custom_text ? (
+                    <span className="ml-2 inline-flex items-center whitespace-nowrap rounded-full bg-[#1C1917] px-2 py-0.5 align-middle text-[10px] font-semibold tracking-wide text-white sm:text-xs">
+                      Customizable
+                    </span>
+                  ) : null}
+                </h1>
                 {isUnavailable ? (
                   <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     This product is no longer available for purchase. You can still review its details here, but ordering is disabled.
