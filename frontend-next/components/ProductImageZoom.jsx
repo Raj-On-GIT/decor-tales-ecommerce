@@ -11,14 +11,58 @@ export default function ProductImageZoom({ src, alt, priority = false }) {
       typeof window !== "undefined" &&
       window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches,
   );
+  const [natural, setNatural] = useState(null);
   const [zoom, setZoom] = useState(null);
   const containerRef = useRef(null);
 
+  const handleImageLoad = (e) => {
+    const img = e.currentTarget;
+    setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+  };
+
   const handleMove = (e) => {
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    setZoom({ x, y });
+    const container = containerRef.current;
+    if (!container || !natural?.w || !natural?.h) return;
+
+    const rect = container.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+
+    const imageAspect = natural.w / natural.h;
+    const containerAspect = rect.width / rect.height;
+
+    let imageWidth;
+    let imageHeight;
+    let imageX;
+    let imageY;
+
+    if (imageAspect >= containerAspect) {
+      imageWidth = rect.width;
+      imageHeight = rect.width / imageAspect;
+      imageX = 0;
+      imageY = (rect.height - imageHeight) / 2;
+    } else {
+      imageHeight = rect.height;
+      imageWidth = rect.height * imageAspect;
+      imageY = 0;
+      imageX = (rect.width - imageWidth) / 2;
+    }
+
+    const isOverImage =
+      px >= imageX &&
+      px <= imageX + imageWidth &&
+      py >= imageY &&
+      py <= imageY + imageHeight;
+
+    if (!isOverImage) {
+      if (zoom) setZoom(null);
+      return;
+    }
+
+    setZoom({
+      x: (px / rect.width) * 100,
+      y: (py / rect.height) * 100,
+    });
   };
 
   if (!canHover) {
@@ -31,6 +75,7 @@ export default function ProductImageZoom({ src, alt, priority = false }) {
           priority={priority}
           sizes="(max-width: 768px) 100vw, 50vw"
           className="object-contain"
+          onLoad={handleImageLoad}
         />
       </div>
     );
@@ -41,7 +86,6 @@ export default function ProductImageZoom({ src, alt, priority = false }) {
       ref={containerRef}
       className="relative h-full w-full shrink-0 bg-white"
       onMouseMove={handleMove}
-      onMouseEnter={() => setZoom({ x: 50, y: 50 })}
       onMouseLeave={() => setZoom(null)}
     >
       <div
@@ -58,6 +102,7 @@ export default function ProductImageZoom({ src, alt, priority = false }) {
           priority={priority}
           sizes="(max-width: 768px) 100vw, 50vw"
           className="object-contain"
+          onLoad={handleImageLoad}
         />
       </div>
     </div>
