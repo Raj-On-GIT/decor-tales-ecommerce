@@ -16,6 +16,7 @@ import CategoryTrail from "@/components/CategoryTrail";
 import ViewAllLink from "@/components/ViewAllLink";
 import PriceDisplay from "@/components/PriceDisplay";
 import ProductDetailSkeleton from "@/components/ProductDetailSkeleton";
+import ProductImageZoom from "@/components/ProductImageZoom";
 import { isProductOutOfStock } from "@/lib/utils";
 
 const MAX_CUSTOM_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -477,16 +478,12 @@ export default function ProductDetailPage() {
                 }}
               >
                 {allImages.map((img, index) => (
-                  <div key={index} className="relative h-full w-full shrink-0 bg-white">
-                    <Image
-                      src={img}
-                      alt={`product-${index + 1}`}
-                      fill
-                      priority={index === 0}
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                      className="object-contain"
-                    />
-                  </div>
+                  <ProductImageZoom
+                    key={index}
+                    src={img}
+                    alt={`product-${index + 1}`}
+                    priority={index === 0}
+                  />
                 ))}
               </div>
 
