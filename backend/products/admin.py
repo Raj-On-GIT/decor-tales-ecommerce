@@ -679,9 +679,7 @@ class ProductAdmin(admin.ModelAdmin):
         if object_id:
             product = self.get_object(request, object_id)
             if product:
-                extra_context["image_manager_state"] = json.dumps(
-                    self.build_image_manager_context(product)
-                )
+                extra_context["image_manager_state"] = self.build_image_manager_context(product)
                 change_url = reverse("admin:products_product_change", args=[product.pk])
                 if product.is_active:
                     extra_context["archive_confirm_url"] = (
@@ -701,9 +699,7 @@ class ProductAdmin(admin.ModelAdmin):
                     )
                 extra_context["show_delete"] = False
         else:
-            extra_context["image_manager_state"] = json.dumps(
-                {"rows": [], "main": None, "deleted": []}
-            )
+            extra_context["image_manager_state"] = {"rows": [], "main": None, "deleted": []}
 
         return super().changeform_view(
             request,

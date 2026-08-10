@@ -134,10 +134,13 @@
     // Initial render from server state
     // ---------------------------------------------------------------
     var state = {};
-    try {
-      state = JSON.parse(manager.dataset.state || "{}");
-    } catch (e) {
-      state = {};
+    var stateScript = document.getElementById("image-manager-state");
+    if (stateScript) {
+      try {
+        state = JSON.parse(stateScript.textContent);
+      } catch (e) {
+        state = {};
+      }
     }
     deletedIds = (state.deleted || []).slice();
     (state.rows || []).forEach(function (row) {

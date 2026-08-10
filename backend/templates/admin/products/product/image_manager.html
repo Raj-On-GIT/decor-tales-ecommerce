@@ -1,4 +1,5 @@
-<div class="js-image-manager" data-state="{{ image_manager_state|escapejs }}">
+{{ image_manager_state|json_script:"image-manager-state" }}
+<div class="js-image-manager">
   <fieldset class="module aligned">
     <h2>Product Images</h2>
     <div class="form-row">

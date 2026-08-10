@@ -1,6 +1,7 @@
 from decimal import Decimal
 import json
 import os
+import re
 import shutil
 import tempfile
 from datetime import timedelta
@@ -522,16 +523,37 @@ class ProductImageManagerSyncTests(TestCase):
         self.assertContains(response, "image-manager")
         self.assertContains(response, "Add Images")
         self.assertContains(response, "product_images_meta")
+        self.assertEqual(self._image_manager_state(response), {"rows": [], "main": None, "deleted": []})
 
     def test_change_page_renders_existing_images(self):
         product = self.create_product(image=build_test_image("main.png"))
-        ProductImage.objects.create(product=product, image=build_test_image("gallery.png"))
+        gallery = ProductImage.objects.create(product=product, image=build_test_image("gallery.png"))
 
         response = self.client.get(reverse("admin:products_product_change", args=[product.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "main.png")
         self.assertContains(response, "gallery.png")
         self.assertContains(response, "product_images_meta")
+        self.assertNotContains(response, "\\u0022")
+
+        state = self._image_manager_state(response)
+        self.assertEqual(state["main"], "main")
+        self.assertEqual(state["deleted"], [])
+        self.assertEqual({row["key"] for row in state["rows"]}, {"main", f"e{gallery.pk}"})
+        self.assertEqual(
+            {row["name"] for row in state["rows"]},
+            {"main.png", "gallery.png"},
+        )
+        self.assertTrue(all(row["url"] for row in state["rows"]))
+
+    def _image_manager_state(self, response):
+        match = re.search(
+            r'<script[^>]*id="image-manager-state"[^>]*>(.*?)</script>',
+            response.content.decode(),
+            re.S,
+        )
+        self.assertIsNotNone(match, "image-manager-state script block not found")
+        return json.loads(match.group(1))
 
 
 @override_settings(
