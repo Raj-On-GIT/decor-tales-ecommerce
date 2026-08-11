@@ -3,11 +3,11 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Loader2, ShoppingBag } from "lucide-react";
+import { Loader2, Shapes, ShoppingBag } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 import { normalizeCategory } from "@/lib/utils";
 import { formatPrice } from "@/lib/formatPrice";
-import CyclingBadge from "@/components/CyclingBadge";
+import DiscountBadge from "@/components/DiscountBadge";
 
 export default function ProductCard({ product }) {
   const { addToCart } = useStore();
@@ -15,12 +15,7 @@ export default function ProductCard({ product }) {
 
   const categoryName = normalizeCategory(product.category)?.name;
 
-  const requiresCustomization =
-    product.stock_type === "variants" ||
-    product.allow_custom_image ||
-    product.allow_custom_text;
-
-  const isCustomizable =
+  const hasCustomOptions =
     product.allow_custom_image || product.allow_custom_text;
 
   const hasVariants = product.stock_type === "variants";
@@ -104,10 +99,7 @@ export default function ProductCard({ product }) {
                   ₹{formatPrice(priceInfo.slashed_price || priceInfo.mrp)}
                 </span>
               </div>
-              <CyclingBadge
-                discountPercent={priceInfo.discount_percent}
-                isCustomizable={isCustomizable}
-              />
+              <DiscountBadge discountPercent={priceInfo.discount_percent} />
             </div>
           )}
         </div>
@@ -123,13 +115,24 @@ export default function ProductCard({ product }) {
               <img src="/out_of_stock.svg" alt="Out of stock" className="h-5 w-5 opacity-70" />
             </button>
           </Link>
-        ) : requiresCustomization ? (
+        ) : hasCustomOptions ? (
           <Link href={`/products/${product.id}`}>
             <button
               type="button"
+              aria-label="Customize"
               className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#1C1917] transition-all duration-300 hover:bg-[#1C1917] hover:text-white border border-[#E7E5E4] shadow-sm hover:shadow-md group/btn"
             >
               <img src="/customize.svg" alt="Customize" className="h-5 w-5 opacity-70 group-hover/btn:opacity-100 group-hover/btn:invert" />
+            </button>
+          </Link>
+        ) : hasVariants ? (
+          <Link href={`/products/${product.id}`}>
+            <button
+              type="button"
+              aria-label="Choose variant"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#1C1917] transition-all duration-300 hover:bg-[#1C1917] hover:text-white border border-[#E7E5E4] shadow-sm hover:shadow-md group/btn"
+            >
+              <Shapes size={18} className="opacity-70 group-hover/btn:opacity-100" />
             </button>
           </Link>
         ) : (
