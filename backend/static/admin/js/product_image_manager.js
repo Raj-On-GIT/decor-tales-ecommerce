@@ -80,9 +80,9 @@
       removeBtn.textContent = "✕";
 
       li.appendChild(handle);
+      li.appendChild(label);
       li.appendChild(thumb);
       li.appendChild(nameEl);
-      li.appendChild(label);
       li.appendChild(removeBtn);
 
       listEl.appendChild(li);
