@@ -43,6 +43,7 @@ from rest_framework_simplejwt.views import (
 def health_check_view(request):
     return JsonResponse({"ok": True})
 
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", health_check_view, name="health_root"),

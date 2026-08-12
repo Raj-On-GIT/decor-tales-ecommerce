@@ -124,7 +124,7 @@ TRUSTED_PROXY_IPS = get_env_list("TRUSTED_PROXY_IPS")
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    'config.apps.LuxeFramesAdminConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',

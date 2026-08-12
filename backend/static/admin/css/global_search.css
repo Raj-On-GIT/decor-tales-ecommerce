@@ -1,0 +1,217 @@
+/* Global search widget rendered in the admin header (nav-global block). */
+
+.global-search {
+  position: relative;
+  flex: 1 1 auto;
+  max-width: 420px;
+  margin-inline-start: auto;
+}
+
+.global-search-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.global-search-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.global-search-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  color: var(--body-fg);
+  background: var(--darkened-bg);
+  border: 1px solid var(--border-color);
+}
+
+.global-search-input:focus {
+  border-color: var(--accent);
+  outline: 2px solid var(--focus-ring-color, rgba(121, 174, 200, 0.3));
+}
+
+.global-search-submit {
+  min-height: 30px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--primary-fg); /* Always keep the button light */
+  color: var(--header-bg);       /* Navy text on light button */
+  font-weight: 600;
+  font-size: 0.75rem;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.global-search-submit:hover,
+.global-search-submit:focus {
+  background: #eeeaea;              /* Highlight Search button on hover */
+  color: #417690;                /* Navy text for contrast */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.global-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-end: 0;
+  width: 100%;
+  min-width: 320px;
+  max-height: 380px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--body-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.global-search-group-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px 2px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--body-quiet-color);
+}
+
+.global-search-group-label a {
+  color: var(--link-fg);
+}
+
+.global-search-item {
+  margin: 0;
+}
+
+.global-search-item a {
+  display: block;
+  padding: 6px 12px;
+  color: var(--body-fg);
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.global-search-item a:hover,
+.global-search-item a:focus,
+.global-search-active a {
+  background: var(--selected-row);
+  color: var(--body-fg);
+}
+
+.global-search-empty {
+  padding: 10px 12px;
+  color: var(--body-quiet-color);
+}
+
+/* Results page. */
+
+.global-search-page-form {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 20px;
+}
+
+.global-search-page-form input {
+  flex: 1 1 auto;
+  max-width: 480px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: var(--body-bg);
+  color: var(--body-fg);
+}
+
+.global-search-page-form button {
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--button-bg);
+  color: var(--button-fg);
+  cursor: pointer;
+}
+
+.global-search-page-form button:hover,
+.global-search-page-form button:focus {
+  background: var(--button-hover-bg);
+}
+
+.global-search-summary {
+  color: var(--body-quiet-color);
+}
+
+.global-search-group {
+  margin: 0 0 20px;
+}
+
+.global-search-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.global-search-group-title a {
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.global-search-results-list {
+  margin: 0;
+}
+
+.global-search-results-list li {
+  margin: 0;
+}
+
+.global-search-results-list a {
+  display: block;
+  padding: 5px 10px;
+  color: var(--body-fg);
+  text-decoration: none;
+}
+
+.global-search-results-list a:hover,
+.global-search-results-list a:focus {
+  background: var(--selected-row);
+}
+
+.global-search-tip,
+.global-search-none {
+  color: var(--body-quiet-color);
+}
+
+/* Narrow screens: give the widget its own full-width row below the header. */
+@media (max-width: 767px) {
+  #header {
+    row-gap: 10px;
+  }
+
+  .global-search {
+    width: 100%;
+    max-width: none;
+    margin-inline-start: 0;
+  }
+
+  .global-search-results {
+    min-width: 0;
+  }
+}

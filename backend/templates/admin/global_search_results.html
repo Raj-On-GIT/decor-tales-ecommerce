@@ -1,0 +1,54 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content_title %}<h1>{% translate 'Global search' %}</h1>{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <form id="global-search-page-form" class="global-search-page-form"
+        action="{% url 'admin:global_search' %}" method="get" role="search">
+    <input type="search" name="q" value="{{ query }}"
+           placeholder="{% translate 'Search products, orders, users...' %}"
+           autofocus aria-label="{% translate 'Search everything' %}" />
+    <button type="submit">{% translate 'Search' %}</button>
+  </form>
+
+  {% if query %}
+    {% if groups %}
+      <p class="global-search-summary">
+        {% blocktranslate count total=total_count trimmed %}
+          {{ total }} match for “{{ query }}”.
+        {% plural %}
+          {{ total }} matches for “{{ query }}”.
+        {% endblocktranslate %}
+      </p>
+
+      {% for group in groups %}
+        <div class="module global-search-group">
+          <h2 class="global-search-group-title">
+            <span>{{ group.verbose_name_plural|capfirst }}</span>
+            <a href="{{ group.changelist_url }}?q={{ query|urlencode }}">{% translate 'View all' %} &rarr;</a>
+          </h2>
+          <ul class="global-search-results-list">
+            {% for item in group.results %}
+              <li><a href="{{ item.url }}">{{ item.label }}</a></li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endfor %}
+
+      {% if has_more %}
+        <p class="global-search-tip">
+          {% translate 'Showing the first matches only. Use a more specific query or browse the full list for each entity.' %}
+        </p>
+      {% endif %}
+    {% else %}
+      <p class="global-search-none">{% blocktranslate trimmed %}No matches for “{{ query }}”.{% endblocktranslate %}</p>
+    {% endif %}
+  {% else %}
+    <p class="global-search-none">
+      {% translate 'Enter at least two characters to search across users, products, categories, sub-categories, sizes, colors, orders, carts, cart items, coupons, banners, addresses and newsletter subscribers.' %}
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -288,6 +288,7 @@ class ProductAdmin(admin.ModelAdmin):
     list_select_related = ["category", "sub_category"]
     list_per_page = 50
     list_filter = ['stock_type', 'category']
+    search_fields = ("title", "slug", "description", "category__name", "sub_category__name")
     inlines = [ProductVariantInline]
     prepopulated_fields = {'slug': ('title',)}
     actions = ["archive_selected_products", "restore_selected_products", "permanently_delete_selected"]
@@ -885,6 +886,7 @@ class ProductVariantAdmin(admin.ModelAdmin):
 class CategoryAdmin(admin.ModelAdmin):
     form = CategoryAdminForm
     list_display = ['name', 'slug']
+    search_fields = ("name", "slug")
     prepopulated_fields = {'slug': ('name',)}
 
 @admin.register(SubCategory)

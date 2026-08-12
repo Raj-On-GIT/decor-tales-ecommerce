@@ -20,3 +20,13 @@ DATABASES = {
         "NAME": BASE_DIR / "test_db.sqlite3",
     }
 }
+
+# Avoid depending on a collected staticfiles manifest while running tests.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
