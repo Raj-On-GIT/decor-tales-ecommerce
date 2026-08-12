@@ -16,6 +16,7 @@ from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
 from urllib.parse import quote
+from orders.models import CartItem, OrderItem, StockReservation
 from .media_utils import build_media_url
 from .models import Banner, Category, SubCategory, Product, ProductVariant, ProductImage, Size, Color
 from utils.validation import optimize_catalog_image
@@ -291,7 +292,12 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ("title", "slug", "description", "category__name", "sub_category__name")
     inlines = [ProductVariantInline]
     prepopulated_fields = {'slug': ('title',)}
-    actions = ["archive_selected_products", "restore_selected_products", "permanently_delete_selected"]
+    actions = [
+        "archive_selected_products",
+        "restore_selected_products",
+        "permanently_delete_selected",
+        "delete_selected_products",
+    ]
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request).annotate(
@@ -308,14 +314,38 @@ class ProductAdmin(admin.ModelAdmin):
             return queryset.filter(is_active=True)
         return queryset
 
+    def _deletable_product_ids(self, queryset):
+        """Product pks that can be permanently deleted (no order/cart/reservation refs)."""
+        ids = list(queryset.values_list("pk", flat=True))
+        if not ids:
+            return []
+        blocked = set()
+        blocked.update(
+            OrderItem.objects.filter(product_id__in=ids).values_list("product_id", flat=True)
+        )
+        blocked.update(
+            CartItem.objects.filter(product_id__in=ids).values_list("product_id", flat=True)
+        )
+        blocked.update(
+            StockReservation.objects.filter(product_id__in=ids).values_list("product_id", flat=True)
+        )
+        return [pk for pk in ids if pk not in blocked]
+
     def changelist_view(self, request, extra_context=None):
-        if request.path.rstrip("/").endswith("/archived"):
+        is_archived = request.path.rstrip("/").endswith("/archived")
+        if is_archived:
             request.product_changelist_kind = "archived"
             extra_context = dict(extra_context or {})
             extra_context["archived_list"] = True
             extra_context["title"] = "Archived Products"
         else:
             request.product_changelist_kind = "active"
+
+        extra_context = dict(extra_context or {})
+        if not is_archived:
+            extra_context["deletable_product_ids"] = self._deletable_product_ids(
+                self.get_queryset(request)
+            )
         return super().changelist_view(request, extra_context=extra_context)
 
     def get_list_display(self, request):
@@ -376,6 +406,7 @@ class ProductAdmin(admin.ModelAdmin):
         kind = getattr(request, "product_changelist_kind", None)
         if kind == "archived":
             actions.pop("archive_selected_products", None)
+            actions.pop("delete_selected_products", None)
         else:
             actions.pop("restore_selected_products", None)
             actions.pop("permanently_delete_selected", None)
@@ -664,6 +695,15 @@ class ProductAdmin(admin.ModelAdmin):
 
     @admin.action(description="Permanently delete selected archived products")
     def permanently_delete_selected(self, request, queryset):
+        self._bulk_permanent_delete(request, queryset)
+
+    @admin.action(description="Delete selected products")
+    def delete_selected_products(self, request, queryset):
+        ids = ",".join(str(pk) for pk in queryset.values_list("pk", flat=True))
+        url = reverse("admin:products_product_delete_confirm")
+        return redirect(f"{url}?ids={ids}&next={quote(request.path)}")
+
+    def _bulk_permanent_delete(self, request, queryset):
         deleted_count = 0
         skipped = []
         for product in queryset:
@@ -700,6 +740,11 @@ class ProductAdmin(admin.ModelAdmin):
                 "archive-confirm/",
                 self.admin_site.admin_view(self.archive_confirm_view),
                 name="products_product_archive_confirm",
+            ),
+            path(
+                "delete-confirm/",
+                self.admin_site.admin_view(self.delete_confirm_view),
+                name="products_product_delete_confirm",
             ),
             path(
                 "<path:object_id>/restore/",
@@ -795,6 +840,24 @@ class ProductAdmin(admin.ModelAdmin):
                 "next": self._safe_redirect_target(request),
                 "opts": self.model._meta,
                 "title": "Archive products",
+            },
+        )
+
+    def delete_confirm_view(self, request):
+        products = Product.objects.filter(pk__in=self._parse_archive_ids(request))
+
+        if request.method == "POST":
+            self._bulk_permanent_delete(request, products)
+            return redirect(self._safe_redirect_target(request))
+
+        return render(
+            request,
+            "admin/products/product/delete_confirm.html",
+            {
+                "products": products,
+                "next": self._safe_redirect_target(request),
+                "opts": self.model._meta,
+                "title": "Delete products",
             },
         )
 

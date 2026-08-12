@@ -857,6 +857,78 @@ class ProductArchiveAdminTests(TestCase):
         self.assertEqual(response.data["availability_status"], "unavailable")
         self.assertFalse(response.data["is_available_for_purchase"])
 
+    def test_active_changelist_marks_deletable_products_in_context(self):
+        eligible = self.create_product("List Eligible Product")
+        referenced = self.create_product("List Referenced Product")
+        user = User.objects.create_user("list-ref-user", "listref@example.com", "pass12345")
+        cart = Cart.objects.create(user=user)
+        CartItem.objects.create(cart=cart, product=referenced, quantity=1)
+
+        response = self.client.get(reverse("admin:products_product_changelist"))
+
+        self.assertContains(response, 'value="delete_selected_products"')
+        self.assertNotContains(response, 'value="restore_selected_products"')
+        self.assertNotContains(response, 'value="permanently_delete_selected"')
+        self.assertIn(eligible.pk, response.context["deletable_product_ids"])
+        self.assertNotIn(referenced.pk, response.context["deletable_product_ids"])
+
+    def test_bulk_delete_flow_deletes_only_eligible(self):
+        eligible = self.create_product("Bulk Delete Eligible")
+        referenced = self.create_product("Bulk Delete Referenced")
+        user = User.objects.create_user("bulk-ref-user", "bulkref@example.com", "pass12345")
+        cart = Cart.objects.create(user=user)
+        CartItem.objects.create(cart=cart, product=referenced, quantity=1)
+
+        response = self.client.post(
+            reverse("admin:products_product_delete_confirm"),
+            {
+                "product_ids": [str(eligible.pk), str(referenced.pk)],
+                "next": "/admin/products/product/",
+            },
+            follow=True,
+        )
+
+        self.assertFalse(Product.objects.filter(pk=eligible.pk).exists())
+        referenced.refresh_from_db()
+        self.assertTrue(referenced.is_active)
+        self.assertContains(response, "Permanently deleted 1 product")
+
+    def test_bulk_delete_schedules_media_cleanup_like_individual_delete(self):
+        media_root = os.path.join(os.getcwd(), "test_media_bulk_delete")
+        shutil.rmtree(media_root, ignore_errors=True)
+        os.makedirs(media_root, exist_ok=True)
+
+        original_media_root = settings.MEDIA_ROOT
+        settings.MEDIA_ROOT = media_root
+        try:
+            eligible = self.create_product(
+                "Bulk Delete With Media",
+                image=build_test_image("bulk-main.png", size=(200, 200)),
+            )
+            ProductImage.objects.create(
+                product=eligible,
+                image=build_test_image("bulk-gallery.png", size=(220, 220)),
+            )
+
+            self.client.post(
+                reverse("admin:products_product_delete_confirm"),
+                {
+                    "product_ids": [str(eligible.pk)],
+                    "next": "/admin/products/product/",
+                },
+            )
+
+            self.assertFalse(Product.objects.filter(pk=eligible.pk).exists())
+            self.assertEqual(
+                MediaCleanupTask.objects.filter(
+                    scope="product_media", deleted_at__isnull=True
+                ).count(),
+                2,
+            )
+        finally:
+            settings.MEDIA_ROOT = original_media_root
+            shutil.rmtree(media_root, ignore_errors=True)
+
 
 class ProductViewThrottleTests(TestCase):
     def setUp(self):

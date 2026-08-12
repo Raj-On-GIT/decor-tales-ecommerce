@@ -1,6 +1,65 @@
 {% extends "admin/change_list.html" %}
 {% load i18n admin_urls %}
 
+{% block extrahead %}
+  {{ block.super }}
+  {% if not archived_list %}
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        var select = document.querySelector('#changelist-form select[name="action"]');
+        if (!select) return;
+        var option = select.querySelector('option[value="delete_selected_products"]');
+        if (!option) return;
+        var deletableIds = new Set({{ deletable_product_ids|default:"[]" }});
+
+        function updateDeleteOption() {
+          var checked = document.querySelectorAll(
+            "#result_list tr input.action-select:checked"
+          );
+          var eligible = checked.length > 0;
+          if (eligible) {
+            for (var i = 0; i < checked.length; i++) {
+              if (!deletableIds.has(Number(checked[i].value))) {
+                eligible = false;
+                break;
+              }
+            }
+          }
+          var across = document.querySelector(
+            "#changelist-form input.select-across"
+          );
+          if (across && Number(across.value) === 1) eligible = false;
+          option.style.display = eligible ? "" : "none";
+        }
+
+        document.addEventListener("change", function (e) {
+          var target = e.target;
+          if (
+            target &&
+            (target.classList.contains("action-select") ||
+              target.id === "action-toggle")
+          ) {
+            updateDeleteOption();
+          }
+        });
+
+        document.addEventListener("click", function (e) {
+          if (
+            e.target &&
+            e.target.closest &&
+            e.target.closest(".actions span.question a")
+          ) {
+            updateDeleteOption();
+          }
+        });
+
+        window.addEventListener("pageshow", updateDeleteOption);
+        updateDeleteOption();
+      });
+    </script>
+  {% endif %}
+{% endblock %}
+
 {% block object-tools-items %}
   {{ block.super }}
   {% if not archived_list %}
