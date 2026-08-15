@@ -66,6 +66,7 @@ urlpatterns = [
     path("api/", include("products.urls")),
     path("api/newsletter/", include("newsletter.urls")),
     path("api/orders/", include("orders.urls")),
+    path("api/reviews/", include("reviews.urls")),
     path("api/payments/", include("orders.payment_urls")),
     path("api/internal/maintenance/", run_order_maintenance, name="internal_maintenance"),
 

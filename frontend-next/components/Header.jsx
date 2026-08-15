@@ -270,6 +270,13 @@ export default function Header() {
                           >
                             My Orders
                           </Link>
+                          <Link
+                            href="/account/reviews"
+                            onClick={() => setIsProfileOpen(false)}
+                            className="block rounded-xl px-4 py-3 text-sm font-medium text-[#363535] transition hover:bg-[#FAFAF9] hover:text-[#1C1917]"
+                          >
+                            My Reviews
+                          </Link>
                         </div>
 
                         <div className="border-t border-[#E7E5E4] p-2">
@@ -434,6 +441,13 @@ export default function Header() {
                       className="py-4 text-lg font-medium text-[#363535] hover:text-[#1C1917] transition"
                     >
                       My Orders
+                    </Link>
+                    <Link
+                      href="/account/reviews"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="py-4 text-lg font-medium text-[#363535] hover:text-[#1C1917] transition"
+                    >
+                      My Reviews
                     </Link>
                     <button
                       onClick={() => {

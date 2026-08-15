@@ -254,6 +254,9 @@ class Product(models.Model):
         if self.stockreservation_set.exists():
             blockers.append("stock reservations")
 
+        if self.reviews.exists():
+            blockers.append("reviews")
+
         return blockers
 
     def can_hard_delete(self):

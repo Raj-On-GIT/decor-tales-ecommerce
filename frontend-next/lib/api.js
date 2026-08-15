@@ -898,3 +898,112 @@ export async function markRazorpayPaymentFailed(orderId, message = "") {
 
   return data;
 }
+
+export async function getProductReviews(productId, { limit = 10, offset = 0 } = {}) {
+  if (!API_BASE) return { reviews: [], summary: null, count: 0, has_more: false };
+
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const res = await fetch(
+    `${API_BASE}/api/products/${productId}/reviews/?${params.toString()}`,
+    { cache: "no-store" },
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch reviews");
+  }
+
+  return res.json();
+}
+
+export async function getReviewEligibility(productId) {
+  const res = await fetchWithAuth(
+    `${API_BASE}/api/products/${productId}/review-eligibility/`,
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch review eligibility");
+  }
+
+  return res.json();
+}
+
+export async function submitProductReview(productId, payload) {
+  const res = await fetchWithAuth(
+    `${API_BASE}/api/products/${productId}/reviews/create/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    const message = data.error || data.rating?.[0] || data.comment?.[0] || data.title?.[0] || "Unable to submit review.";
+    throw new Error(message);
+  }
+
+  return data;
+}
+
+export async function updateProductReview(reviewId, payload) {
+  const res = await fetchWithAuth(`${API_BASE}/api/reviews/${reviewId}/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    const message = data.error || data.rating?.[0] || data.comment?.[0] || data.title?.[0] || "Unable to update review.";
+    throw new Error(message);
+  }
+
+  return data;
+}
+
+export async function deleteProductReview(reviewId) {
+  const res = await fetchWithAuth(`${API_BASE}/api/reviews/${reviewId}/`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Unable to delete review.");
+  }
+
+  return res.json();
+}
+
+export async function getMyReviews({ limit = 10, offset = 0 } = {}) {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+
+  const res = await fetchWithAuth(
+    `${API_BASE}/api/reviews/my-reviews/?${params.toString()}`,
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch reviews");
+  }
+
+  const data = await res.json();
+
+  return {
+    ...data,
+    reviews: (data.reviews || []).map((review) => ({
+      ...review,
+      product_image:
+        review.product_image && !review.product_image.startsWith("http")
+          ? `${BACKEND}${review.product_image}`
+          : review.product_image || null,
+    })),
+  };
+}

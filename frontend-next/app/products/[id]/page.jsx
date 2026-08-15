@@ -17,6 +17,7 @@ import ViewAllLink from "@/components/ViewAllLink";
 import PriceDisplay from "@/components/PriceDisplay";
 import ProductDetailSkeleton from "@/components/ProductDetailSkeleton";
 import ProductImageZoom from "@/components/ProductImageZoom";
+import ProductReviews from "@/components/reviews/ProductReviews";
 import { isProductOutOfStock } from "@/lib/utils";
 
 const MAX_CUSTOM_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -1065,6 +1066,13 @@ export default function ProductDetailPage() {
             ) : null}
           </div>
         </section>
+
+        {/* ================= REVIEWS SECTION ================= */}
+        {product && (
+          <div className="mb-10 mt-16 sm:mt-24">
+            <ProductReviews productId={product.id} />
+          </div>
+        )}
 
         {/* ================= SIMILAR PRODUCTS SECTION ================= */}
         {relatedLoading || relatedProducts.length > 0 ? (

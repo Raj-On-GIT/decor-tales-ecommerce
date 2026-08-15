@@ -140,6 +140,7 @@ INSTALLED_APPS = [
     'orders',
     'accounts',
     'newsletter',
+    'reviews',
 ]
 
 if USE_CLOUDINARY:
@@ -318,6 +319,7 @@ REST_FRAMEWORK = {
         'search': '30/minute',
         'delhivery': '20/minute',
         'checkout': '10/minute',
+        'review': '10/minute',
     },
 
     'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler',

@@ -8,6 +8,8 @@ import { useAuth } from "@/context/AuthContext";
 import { getOrderDetail } from "@/lib/api";
 import PageLoader from "@/components/ui/PageLoader";
 import ProductListItem from "@/components/ProductListItem";
+import ReviewForm from "@/components/reviews/ReviewForm";
+import { PenLine, X } from "lucide-react";
 
 const orderNumberFont = Merriweather({
   subsets: ["latin"],
@@ -371,6 +373,7 @@ export default function OrderDetailPage() {
   const { id } = useParams();
 
   const [order, setOrder] = useState(null);
+  const [reviewForItem, setReviewForItem] = useState(null);
 
   useEffect(() => {
     if (!loading && !isAuthenticated && !isLoggingOut) {
@@ -392,6 +395,18 @@ export default function OrderDetailPage() {
       loadOrder();
     }
   }, [isAuthenticated, id]);
+
+  const handleReviewSubmitted = () => {
+    setOrder((prev) => ({
+      ...prev,
+      items: (prev?.items || []).map((item) =>
+        item.id === reviewForItem?.id
+          ? { ...item, reviews: { can_review: false, has_reviewed: true, review_id: null } }
+          : item,
+      ),
+    }));
+    setReviewForItem(null);
+  };
 
   if (!order) {
     return (
@@ -529,6 +544,24 @@ export default function OrderDetailPage() {
                         Total: ₹{Number(item.total || 0).toFixed(2)}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">Qty: {item.quantity}</p>
+
+                      {item.reviews?.can_review ? (
+                        <button
+                          type="button"
+                          onClick={() => setReviewForItem(item)}
+                          className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#1C1917] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#002424]"
+                        >
+                          <PenLine size={13} />
+                          Write a Review
+                        </button>
+                      ) : item.reviews?.has_reviewed ? (
+                        <Link
+                          href={`/products/${item.product.id}#reviews`}
+                          className="mt-3 inline-block text-xs font-bold text-[#002424] underline underline-offset-2"
+                        >
+                          Edit review
+                        </Link>
+                      ) : null}
                     </div>
                   )}
                   rowClassName="flex-row items-start justify-between"
@@ -595,6 +628,34 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {reviewForItem ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
+          <div
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setReviewForItem(null)}
+          />
+          <div className="relative z-10 my-8 w-full max-w-md rounded-[1.75rem] border border-gray-200 bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-serif text-xl font-bold text-gray-900">
+                Rate this product
+              </h2>
+              <button
+                type="button"
+                onClick={() => setReviewForItem(null)}
+                className="rounded-full p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                aria-label="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <ReviewForm
+              productId={reviewForItem.product?.id}
+              onSubmitted={handleReviewSubmitted}
+            />
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

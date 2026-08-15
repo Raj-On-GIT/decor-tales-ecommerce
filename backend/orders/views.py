@@ -34,6 +34,7 @@ from .serializers import AddToCartSerializer
 from .throttles import DelhiveryThrottle, OrderFlowThrottle
 from products.models import Product, ProductVariant
 from products.media_utils import build_media_url, normalize_media_name
+from reviews.services import get_review_states_for_user
 from utils.delhivery_service import DelhiveryService, DelhiveryServiceError
 
 logger = logging.getLogger(__name__)
@@ -1941,8 +1942,27 @@ def get_my_orders(request):
 
     orders = order_qs[offset : offset + limit]
 
-    data = [
-        {
+    data = []
+    for order in orders:
+        items = [
+            {
+                "product": serialize_order_item_product(item, request),
+                "variant": get_order_item_variant_snapshot(item),
+                "quantity": item.quantity,
+            }
+            for item in order.items.select_related(
+                "product",
+                "product__category",
+                "product__sub_category",
+                "variant",
+                "variant__size",
+                "variant__color",
+            )
+        ]
+        attach_review_state(request, items)
+
+        data.append(
+            {
                 "id": order.id,
                 "order_number": str(order.order_number),
                 "subtotal": str(order.subtotal_amount),
@@ -1953,24 +1973,9 @@ def get_my_orders(request):
                 "shipment_tracking": serialize_order_shipment_tracking(order),
                 "created_at": order.created_at,
                 "items_count": order.items.count(),
-                "items": [
-                    {
-                        "product": serialize_order_item_product(item, request),
-                        "variant": get_order_item_variant_snapshot(item),
-                        "quantity": item.quantity,
-                    }
-                    for item in order.items.select_related(
-                        "product",
-                        "product__category",
-                        "product__sub_category",
-                        "variant",
-                        "variant__size",
-                        "variant__color",
-                    )
-                ],
-        }
-        for order in orders
-    ]
+                "items": items,
+            }
+        )
 
     return Response(
         {
@@ -1981,6 +1986,22 @@ def get_my_orders(request):
             "has_more": offset + limit < total_count,
         }
     )
+
+
+def attach_review_state(request, items):
+    product_ids = [item["product"].get("id") for item in items if item["product"].get("id")]
+    states = (
+        get_review_states_for_user(request.user, product_ids)
+        if request.user.is_authenticated
+        else {}
+    )
+    for item in items:
+        product_id = item["product"].get("id")
+        item["reviews"] = states.get(
+            product_id,
+            {"can_review": False, "has_reviewed": False, "review_id": None},
+        )
+    return items
 
 
 def serialize_order_shipment_tracking(order):
@@ -2044,6 +2065,7 @@ def get_order_detail(request, order_id):
             "variant__color",
         ).prefetch_related("custom_images")
     ]
+    attach_review_state(request, items)
 
     return Response(
         {

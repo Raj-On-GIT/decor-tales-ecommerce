@@ -40,6 +40,9 @@ export default function AccountLayout({ children }) {
             >
               Change Password
             </Link>
+            <Link href="/account/reviews" className={mobileLinkClass("/account/reviews")}>
+              My Reviews
+            </Link>
           </div>
         </div>
 
@@ -62,6 +65,9 @@ export default function AccountLayout({ children }) {
                 className={desktopLinkClass("/account/change-password")}
               >
                 Change Password
+              </Link>
+              <Link href="/account/reviews" className={desktopLinkClass("/account/reviews")}>
+                My Reviews
               </Link>
             </nav>
           </div>
