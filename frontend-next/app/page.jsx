@@ -16,11 +16,11 @@ export default function Home() {
       <Hero />
       <BannerSlider />
       <Suspense fallback={<ProductGridSkeleton count={4} />}>
-        <HomeGallery />
+        <Trending />
       </Suspense>
 
       <Suspense fallback={<ProductGridSkeleton count={4} />}>
-        <Trending />
+        <HomeGallery />
       </Suspense>
 
       <Suspense fallback={<CategoryGridSkeleton count={4} />}>
