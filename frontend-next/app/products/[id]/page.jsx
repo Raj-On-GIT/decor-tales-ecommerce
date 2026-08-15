@@ -1067,13 +1067,6 @@ export default function ProductDetailPage() {
           </div>
         </section>
 
-        {/* ================= REVIEWS SECTION ================= */}
-        {product && (
-          <div className="mb-10 mt-16 sm:mt-24">
-            <ProductReviews productId={product.id} />
-          </div>
-        )}
-
         {/* ================= SIMILAR PRODUCTS SECTION ================= */}
         {relatedLoading || relatedProducts.length > 0 ? (
           <section className="mb-10 mt-16 sm:mt-24">
@@ -1127,6 +1120,13 @@ export default function ProductDetailPage() {
             )}
           </section>
         ) : null}
+
+        {/* ================= REVIEWS SECTION ================= */}
+        {product && (
+          <div className="mb-10 mt-16 sm:mt-24">
+            <ProductReviews productId={product.id} />
+          </div>
+        )}
       </div>
     </>
   );
