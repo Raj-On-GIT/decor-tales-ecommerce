@@ -863,6 +863,26 @@ export default function ProductDetailPage() {
 
                 {/* ✅ Qty Selector + Add to Cart Inline */}
                 <div className="sm:mt-6 mt-4 flex items-stretch gap-3 sm:flex-row sm:items-center sm:gap-4">
+                  {/* ✅ Wishlist Toggle */}
+                  <button
+                    type="button"
+                    onClick={handleToggleWishlist}
+                    disabled={wishlistPending}
+                    aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                    className="flex w-12 shrink-0 items-center justify-center self-stretch transition active:scale-95 disabled:opacity-70 sm:w-14"
+                  >
+                    {wishlistPending ? (
+                      <Loader2 size={24} className="animate-spin text-[#B91C1C]" />
+                    ) : (
+                      <Heart
+                        size={24}
+                        className={`transition-colors ${
+                          wishlisted ? "fill-[#B91C1C] text-[#B91C1C]" : "text-[#1C1917]"
+                        }`}
+                      />
+                    )}
+                  </button>
+
                   {/* Qty Controls */}
                   <div className="flex min-w-0 basis-3/10 items-center justify-center overflow-hidden rounded-xl border">
                     <button
@@ -1020,28 +1040,6 @@ export default function ProductDetailPage() {
                         <ShoppingBag size={20} />
                         Add to Cart
                       </>
-                    )}
-                  </button>
-
-                  {/* ✅ Wishlist Toggle */}
-                  <button
-                    type="button"
-                    onClick={handleToggleWishlist}
-                    disabled={wishlistPending}
-                    aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-                    className={`flex w-12 shrink-0 items-center justify-center rounded-xl border transition active:scale-[0.98] disabled:opacity-70 ${
-                      wishlisted
-                        ? "border-[#B91C1C] bg-[#B91C1C]/5 text-[#B91C1C]"
-                        : "border-[#E7E5E4] bg-white text-[#1C1917] hover:bg-[#FAFAF9] hover:border-[#1C1917]"
-                    }`}
-                  >
-                    {wishlistPending ? (
-                      <Loader2 size={20} className="animate-spin text-[#B91C1C]" />
-                    ) : (
-                      <Heart
-                        size={20}
-                        className={wishlisted ? "fill-[#B91C1C]" : ""}
-                      />
                     )}
                   </button>
                 </div>

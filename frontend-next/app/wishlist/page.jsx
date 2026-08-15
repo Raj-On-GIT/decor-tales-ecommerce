@@ -9,7 +9,7 @@ import ViewportReveal from "@/components/ViewportReveal";
 
 export default function WishlistPage() {
   const { wishlist, wishlistReady, wishlistCount } = useWishlist();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const products = wishlist.map((item) => item.product);
 
@@ -26,18 +26,6 @@ export default function WishlistPage() {
           ? `${wishlistCount} ${wishlistCount === 1 ? "item" : "items"} saved for later.`
           : "Loading your wishlist…"}
       </p>
-      {!isAuthenticated && !authLoading && (
-        <p className="mt-2 text-sm text-gray-500">
-          Your wishlist is saved on this device.{" "}
-          <Link
-            href="/login"
-            className="font-semibold text-[#1C1917] underline underline-offset-2 transition hover:text-[#002424]"
-          >
-            Sign in
-          </Link>{" "}
-          to keep it on all your devices.
-        </p>
-      )}
 
       <div className="mt-6 sm:mt-8">
         {!wishlistReady ? (

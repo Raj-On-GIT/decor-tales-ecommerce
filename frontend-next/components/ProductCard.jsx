@@ -135,15 +135,15 @@ export default function ProductCard({ product, className = "" }) {
         onClick={handleToggleWishlist}
         disabled={wishlistPending}
         aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-        className="absolute top-3 right-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#1C1917] shadow-sm border border-[#E7E5E4] transition-all duration-300 active:scale-95 hover:shadow-md disabled:opacity-70"
+        className="absolute top-3 right-3 flex items-center justify-center p-1 transition-all duration-300 active:scale-90 disabled:opacity-70"
       >
         {wishlistPending ? (
-          <Loader2 size={18} className="animate-spin text-[#B91C1C]" />
+          <Loader2 size={22} className="animate-spin text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
         ) : (
           <Heart
-            size={18}
-            className={`transition-colors ${
-              wishlisted ? "fill-[#B91C1C] text-[#B91C1C]" : "text-[#1C1917]"
+            size={22}
+            className={`transition-colors drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] ${
+              wishlisted ? "fill-[#B91C1C] text-[#B91C1C]" : "fill-white text-white"
             }`}
           />
         )}
