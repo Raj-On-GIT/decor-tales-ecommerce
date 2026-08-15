@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import ProductCard from "./ProductCard";
 
 const TRANSITION_MS = 700;
+const SWIPE_THRESHOLD = 50;
 
 function getPerView() {
   if (typeof window === "undefined") return 4;
@@ -18,6 +20,45 @@ export default function TrendingClient({ products, interval = 3000 }) {
   const [perView, setPerView] = useState(4);
   const [transitioning, setTransitioning] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
+  const touchStartX = useRef(null);
+  const touchDeltaX = useRef(0);
+
+  const goNext = () =>
+    setIndex((current) => (current >= count ? 1 : current + 1));
+
+  const goPrev = () =>
+    setIndex((current) => (current <= 0 ? count - 1 : current - 1));
+
+  const handleTouchStart = (event) => {
+    touchStartX.current = event.touches[0]?.clientX ?? null;
+    touchDeltaX.current = 0;
+  };
+
+  const handleTouchMove = (event) => {
+    if (touchStartX.current === null) {
+      return;
+    }
+
+    touchDeltaX.current =
+      (event.touches[0]?.clientX ?? touchStartX.current) - touchStartX.current;
+  };
+
+  const handleTouchEnd = () => {
+    if (Math.abs(touchDeltaX.current) < SWIPE_THRESHOLD) {
+      touchStartX.current = null;
+      touchDeltaX.current = 0;
+      return;
+    }
+
+    if (touchDeltaX.current > 0) {
+      goPrev();
+    } else {
+      goNext();
+    }
+
+    touchStartX.current = null;
+    touchDeltaX.current = 0;
+  };
 
   useEffect(() => {
     const mediaQueries = [
@@ -70,9 +111,12 @@ export default function TrendingClient({ products, interval = 3000 }) {
 
   return (
     <div
-      className="overflow-hidden"
+      className="relative overflow-hidden"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       aria-label="Trending products"
       role="region"
     >
@@ -95,6 +139,28 @@ export default function TrendingClient({ products, interval = 3000 }) {
           </div>
         ))}
       </div>
+
+      {count > 1 ? (
+        <>
+          <button
+            type="button"
+            onClick={goPrev}
+            className="absolute top-1/2 left-2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[#E7E5E4] bg-white/90 text-[#1C1917] shadow-sm backdrop-blur transition hover:bg-white sm:left-4 sm:inline-flex"
+            aria-label="Previous products"
+          >
+            <ChevronLeft size={20} />
+          </button>
+
+          <button
+            type="button"
+            onClick={goNext}
+            className="absolute top-1/2 right-2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[#E7E5E4] bg-white/90 text-[#1C1917] shadow-sm backdrop-blur transition hover:bg-white sm:right-4 sm:inline-flex"
+            aria-label="Next products"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </>
+      ) : null}
     </div>
   );
 }
