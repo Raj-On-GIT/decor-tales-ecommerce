@@ -128,6 +128,35 @@ export async function getCategories() {
   }
 }
 
+export async function getSubcategories() {
+  if (!API_BASE) return [];
+
+  try {
+    const url = `${API_BASE}/api/subcategories/`;
+    const res = await fetch(url, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.error(`API response status: ${res.status} ${res.statusText}`);
+      return [];
+    }
+    const data = await res.json();
+
+    const subcategories = Array.isArray(data) ? data : data.results || [];
+
+    return subcategories.map((subcategory) => ({
+      ...subcategory,
+      image:
+        subcategory.image && !subcategory.image.startsWith("http")
+          ? `${BACKEND}${subcategory.image}`
+          : subcategory.image || null,
+    }));
+  } catch (error) {
+    console.error("Failed to fetch subcategories:", error.message);
+    return [];
+  }
+}
+
 export async function getTrendingProducts() {
   if (!API_BASE) return [];
 

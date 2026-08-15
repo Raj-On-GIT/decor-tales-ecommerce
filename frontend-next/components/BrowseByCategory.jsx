@@ -1,13 +1,35 @@
-import { getCategories } from "@/lib/api";
+import { getCategories, getSubcategories } from "@/lib/api";
 import BrowseByCategoryClient from "./BrowseByCategoryClient";
 import ViewportReveal from "./ViewportReveal";
 
 export default async function BrowseByCategory() {
-  const categories = await getCategories();
+  const [categories, subcategories] = await Promise.all([
+    getCategories(),
+    getSubcategories(),
+  ]);
 
-  const categoriesWithCounts = categories.filter(
-    (cat) => cat.productCount > 0 || cat.subcategoryCount > 0,
-  );
+  // Show every subcategory that has products, plus categories that have no
+  // subcategories (with products) but directly contain products.
+  const tiles = [
+    ...subcategories.map((sub) => ({
+      id: `sub-${sub.id}`,
+      name: sub.name,
+      slug: `${sub.category?.slug ?? ""}/${sub.slug}`.replace(/^\/+/, ""),
+      image: sub.image,
+      productCount: sub.productCount,
+      subcategoryCount: 0,
+    })),
+    ...categories
+      .filter((cat) => cat.subcategoryCount === 0 && cat.productCount > 0)
+      .map((cat) => ({
+        id: `cat-${cat.id}`,
+        name: cat.name,
+        slug: cat.slug,
+        image: cat.image,
+        productCount: cat.productCount,
+        subcategoryCount: 0,
+      })),
+  ];
 
   return (
     <section
@@ -46,7 +68,7 @@ export default async function BrowseByCategory() {
         </div>
 
         {/* Categories Grid */}
-        <BrowseByCategoryClient categories={categoriesWithCounts} />
+        <BrowseByCategoryClient categories={tiles} />
       </ViewportReveal>
     </section>
   );

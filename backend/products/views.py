@@ -56,6 +56,24 @@ class CategoryListView(generics.ListAPIView):
         context["request"] = self.request
         return context
 
+class SubCategoryListView(generics.ListAPIView):
+    serializer_class = SubCategorySerializer
+
+    def get_queryset(self):
+        return (
+            SubCategory.objects
+            .select_related("category")
+            .annotate(productCount=Count("products", filter=Q(products__is_active=True)))
+            .filter(productCount__gt=0)
+            .order_by("category__name", "name", "id")
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
+
+
 class ProductDetailView(generics.RetrieveAPIView):
     serializer_class = ProductSerializer
     throttle_classes = [ProductViewThrottle]

@@ -26,11 +26,6 @@ export default function Footer() {
               </Link>
             </li>
             <li>
-              <Link href="/trending" className="transition-colors duration-300 hover:text-[#D4A373]">
-                Trending Now
-              </Link>
-            </li>
-            <li>
               <Link href="/#browse-by-category" className="transition-colors duration-300 hover:text-[#D4A373]">
                 Browse by Category
               </Link>
