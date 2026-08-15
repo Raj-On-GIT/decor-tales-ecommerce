@@ -63,7 +63,6 @@ export default function ReviewForm({
 
       <div className="flex flex-wrap items-center gap-2">
         <StarRating value={rating} onChange={setRating} size="h-7 w-7" />
-        <span className="text-xs text-gray-500">Tap a star to rate</span>
       </div>
 
       <div>
