@@ -148,7 +148,7 @@ class ProductReviewCreateTests(ReviewsBaseTestCase):
         )
         self.assertEqual(response.status_code, 403)
 
-    def test_create_requires_paid_order(self):
+    def test_create_with_delivered_unpaid_order_succeeds(self):
         self.client.force_authenticate(user=self.user)
         self.create_delivered_order(status="delivered", paid=False)
 
@@ -158,7 +158,7 @@ class ProductReviewCreateTests(ReviewsBaseTestCase):
             {"rating": 5, "comment": "Nice frame"},
             format="json",
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 201)
 
     def test_create_with_delivered_paid_order_succeeds(self):
         self.client.force_authenticate(user=self.user)

@@ -13,11 +13,11 @@ def get_review_cache_key(product_id):
 
 def get_eligible_order_item(user, product):
     """
-    Return the most recent delivered + paid OrderItem for this user and product.
+    Return the most recent delivered OrderItem for this user and product.
 
-    Only a verified purchase (paid and delivered) grants review eligibility.
-    The OrderItem snapshot fields let a purchase match even if the product
-    row was later replaced with a new slug/title.
+    A delivered order grants review eligibility. The OrderItem snapshot
+    fields let a purchase match even if the product row was later replaced
+    with a new slug/title.
     """
     if user is None or user.is_anonymous or product is None:
         return None
@@ -26,7 +26,6 @@ def get_eligible_order_item(user, product):
         OrderItem.objects.filter(
             order__user=user,
             order__status="delivered",
-            order__payment_processed=True,
         )
         .filter(Q(product_id=product.id) | Q(product_slug=product.slug))
         .select_related("order")
@@ -77,7 +76,6 @@ def get_review_states_for_user(user, product_ids):
         OrderItem.objects.filter(
             order__user=user,
             order__status="delivered",
-            order__payment_processed=True,
             product_id__in=product_ids,
         )
         .values_list("product_id", flat=True)

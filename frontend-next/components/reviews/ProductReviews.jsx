@@ -129,6 +129,9 @@ export default function ProductReviews({ productId }) {
     ? Math.max(1, ...Object.values(summary.distribution))
     : 1;
 
+  const eligibilityLoaded = eligibility !== null;
+  const isEligible = eligibility?.can_review === true;
+
   return (
     <section id="reviews" className="scroll-mt-28">
       <div className="rounded-[1.75rem] border border-gray-200 bg-[#fffdf8] p-6 shadow-[0_25px_70px_rgba(15,23,42,0.06)] sm:p-8">
@@ -142,7 +145,7 @@ export default function ProductReviews({ productId }) {
             </h2>
           </div>
 
-          {!authLoading && (
+          {!authLoading && isEligible && (
             <button
               type="button"
               onClick={openCreateForm}
@@ -161,6 +164,16 @@ export default function ProductReviews({ productId }) {
             to write a review. Only verified buyers can review delivered purchases.
           </p>
         )}
+
+        {isAuthenticated &&
+          eligibilityLoaded &&
+          !eligibility?.has_reviewed &&
+          !isEligible &&
+          !showForm && (
+            <p className="mt-4 rounded-2xl bg-[#FAFAF9] px-4 py-3 text-sm text-gray-600">
+              You can write a review for this product after your order has been delivered.
+            </p>
+          )}
 
         {isAuthenticated &&
           eligibility?.has_reviewed &&
