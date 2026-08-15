@@ -141,6 +141,7 @@ INSTALLED_APPS = [
     'accounts',
     'newsletter',
     'reviews',
+    'wishlist',
 ]
 
 if USE_CLOUDINARY:
