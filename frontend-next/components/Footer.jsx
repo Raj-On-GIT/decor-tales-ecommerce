@@ -21,11 +21,6 @@ export default function Footer() {
               </Link>
             </li>
             <li>
-              <Link href="/latest" className="transition-colors duration-300 hover:text-[#D4A373]">
-                Latest Collection
-              </Link>
-            </li>
-            <li>
               <Link href="/#browse-by-category" className="transition-colors duration-300 hover:text-[#D4A373]">
                 Browse by Category
               </Link>

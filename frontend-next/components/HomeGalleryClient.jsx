@@ -4,10 +4,10 @@ import { useMemo } from "react";
 import ProductCard from "./ProductCard";
 
 export default function HomeGalleryClient({ products }) {
-  // Filter products to show first 4
+  // Filter products to show first 8
   const filteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
-    return products.slice(0, 4);
+    return products.slice(0, 8);
   }, [products]);
 
   return (
@@ -26,7 +26,13 @@ export default function HomeGalleryClient({ products }) {
         "
       >
         {filteredProducts.length > 0 ? (
-          filteredProducts.map((p) => <ProductCard key={p.id} product={p} />)
+          filteredProducts.map((p, index) => (
+            <ProductCard
+              key={p.id}
+              product={p}
+              className={index >= 6 ? "md:hidden lg:block" : undefined}
+            />
+          ))
         ) : (
           <p className="col-span-full text-center text-gray-600">
             No products found.

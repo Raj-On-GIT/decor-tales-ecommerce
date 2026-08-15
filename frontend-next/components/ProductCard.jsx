@@ -9,7 +9,7 @@ import { normalizeCategory } from "@/lib/utils";
 import { formatPrice } from "@/lib/formatPrice";
 import DiscountBadge from "@/components/DiscountBadge";
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, className = "" }) {
   const { addToCart } = useStore();
   const [isAdding, setIsAdding] = useState(false);
 
@@ -64,7 +64,7 @@ export default function ProductCard({ product }) {
   };
 
   return (
-    <div className="premium-card group relative p-1 sm:p-1.5 transition-all duration-500 ease-out hover:-translate-y-1 bg-[#FAFAF9] hover:bg-[#F0F0EF] rounded-xl border-[#E7E5E4]">
+    <div className={`premium-card group relative p-1 sm:p-1.5 transition-all duration-500 ease-out hover:-translate-y-1 bg-[#FAFAF9] hover:bg-[#F0F0EF] rounded-xl border-[#E7E5E4] ${className}`}>
       <Link href={`/products/${product.id}`} className="block">
         <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-[#F5F5F4]">
           {product.image ? (
