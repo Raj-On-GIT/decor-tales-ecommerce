@@ -4,6 +4,7 @@ import Footer from "../components/Footer";
 import { StoreProvider } from "@/context/StoreContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
+import { WishlistProvider } from "@/context/WishlistContext";
 import BoneyardRegistry from "@/components/BoneyardRegistry";
 import LogoutOverlay from "@/components/LogoutOverlay";
 import { Inter } from "next/font/google";
@@ -25,15 +26,17 @@ export default function RootLayout({ children }) {
         >
           <ToastProvider>
             <AuthProvider>
-              <StoreProvider>
-                <BoneyardRegistry />
-                <LogoutOverlay />
-                <div className="flex min-h-screen flex-col">
-                  <Header />
-                  <main className="flex-1">{children}</main>
-                  <Footer />
-                </div>
-              </StoreProvider>
+              <WishlistProvider>
+                <StoreProvider>
+                  <BoneyardRegistry />
+                  <LogoutOverlay />
+                  <div className="flex min-h-screen flex-col">
+                    <Header />
+                    <main className="flex-1">{children}</main>
+                    <Footer />
+                  </div>
+                </StoreProvider>
+              </WishlistProvider>
             </AuthProvider>
           </ToastProvider>
         </GoogleOAuthProvider>

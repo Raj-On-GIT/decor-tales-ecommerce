@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Loader2, ShoppingBag } from "lucide-react";
+import { Loader2, ShoppingBag, Heart } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
+import { useWishlist } from "@/context/WishlistContext";
 import ProductCard from "@/components/ProductCard";
 import ProductCardSkeleton from "@/components/ProductCardSkeleton";
 import { getDelhiveryExpectedTat, getProducts } from "@/lib/api";
@@ -44,6 +45,7 @@ export default function ProductDetailPage() {
   const { isAuthenticated } = useAuth();
   const { id } = useParams();
   const { cart, addToCart } = useStore();
+  const { toggleWishlist, isWishlisted, isWishlistPending } = useWishlist();
 
   const [product, setProduct] = useState(null);
   const [productState, setProductState] = useState("loading");
@@ -79,7 +81,7 @@ export default function ProductDetailPage() {
   const productIdRef = useRef(null);
   const thumbScrollRef = useRef(null);
 
-  const { error } = useGlobalToast();
+  const { error, success, info } = useGlobalToast();
   // ================= SCROLL TO TOP ON MOUNT =================
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -290,6 +292,23 @@ export default function ProductDetailPage() {
   const activeStock = isVariantProduct
     ? selectedVariant?.stock
     : product?.stock;
+
+  const wishlisted = isWishlisted(product?.id);
+  const wishlistPending = isWishlistPending(product?.id);
+
+  const handleToggleWishlist = async () => {
+    if (!product || wishlistPending) return;
+
+    const result = await toggleWishlist(product);
+
+    if (result?.ok) {
+      if (result.inWishlist) {
+        success("Added to wishlist", 1500);
+      } else {
+        info("Removed from wishlist", 1500);
+      }
+    }
+  };
 
   const isSizeAvailable = (size) =>
     product?.variants.some(
@@ -970,7 +989,7 @@ export default function ProductDetailPage() {
                         setTimeout(() => setIsAddingToCart(false), 250);
                       }
                     }}
-                    className={`flex min-w-0 basis-7/10 items-center justify-center gap-2 rounded-xl py-3 transition sm:flex-1
+                    className={`flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl py-3 transition
                   ${
                     isAddingToCart
                       ? "bg-black text-white cursor-wait"
@@ -1001,6 +1020,28 @@ export default function ProductDetailPage() {
                         <ShoppingBag size={20} />
                         Add to Cart
                       </>
+                    )}
+                  </button>
+
+                  {/* ✅ Wishlist Toggle */}
+                  <button
+                    type="button"
+                    onClick={handleToggleWishlist}
+                    disabled={wishlistPending}
+                    aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                    className={`flex w-12 shrink-0 items-center justify-center rounded-xl border transition active:scale-[0.98] disabled:opacity-70 ${
+                      wishlisted
+                        ? "border-[#B91C1C] bg-[#B91C1C]/5 text-[#B91C1C]"
+                        : "border-[#E7E5E4] bg-white text-[#1C1917] hover:bg-[#FAFAF9] hover:border-[#1C1917]"
+                    }`}
+                  >
+                    {wishlistPending ? (
+                      <Loader2 size={20} className="animate-spin text-[#B91C1C]" />
+                    ) : (
+                      <Heart
+                        size={20}
+                        className={wishlisted ? "fill-[#B91C1C]" : ""}
+                      />
                     )}
                   </button>
                 </div>

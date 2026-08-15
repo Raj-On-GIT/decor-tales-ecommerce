@@ -3,15 +3,39 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Loader2, Shapes, ShoppingBag } from "lucide-react";
+import { Loader2, Shapes, ShoppingBag, Heart } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
+import { useWishlist } from "@/context/WishlistContext";
+import { useGlobalToast } from "@/context/ToastContext";
 import { normalizeCategory } from "@/lib/utils";
 import { formatPrice } from "@/lib/formatPrice";
 import DiscountBadge from "@/components/DiscountBadge";
 
 export default function ProductCard({ product, className = "" }) {
   const { addToCart } = useStore();
+  const { toggleWishlist, isWishlisted, isWishlistPending } = useWishlist();
+  const toast = useGlobalToast();
   const [isAdding, setIsAdding] = useState(false);
+
+  const wishlisted = isWishlisted(product.id);
+  const wishlistPending = isWishlistPending(product.id);
+
+  const handleToggleWishlist = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (wishlistPending) return;
+
+    const result = await toggleWishlist(product);
+
+    if (result?.ok) {
+      if (result.inWishlist) {
+        toast.success("Added to wishlist", 1500);
+      } else {
+        toast.info("Removed from wishlist", 1500);
+      }
+    }
+  };
 
   const categoryName = normalizeCategory(product.category)?.name;
 
@@ -104,6 +128,26 @@ export default function ProductCard({ product, className = "" }) {
           )}
         </div>
       </Link>
+
+      {/* Wishlist Toggle */}
+      <button
+        type="button"
+        onClick={handleToggleWishlist}
+        disabled={wishlistPending}
+        aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+        className="absolute top-3 right-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#1C1917] shadow-sm border border-[#E7E5E4] transition-all duration-300 active:scale-95 hover:shadow-md disabled:opacity-70"
+      >
+        {wishlistPending ? (
+          <Loader2 size={18} className="animate-spin text-[#B91C1C]" />
+        ) : (
+          <Heart
+            size={18}
+            className={`transition-colors ${
+              wishlisted ? "fill-[#B91C1C] text-[#B91C1C]" : "text-[#1C1917]"
+            }`}
+          />
+        )}
+      </button>
 
       <div className="absolute bottom-[0.625rem] right-[0.625rem]">
         {noStock ? (

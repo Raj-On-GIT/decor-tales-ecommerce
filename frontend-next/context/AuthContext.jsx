@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addToCart as addToCartAPI, getCart } from "@/lib/api";
+import { addToCart as addToCartAPI, addToWishlist as addToWishlistAPI, getCart } from "@/lib/api";
 import {
   clearAuthSession,
   getSessionUser,
@@ -264,6 +264,26 @@ export function AuthProvider({ children }) {
         }
       } catch (error) {
         console.error("Failed to reload cart after merge", error);
+      }
+
+      const guestWishlist =
+        typeof window !== "undefined"
+          ? JSON.parse(localStorage.getItem("wishlist") || "[]")
+          : [];
+
+      if (guestWishlist.length > 0) {
+        for (const item of guestWishlist) {
+          try {
+            const productId =
+              item?.product?.id ?? item?.id ?? item?.product_id ?? null;
+
+            if (!productId) continue;
+
+            await addToWishlistAPI(productId);
+          } catch (err) {
+            console.error("Guest wishlist merge failed:", err);
+          }
+        }
       }
 
       setUser(payload.user);

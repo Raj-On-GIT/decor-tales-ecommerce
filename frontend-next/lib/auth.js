@@ -335,6 +335,16 @@ export function clearStoredCart() {
   }
 }
 
+export function clearStoredWishlist() {
+  if (!isBrowser) return;
+
+  try {
+    localStorage.removeItem("wishlist");
+  } catch (error) {
+    console.error("Error clearing wishlist:", error);
+  }
+}
+
 export function dispatchUserLogout() {
   if (!isBrowser) return;
   window.dispatchEvent(new Event("user-logout"));
@@ -343,6 +353,7 @@ export function dispatchUserLogout() {
 export function clearAuthSession() {
   clearLegacyTokenStorage();
   clearStoredCart();
+  clearStoredWishlist();
   dispatchUserLogout();
 
   logoutRequest().catch((error) => {

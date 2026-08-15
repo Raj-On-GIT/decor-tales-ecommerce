@@ -1036,3 +1036,88 @@ export async function getMyReviews({ limit = 10, offset = 0 } = {}) {
     })),
   };
 }
+
+function normalizeWishlistImageUrl(url) {
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${BACKEND}${url}`;
+}
+
+function normalizeWishlistItem(item) {
+  const product = item.product || {};
+
+  return {
+    wishlist_item_id: item.id ?? item.wishlist_item_id ?? null,
+    product: {
+      ...product,
+      image: normalizeWishlistImageUrl(product.image),
+      images: (product.images || []).map((img) => ({
+        ...img,
+        image: normalizeWishlistImageUrl(img.image),
+      })),
+    },
+    created_at: item.created_at ?? null,
+  };
+}
+
+export async function getWishlist({ limit = 20, offset = 0 } = {}) {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+
+  const res = await fetchWithAuth(`${API_BASE}/api/wishlist/?${params.toString()}`);
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch wishlist");
+  }
+
+  const data = await res.json();
+
+  return {
+    ...data,
+    items: (data.items || []).map(normalizeWishlistItem),
+  };
+}
+
+async function wishlistWriteRequest(url, body) {
+  const res = await fetchWithAuth(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    let message = "Unable to update wishlist";
+    try {
+      const data = await res.json();
+      if (data?.error) message = data.error;
+    } catch {}
+    throw new Error(message);
+  }
+
+  return res.json();
+}
+
+export async function toggleWishlist(productId) {
+  return wishlistWriteRequest(`${API_BASE}/api/wishlist/toggle/`, {
+    product_id: productId,
+  });
+}
+
+export async function addToWishlist(productId) {
+  return wishlistWriteRequest(`${API_BASE}/api/wishlist/add/`, {
+    product_id: productId,
+  });
+}
+
+export async function removeWishlistItem(itemId) {
+  const res = await fetchWithAuth(`${API_BASE}/api/wishlist/remove/${itemId}/`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to remove from wishlist");
+  }
+
+  return res.json();
+}

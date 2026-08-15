@@ -3,10 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
-import { ShoppingBag, Search, Menu, User, LogOut, Loader2 } from "lucide-react";
+import { ShoppingBag, Search, Menu, User, LogOut, Loader2, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../context/StoreContext";
 import { useAuth } from "../context/AuthContext";
+import { useWishlist } from "../context/WishlistContext";
 import CartDrawer from "./CartDrawer";
 import SearchBar from "./SearchBar";
 import { useGlobalToast } from "@/context/ToastContext";
@@ -24,6 +25,7 @@ function getProfileName(user) {
 export default function Header() {
   const { cart } = useStore();
   const { isAuthenticated, logout, loading, user } = useAuth();
+  const { wishlistCount } = useWishlist();
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -174,6 +176,20 @@ export default function Header() {
               )}
             </AnimatePresence>
 
+            {/* Wishlist Button (desktop) */}
+            <Link
+              href="/wishlist"
+              className="relative hidden md:inline-flex p-2 text-gray-900 hover:bg-gray-100 rounded-full transition"
+              aria-label="Wishlist"
+            >
+              <Heart size={20} />
+              {mounted && wishlistCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 bg-[#B91C1C] text-white text-[10px] font-bold flex items-center justify-center rounded-full">
+                  {wishlistCount > 99 ? "99+" : wishlistCount}
+                </span>
+              )}
+            </Link>
+
             {/* Cart Button */}
             {!isCheckoutPage && (
               <button
@@ -276,6 +292,13 @@ export default function Header() {
                             className="block rounded-xl px-4 py-3 text-sm font-medium text-[#363535] transition hover:bg-[#FAFAF9] hover:text-[#1C1917]"
                           >
                             My Reviews
+                          </Link>
+                          <Link
+                            href="/wishlist"
+                            onClick={() => setIsProfileOpen(false)}
+                            className="block rounded-xl px-4 py-3 text-sm font-medium text-[#363535] transition hover:bg-[#FAFAF9] hover:text-[#1C1917]"
+                          >
+                            My Wishlist
                           </Link>
                         </div>
 
@@ -424,6 +447,13 @@ export default function Header() {
                   className="py-4 text-lg font-semibold text-[#B22222] hover:text-[#7f2222] transition"
                 >
                   Sale
+                </Link>
+                <Link
+                  href="/wishlist"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="py-4 text-lg font-medium text-[#363535] hover:text-[#1C1917] transition"
+                >
+                  Wishlist
                 </Link>
 
                 {isAuthenticated ? (
