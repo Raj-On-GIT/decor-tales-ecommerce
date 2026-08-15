@@ -3,8 +3,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalToast } from "@/context/ToastContext";
 import { deleteProductReview, getProductReviews, getReviewEligibility } from "@/lib/api";
-import { BadgeCheck, ChevronDown, Loader2, MessageSquare, Star } from "lucide-react";
-import Link from "next/link";
+import { BadgeCheck, Loader2, Star } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import ReviewForm from "./ReviewForm";
 import StarRating from "./StarRating";
@@ -20,6 +19,21 @@ function formatDate(value) {
   });
 }
 
+function getPageItems(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = [...new Set([1, total, current - 1, current, current + 1])]
+    .filter((p) => p >= 1 && p <= total)
+    .sort((a, b) => a - b);
+  const items = [];
+  let prev = 0;
+  for (const p of pages) {
+    if (p - prev > 1) items.push("…");
+    items.push(p);
+    prev = p;
+  }
+  return items;
+}
+
 export default function ProductReviews({ productId }) {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { success, error: toastError } = useGlobalToast();
@@ -27,35 +41,40 @@ export default function ProductReviews({ productId }) {
   const [reviews, setReviews] = useState([]);
   const [summary, setSummary] = useState(null);
   const [count, setCount] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [offset, setOffset] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loadingList, setLoadingList] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
 
   const [eligibility, setEligibility] = useState(null);
   const [editingReview, setEditingReview] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
-  const loadReviews = useCallback(async (nextOffset, append = false) => {
-    try {
-      const data = await getProductReviews(productId, { limit: PAGE_SIZE, offset: nextOffset });
-      setReviews((prev) => (append ? [...prev, ...data.reviews] : data.reviews));
-      setSummary(data.summary);
-      setCount(data.count);
-      setHasMore(data.has_more);
-      setOffset(nextOffset + data.reviews.length);
-    } catch {
-      toastError("Could not load reviews.");
-    } finally {
-      setLoadingList(false);
-      setLoadingMore(false);
-    }
-  }, [productId, toastError]);
+  const loadReviews = useCallback(
+    async (nextPage) => {
+      try {
+        const offset = (nextPage - 1) * PAGE_SIZE;
+        const data = await getProductReviews(productId, {
+          limit: PAGE_SIZE,
+          offset,
+        });
+        setReviews(data.reviews);
+        setSummary(data.summary);
+        setCount(data.count);
+        setTotalPages(Math.max(1, Math.ceil(data.count / PAGE_SIZE)));
+        setPage(nextPage);
+      } catch {
+        toastError("Could not load reviews.");
+      } finally {
+        setLoadingList(false);
+      }
+    },
+    [productId, toastError],
+  );
 
   useEffect(() => {
     setLoadingList(true);
-    loadReviews(0, false);
+    loadReviews(1);
   }, [loadReviews]);
 
   useEffect(() => {
@@ -76,6 +95,12 @@ export default function ProductReviews({ productId }) {
     };
   }, [isAuthenticated, productId]);
 
+  const goToPage = (nextPage) => {
+    if (nextPage < 1 || nextPage > totalPages || nextPage === page || loadingList) return;
+    setLoadingList(true);
+    loadReviews(nextPage);
+  };
+
   const openCreateForm = () => {
     setEditingReview(null);
     setShowForm(true);
@@ -89,8 +114,8 @@ export default function ProductReviews({ productId }) {
   const handleSubmitted = (newReview) => {
     setShowForm(false);
     setEditingReview(null);
+    if (!newReview) return;
     setReviews((prev) => {
-      if (!newReview) return prev;
       if (eligibility?.review_id && eligibility.review_id !== newReview.id) {
         return [newReview, ...prev.filter((r) => r.id !== newReview.id)];
       }
@@ -100,9 +125,9 @@ export default function ProductReviews({ productId }) {
       ...prev,
       has_reviewed: true,
       can_review: false,
-      review_id: newReview?.id ?? prev?.review_id,
+      review_id: newReview.id ?? prev?.review_id,
     }));
-    loadReviews(0, false);
+    loadReviews(1);
   };
 
   const handleDelete = async (reviewId) => {
@@ -111,8 +136,17 @@ export default function ProductReviews({ productId }) {
       const data = await deleteProductReview(reviewId);
       success(data.message || "Review deleted.");
       setReviews((prev) => prev.filter((r) => r.id !== reviewId));
-      setEligibility((prev) => ({ ...prev, has_reviewed: false, can_review: true, review_id: null }));
-      loadReviews(0, false);
+      setEligibility((prev) => ({
+        ...prev,
+        has_reviewed: false,
+        can_review: true,
+        review_id: null,
+      }));
+      if (reviews.length - 1 === 0 && page > 1) {
+        goToPage(page - 1);
+      } else {
+        loadReviews(page);
+      }
     } catch (err) {
       toastError(err.message || "Could not delete review.");
     } finally {
@@ -120,17 +154,55 @@ export default function ProductReviews({ productId }) {
     }
   };
 
-  const loadMore = () => {
-    setLoadingMore(true);
-    loadReviews(offset, true);
-  };
-
   const maxBar = summary?.distribution
     ? Math.max(1, ...Object.values(summary.distribution))
     : 1;
 
-  const eligibilityLoaded = eligibility !== null;
   const isEligible = eligibility?.can_review === true;
+
+  const pageItems = getPageItems(page, totalPages);
+
+  if (!loadingList && count === 0) {
+    return (
+      <section id="reviews" className="scroll-mt-28">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] border border-gray-200 bg-[#fffdf8] px-5 py-4 sm:px-6">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-gray-500">
+              Customer Reviews
+            </p>
+            <h2 className="mt-0.5 font-serif text-lg font-bold text-gray-900 sm:text-xl">
+              Reviews (0)
+            </h2>
+            <p className="mt-0.5 text-sm text-gray-500">No reviews yet.</p>
+          </div>
+
+          {!authLoading && isEligible && (
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="rounded-full bg-[#1C1917] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#002424]"
+            >
+              Write a review
+            </button>
+          )}
+        </div>
+
+        {showForm && (
+          <div className="mt-4">
+            <ReviewForm
+              productId={productId}
+              review={editingReview}
+              onCancel={() => {
+                setShowForm(false);
+                setEditingReview(null);
+              }}
+              onSubmitted={handleSubmitted}
+            />
+          </div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section id="reviews" className="scroll-mt-28">
@@ -156,25 +228,6 @@ export default function ProductReviews({ productId }) {
           )}
         </div>
 
-        {!authLoading && !isAuthenticated && (
-          <p className="mt-4 rounded-2xl bg-[#FAFAF9] px-4 py-3 text-sm text-gray-600">
-            <Link href="/login" className="font-bold text-[#002424] underline underline-offset-2">
-              Sign in
-            </Link>{" "}
-            to write a review. Only verified buyers can review delivered purchases.
-          </p>
-        )}
-
-        {isAuthenticated &&
-          eligibilityLoaded &&
-          !eligibility?.has_reviewed &&
-          !isEligible &&
-          !showForm && (
-            <p className="mt-4 rounded-2xl bg-[#FAFAF9] px-4 py-3 text-sm text-gray-600">
-              You can write a review for this product after your order has been delivered.
-            </p>
-          )}
-
         {isAuthenticated &&
           eligibility?.has_reviewed &&
           !showForm &&
@@ -186,7 +239,14 @@ export default function ProductReviews({ productId }) {
               </p>
               <button
                 type="button"
-                onClick={() => openEditForm(reviews.find((r) => r.id === eligibility.review_id) || { id: eligibility.review_id, rating: 0 })}
+                onClick={() =>
+                  openEditForm(
+                    reviews.find((r) => r.id === eligibility.review_id) || {
+                      id: eligibility.review_id,
+                      rating: 0,
+                    },
+                  )
+                }
                 className="text-sm font-bold text-[#002424] underline underline-offset-2"
               >
                 Edit review
@@ -253,9 +313,8 @@ export default function ProductReviews({ productId }) {
               <span className="text-sm">Loading reviews…</span>
             </div>
           ) : reviews.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">
-              <MessageSquare size={36} className="mx-auto mb-3 opacity-25" />
-              <p>No reviews yet. Be the first to share your experience.</p>
+            <div className="py-10 text-center text-sm text-gray-500">
+              <p>No reviews yet.</p>
             </div>
           ) : (
             reviews.map((review) => (
@@ -316,20 +375,48 @@ export default function ProductReviews({ productId }) {
           )}
         </div>
 
-        {hasMore && !loadingList && (
-          <div className="mt-6 text-center">
+        {totalPages > 1 && !loadingList && (
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-1.5">
             <button
               type="button"
-              onClick={loadMore}
-              disabled={loadingMore}
-              className="inline-flex items-center gap-2 rounded-full border border-[#E7E5E4] bg-white px-6 py-2.5 text-sm font-semibold text-gray-900 transition hover:bg-[#FAFAF9] disabled:opacity-60"
+              onClick={() => goToPage(page - 1)}
+              disabled={page === 1}
+              aria-label="Previous page"
+              className="h-9 min-w-9 rounded-full border border-[#E7E5E4] bg-white px-3 text-sm font-semibold text-gray-900 transition hover:bg-[#FAFAF9] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {loadingMore ? (
-                <Loader2 size={16} className="animate-spin" />
+              Prev
+            </button>
+
+            {pageItems.map((item, index) =>
+              item === "…" ? (
+                <span key={`ellipsis-${index}`} className="px-1 text-sm text-gray-400">
+                  …
+                </span>
               ) : (
-                <ChevronDown size={16} />
-              )}
-              Load more reviews
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => goToPage(item)}
+                  aria-current={item === page ? "page" : undefined}
+                  className={`h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition ${
+                    item === page
+                      ? "bg-[#1C1917] text-white"
+                      : "border border-[#E7E5E4] bg-white text-gray-900 hover:bg-[#FAFAF9]"
+                  }`}
+                >
+                  {item}
+                </button>
+              ),
+            )}
+
+            <button
+              type="button"
+              onClick={() => goToPage(page + 1)}
+              disabled={page === totalPages}
+              aria-label="Next page"
+              className="h-9 min-w-9 rounded-full border border-[#E7E5E4] bg-white px-3 text-sm font-semibold text-gray-900 transition hover:bg-[#FAFAF9] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
             </button>
           </div>
         )}
