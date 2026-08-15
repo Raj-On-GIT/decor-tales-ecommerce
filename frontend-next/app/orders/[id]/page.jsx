@@ -55,6 +55,10 @@ function getStatusClasses(status = "") {
     return "bg-sky-100 text-sky-700";
   }
 
+  if (normalized === "processing") {
+    return "bg-cyan-100 text-cyan-800";
+  }
+
   if (normalized === "paid") {
     return "bg-teal-100 text-teal-800";
   }
@@ -183,10 +187,6 @@ function getEffectiveProgressStatus(order) {
     return "shipped";
   }
 
-  if (shipmentTracking?.has_shipment) {
-    return "processed";
-  }
-
   if (normalizedOrderStatus === "shipped") {
     return "shipped";
   }
@@ -290,7 +290,7 @@ function OrderProgress({ order }) {
       : normalizedStatus === "shipped"
         ? "Shipment is in courier movement"
       : normalizedStatus === "processed"
-        ? "Order processed and AWB generated"
+        ? "Order is being prepared"
       : normalizedStatus === "paid"
         ? "Payment verified"
       : `Currently ${formatStatus(order?.status || "")}`;

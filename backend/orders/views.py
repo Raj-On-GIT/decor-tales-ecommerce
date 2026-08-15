@@ -432,6 +432,7 @@ def create_delhivery_shipment_for_order_id(order_id):
         order.delhivery_payment_mode = str(package.get("payment") or "").strip()
         order.delhivery_raw_response = payload
         order.delhivery_created_at = timezone.now()
+        order.status = "shipped"
         order.save(
             update_fields=[
                 "delhivery_waybill",
@@ -441,6 +442,7 @@ def create_delhivery_shipment_for_order_id(order_id):
                 "delhivery_payment_mode",
                 "delhivery_raw_response",
                 "delhivery_created_at",
+                "status",
                 "updated_at",
             ]
         )
@@ -557,6 +559,39 @@ def summarize_tracking_response(order, payload):
     }
 
 
+DELHIVERY_DELIVERED_TYPE_CODES = ("DL",)
+DELHIVERY_DELIVERED_KEYWORDS = ("delivered",)
+DELHIVERY_SHIPPED_KEYWORDS = (
+    "in transit",
+    "manifested",
+    "dispatched",
+    "out for delivery",
+    "picked up",
+)
+
+
+def map_delhivery_status_to_order_status(status):
+    """Map a Delhivery tracking status dict to an order status, or None."""
+    status = status or {}
+    label = str(status.get("label") or "").lower()
+    status_type = str(status.get("type") or "").upper()
+    instructions = str(status.get("instructions") or "").lower()
+
+    if status_type in DELHIVERY_DELIVERED_TYPE_CODES:
+        return "delivered"
+    if any(
+        keyword in label or keyword in instructions
+        for keyword in DELHIVERY_DELIVERED_KEYWORDS
+    ):
+        return "delivered"
+    if any(
+        keyword in label or keyword in instructions
+        for keyword in DELHIVERY_SHIPPED_KEYWORDS
+    ):
+        return "shipped"
+    return None
+
+
 def apply_delhivery_tracking_snapshot(
     order,
     *,
@@ -600,6 +635,13 @@ def apply_delhivery_tracking_snapshot(
         if parsed_timestamp is not None:
             order.delhivery_last_scan_at = parsed_timestamp
             update_fields.append("delhivery_last_scan_at")
+
+    target_status = map_delhivery_status_to_order_status(status)
+    if target_status:
+        terminal_statuses = {"cancelled", "failed", "delivered"}
+        if order.status not in terminal_statuses and order.status != target_status:
+            order.status = target_status
+            update_fields.append("status")
 
     order.save(update_fields=list(dict.fromkeys(update_fields)))
     return order

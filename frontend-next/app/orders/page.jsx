@@ -82,10 +82,6 @@ function getEffectiveProgressStatus(order) {
     return "shipped";
   }
 
-  if (shipmentTracking?.has_shipment) {
-    return "processed";
-  }
-
   if (normalizedOrderStatus === "shipped") {
     return "shipped";
   }

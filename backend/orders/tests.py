@@ -812,7 +812,7 @@ class PaymentFlowSafetyTests(TestCase):
 
         order = Order.objects.get(id=order_id)
         self.product.refresh_from_db()
-        self.assertEqual(order.status, "paid")
+        self.assertEqual(order.status, "processing")
         self.assertTrue(order.payment_processed)
         self.assertEqual(self.product.stock, 0)
 
@@ -958,7 +958,7 @@ class PaymentFlowSafetyTests(TestCase):
 
         self.product.refresh_from_db()
         reconciled_order.refresh_from_db()
-        self.assertEqual(reconciled_order.status, "paid")
+        self.assertEqual(reconciled_order.status, "processing")
         self.assertTrue(reconciled_order.payment_processed)
         self.assertEqual(reconciled_order.razorpay_payment_id, "pay_captured_1")
         self.assertEqual(self.product.stock, 0)
@@ -991,7 +991,7 @@ class PaymentFlowSafetyTests(TestCase):
 
         self.product.refresh_from_db()
         reconciled_order.refresh_from_db()
-        self.assertEqual(reconciled_order.status, "paid")
+        self.assertEqual(reconciled_order.status, "processing")
         self.assertTrue(reconciled_order.payment_processed)
         self.assertEqual(reconciled_order.razorpay_payment_id, "pay_known_1")
         self.assertEqual(self.product.stock, 0)
@@ -1032,7 +1032,7 @@ class PaymentFlowSafetyTests(TestCase):
 
         self.product.refresh_from_db()
         reconciled_order.refresh_from_db()
-        self.assertEqual(reconciled_order.status, "paid")
+        self.assertEqual(reconciled_order.status, "processing")
         self.assertTrue(reconciled_order.payment_processed)
         self.assertEqual(self.product.stock, 0)
 
@@ -2329,6 +2329,124 @@ class DelhiveryScanPushWebhookTests(TestCase):
         self.assertEqual(self.order.delhivery_last_scan_location, "Origin Hub")
         self.assertEqual(self.order.delhivery_tracking_raw_response, payload)
 
+    def test_webhook_in_transit_updates_order_status_to_shipped(self):
+        payload = {
+            "Shipment": {
+                "Status": {
+                    "Status": "In Transit",
+                    "StatusCode": "IT",
+                    "StatusType": "UD",
+                    "StatusLocation": "Delhi Hub",
+                    "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                    "Instructions": "Consignment received at destination city",
+                },
+                "ReferenceNo": str(self.order.order_number),
+                "AWB": "85172510000022",
+            }
+        }
+
+        response = self.post_webhook(payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, "shipped")
+        self.assertEqual(self.order.delhivery_tracking_status_label, "In Transit")
+
+    def test_webhook_out_for_delivery_updates_order_status_to_shipped(self):
+        payload = {
+            "Shipment": {
+                "Status": {
+                    "Status": "Dispatched",
+                    "StatusCode": "X-DDD3FD",
+                    "StatusType": "UD",
+                    "StatusLocation": "Noida",
+                    "StatusDateTime": "2026-05-05T14:00:00+05:30",
+                    "Instructions": "Out for delivery",
+                },
+                "ReferenceNo": str(self.order.order_number),
+                "AWB": "85172510000022",
+            }
+        }
+
+        response = self.post_webhook(payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, "shipped")
+        self.assertEqual(self.order.delhivery_tracking_status_label, "Dispatched")
+
+    def test_webhook_delivered_updates_order_status_to_delivered(self):
+        payload = {
+            "Shipment": {
+                "Status": {
+                    "Status": "Delivered",
+                    "StatusCode": "EOD-38",
+                    "StatusType": "DL",
+                    "StatusLocation": "Delhi Hub",
+                    "StatusDateTime": "2026-05-05T12:18:25+05:30",
+                    "Instructions": "Delivered to consignee",
+                },
+                "ReferenceNo": str(self.order.order_number),
+                "AWB": "85172510000022",
+            }
+        }
+
+        response = self.post_webhook(payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, "delivered")
+        self.assertEqual(self.order.delhivery_tracking_status_label, "Delivered")
+
+    def test_webhook_does_not_regress_delivered_order_to_shipped(self):
+        self.order.status = "delivered"
+        self.order.save(update_fields=["status"])
+
+        response = self.post_webhook(
+            {
+                "Shipment": {
+                    "Status": {
+                        "Status": "In Transit",
+                        "StatusCode": "IT",
+                        "StatusType": "UD",
+                        "StatusLocation": "Delhi Hub",
+                        "StatusDateTime": "2026-05-05T10:30:00+05:30",
+                    },
+                    "ReferenceNo": str(self.order.order_number),
+                    "AWB": "85172510000022",
+                }
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, "delivered")
+
+    def test_webhook_does_not_move_cancelled_order(self):
+        self.order.status = "cancelled"
+        self.order.save(update_fields=["status"])
+
+        response = self.post_webhook(
+            {
+                "Shipment": {
+                    "Status": {
+                        "Status": "Delivered",
+                        "StatusCode": "EOD-38",
+                        "StatusType": "DL",
+                        "StatusLocation": "Delhi Hub",
+                        "StatusDateTime": "2026-05-05T12:18:25+05:30",
+                    },
+                    "ReferenceNo": str(self.order.order_number),
+                    "AWB": "85172510000022",
+                }
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, "cancelled")
+        self.assertEqual(self.order.delhivery_tracking_status_label, "Delivered")
+
     def test_webhook_rejects_non_object_payload_with_monitoring_log(self):
         with patch("orders.views.logger.warning") as mock_warning:
             response = self.client.post(
@@ -2508,6 +2626,7 @@ class OrderAdminDelhiveryShipmentTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.order.refresh_from_db()
         self.assertEqual(self.order.delhivery_waybill, "WB987654321")
+        self.assertEqual(self.order.status, "shipped")
         self.assertContains(response, "Shipment created for order")
 
     def test_admin_route_blocks_cancelled_orders(self):
@@ -2925,7 +3044,7 @@ class OrderConfirmationEmailFlowTests(TransactionTestCase):
         self.assertEqual(second_response.status_code, 200)
 
         order = Order.objects.get(id=order_id)
-        self.assertEqual(order.status, "paid")
+        self.assertEqual(order.status, "processing")
         self.assertTrue(order.payment_processed)
         self.assertIsNotNone(order.confirmation_email_sent_at)
 
@@ -2966,7 +3085,7 @@ class OrderConfirmationEmailFlowTests(TransactionTestCase):
 
         self.assertEqual(response.status_code, 200)
         order = Order.objects.get(id=order_id)
-        self.assertEqual(order.status, "paid")
+        self.assertEqual(order.status, "processing")
         self.assertIsNotNone(order.confirmation_email_sent_at)
         self.assertEqual(mock_send_email.call_count, 2)
 

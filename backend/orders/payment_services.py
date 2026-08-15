@@ -584,7 +584,7 @@ def process_successful_payment(*, order, razorpay_order_id, razorpay_payment_id,
 
     deduct_stock_for_order(order)
 
-    order.status = "paid"
+    order.status = "processing"
     order.payment_processed = True
     order.razorpay_payment_id = razorpay_payment_id
     if razorpay_signature:
