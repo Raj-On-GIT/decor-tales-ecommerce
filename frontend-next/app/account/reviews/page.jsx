@@ -141,7 +141,7 @@ export default function MyReviewsPage() {
             <MessageSquare size={36} className="mx-auto mb-3 opacity-25" />
             <p>You have not written any reviews yet.</p>
             <Link
-              href="/catalog"
+              href="/"
               className="mt-4 inline-block rounded-full bg-[#1C1917] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#002424]"
             >
               Shop products
