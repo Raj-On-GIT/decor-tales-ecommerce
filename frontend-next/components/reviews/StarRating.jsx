@@ -4,11 +4,11 @@ import { Star } from "lucide-react";
 import { useState } from "react";
 
 const RATINGS = [
-  { value: 5, label: "Excellent" },
-  { value: 4, label: "Good" },
-  { value: 3, label: "Average" },
-  { value: 2, label: "Poor" },
   { value: 1, label: "Terrible" },
+  { value: 2, label: "Poor" },
+  { value: 3, label: "Average" },
+  { value: 4, label: "Good" },
+  { value: 5, label: "Excellent" },
 ];
 
 export default function StarRating({
