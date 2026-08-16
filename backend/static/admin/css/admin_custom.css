@@ -213,3 +213,124 @@
     margin-left: 0;
     padding-left: 0;
 }
+
+/* ------------------------------------------------------------------ */
+/* Reason selection modals (Approve Exchange / Approve Refund)         */
+/* ------------------------------------------------------------------ */
+.reason-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.reason-modal {
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--body-bg, #fff);
+    color: var(--body-fg, #1f1f1f);
+    border: 1px solid var(--hairline-color, #ccc);
+    border-radius: 12px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+}
+
+.reason-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--hairline-color, #ccc);
+    background: var(--darkened-bg, #f8f8f8);
+    border-radius: 12px 12px 0 0;
+}
+
+.reason-modal-header h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--body-fg, #1f1f1f);
+}
+
+.reason-modal-close {
+    border: none;
+    background: transparent;
+    color: var(--body-quiet-color, #666);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.reason-modal-close:hover {
+    color: var(--body-fg, #1f1f1f);
+}
+
+.reason-modal-intro {
+    margin: 0;
+    padding: 16px 20px 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--body-quiet-color, #666);
+}
+
+.reason-modal-options {
+    padding: 16px 20px;
+    display: grid;
+    gap: 8px;
+}
+
+.reason-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--hairline-color, #ccc);
+    border-radius: 8px;
+    background: var(--fieldset-bg, #fff);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--body-fg, #1f1f1f);
+}
+
+.reason-option:hover {
+    border-color: var(--primary, #79aec8);
+    background: var(--selected-bg, #e8f0fe);
+}
+
+.reason-option input[type="checkbox"] {
+    margin-top: 2px;
+    flex: 0 0 auto;
+}
+
+.reason-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--hairline-color, #ccc);
+    background: var(--darkened-bg, #f8f8f8);
+    border-radius: 0 0 12px 12px;
+}
+
+.reason-modal-actions .button {
+    height: auto;
+    min-height: 2.1875rem;
+    padding: 8px 16px;
+}
+
+.reason-modal-actions .reason-modal-cancel {
+    background: var(--button-bg, #999);
+}
+
+.reason-modal-actions .reason-modal-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

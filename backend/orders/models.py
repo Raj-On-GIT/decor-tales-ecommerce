@@ -214,6 +214,30 @@ class Order(models.Model):
     reverse_tracking_raw_response = models.JSONField(blank=True, null=True)
     reverse_tracking_synced_at = models.DateTimeField(blank=True, null=True)
 
+    # Exchange approval (required before creating a reverse pickup for delivered orders)
+    exchange_approved = models.BooleanField(default=False)
+    exchange_approved_at = models.DateTimeField(blank=True, null=True)
+    exchange_approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    exchange_reasons = models.JSONField(default=list, blank=True)
+
+    # Refund approval (required before initiating a refund)
+    refund_approved = models.BooleanField(default=False)
+    refund_approved_at = models.DateTimeField(blank=True, null=True)
+    refund_approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    refund_reasons = models.JSONField(default=list, blank=True)
+
     # Replacement order linkage
     replacement_of = models.ForeignKey(
         "self",

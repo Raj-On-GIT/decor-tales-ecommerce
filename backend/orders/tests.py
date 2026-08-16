@@ -2787,6 +2787,198 @@ class OrderAdminDelhiveryShipmentTests(TestCase):
         self.assertContains(response, "Tracking refreshed for order")
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
+class OrderAdminExchangeRefundApprovalTests(TestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_superuser(
+            username="approval-admin",
+            email="approval-admin@example.com",
+            password="testpass123",
+        )
+        self.customer = User.objects.create_user(
+            username="approval-customer",
+            email="approval-customer@example.com",
+            password="testpass123",
+        )
+        self.client.force_login(self.admin_user)
+
+        self.category = Category.objects.create(name="Approval Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Approval Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Approval Frame",
+            mrp=Decimal("1200.00"),
+            slashed_price=Decimal("999.00"),
+            stock=10,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.order = Order.objects.create(
+            user=self.customer,
+            subtotal_amount=Decimal("999.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("999.00"),
+            status="delivered",
+            payment_processed=True,
+            razorpay_order_id="order_approval_1",
+            razorpay_payment_id="pay_approval_1",
+            shipping_email="approval@example.com",
+            shipping_full_name="Approval Test Customer",
+            shipping_address="123 Approval Street",
+            city="Delhi",
+            shipping_state="Delhi",
+            shipping_country="India",
+            postal_code="110001",
+            phone="9999999999",
+            delhivery_waybill="85172510000033",
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("999.00"),
+            product_title=self.product.title,
+        )
+
+    def get_change_page(self):
+        return self.client.get(
+            reverse("admin:orders_order_change", args=[self.order.pk]),
+            secure=True,
+        )
+
+    def test_change_page_shows_approve_exchange_button_for_delivered_order(self):
+        response = self.get_change_page()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Approve Exchange")
+        self.assertContains(
+            response,
+            reverse("admin:orders_order_approve_exchange", args=[self.order.pk]),
+        )
+        self.assertNotContains(response, "Create Reverse Pickup")
+
+    def test_change_page_shows_reverse_pickup_after_exchange_approval(self):
+        self.order.exchange_approved = True
+        self.order.exchange_reasons = ["Wrong item delivered"]
+        self.order.save(update_fields=["exchange_approved", "exchange_reasons"])
+
+        response = self.get_change_page()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Approve Exchange")
+        self.assertContains(response, "Create Reverse Pickup")
+
+    def test_change_page_shows_reverse_pickup_for_shipped_order_without_approval(self):
+        self.order.status = "shipped"
+        self.order.save(update_fields=["status"])
+
+        response = self.get_change_page()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Approve Exchange")
+        self.assertContains(response, "Create Reverse Pickup")
+
+    def test_admin_can_approve_exchange_with_reasons(self):
+        response = self.client.post(
+            reverse("admin:orders_order_approve_exchange", args=[self.order.pk]),
+            {"exchange_reasons": ["Wrong item delivered", "Item damaged / broken in transit"]},
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertTrue(self.order.exchange_approved)
+        self.assertIsNotNone(self.order.exchange_approved_at)
+        self.assertEqual(self.order.exchange_approved_by, self.admin_user)
+        self.assertEqual(
+            self.order.exchange_reasons,
+            ["Wrong item delivered", "Item damaged / broken in transit"],
+        )
+        self.assertContains(response, "Exchange approved for order")
+
+    def test_admin_cannot_approve_exchange_without_reasons(self):
+        response = self.client.post(
+            reverse("admin:orders_order_approve_exchange", args=[self.order.pk]),
+            {},
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertFalse(self.order.exchange_approved)
+        self.assertContains(response, "Select at least one reason to approve the exchange.")
+
+    def test_change_page_shows_approve_refund_button_for_eligible_order(self):
+        response = self.get_change_page()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Approve Refund")
+        self.assertContains(
+            response,
+            reverse("admin:orders_order_approve_refund", args=[self.order.pk]),
+        )
+        self.assertNotContains(response, "Refund Order")
+
+    def test_change_page_shows_refund_order_button_after_refund_approval(self):
+        self.order.refund_approved = True
+        self.order.refund_reasons = ["Order not delivered"]
+        self.order.save(update_fields=["refund_approved", "refund_reasons"])
+
+        response = self.get_change_page()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Approve Refund")
+        self.assertContains(response, "Refund Order")
+
+    def test_admin_can_approve_refund_with_reasons(self):
+        response = self.client.post(
+            reverse("admin:orders_order_approve_refund", args=[self.order.pk]),
+            {"refund_reasons": ["Order not delivered"]},
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertTrue(self.order.refund_approved)
+        self.assertIsNotNone(self.order.refund_approved_at)
+        self.assertEqual(self.order.refund_approved_by, self.admin_user)
+        self.assertEqual(self.order.refund_reasons, ["Order not delivered"])
+        self.assertContains(response, "Refund approved for order")
+
+    def test_admin_cannot_approve_refund_without_reasons(self):
+        response = self.client.post(
+            reverse("admin:orders_order_approve_refund", args=[self.order.pk]),
+            {},
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertFalse(self.order.refund_approved)
+        self.assertContains(response, "Select at least one reason to approve the refund.")
+
+    def test_admin_cannot_approve_exchange_for_non_delivered_order(self):
+        self.order.status = "shipped"
+        self.order.save(update_fields=["status"])
+
+        response = self.client.post(
+            reverse("admin:orders_order_approve_exchange", args=[self.order.pk]),
+            {"exchange_reasons": ["Wrong item delivered"]},
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertFalse(self.order.exchange_approved)
+
+
 class OrderConfirmationEmailUnitTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -3594,6 +3786,7 @@ class ReverseShipmentServiceTests(TestCase):
             postal_code="110001",
             phone="9999999999",
             delhivery_waybill="85172510000022",
+            exchange_approved=True,
         )
         OrderItem.objects.create(
             order=self.order,
@@ -3644,6 +3837,39 @@ class ReverseShipmentServiceTests(TestCase):
 
         with self.assertRaisesMessage(ValueError, "shipped forward"):
             create_delhivery_reverse_shipment_for_order_id(self.order.pk)
+
+    def test_reverse_shipment_requires_exchange_approval_for_delivered_order(self):
+        self.order.exchange_approved = False
+        self.order.save(update_fields=["exchange_approved"])
+
+        with self.assertRaisesMessage(ValueError, "exchange approval"):
+            create_delhivery_reverse_shipment_for_order_id(self.order.pk)
+
+    @patch("orders.views.DelhiveryService.create_shipment")
+    def test_reverse_shipment_allowed_without_approval_for_shipped_order(
+        self, mock_create_shipment
+    ):
+        mock_create_shipment.return_value = {
+            "success": True,
+            "packages": [
+                {
+                    "waybill": "RW567890123",
+                    "status": "Pickup Scheduled",
+                }
+            ],
+        }
+
+        self.order.exchange_approved = False
+        self.order.status = "shipped"
+        self.order.save(update_fields=["exchange_approved", "status"])
+
+        order, payload = create_delhivery_reverse_shipment_for_order_id(self.order.pk)
+
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.reverse_waybill, "RW567890123")
+        self.assertEqual(self.order.status, "shipped")
+        self.assertEqual(payload["packages"][0]["waybill"], "RW567890123")
+        self.assertEqual(order.pk, self.order.pk)
 
     @patch("orders.views.DelhiveryService.create_shipment")
     def test_reverse_shipment_created_without_mutating_order_status(self, mock_create_shipment):
@@ -3876,6 +4102,7 @@ class RefundOrderServiceTests(TestCase):
             total_amount=Decimal("700.00"),
             status="delivered",
             payment_processed=True,
+            refund_approved=True,
             razorpay_order_id="order_refund_1",
             razorpay_payment_id="pay_refund_1",
             shipping_email="refund@example.com",
@@ -3930,6 +4157,16 @@ class RefundOrderServiceTests(TestCase):
         self.order.save(update_fields=["razorpay_payment_id"])
 
         with self.assertRaises(PaymentError):
+            refund_order(order=self.order)
+
+        mock_get_client.assert_not_called()
+
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_refund_order_blocks_unapproved_orders(self, mock_get_client):
+        self.order.refund_approved = False
+        self.order.save(update_fields=["refund_approved"])
+
+        with self.assertRaisesMessage(PaymentError, "not approved"):
             refund_order(order=self.order)
 
         mock_get_client.assert_not_called()

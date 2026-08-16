@@ -486,6 +486,11 @@ def create_delhivery_reverse_shipment_for_order_id(order_id):
         if order.status in {"failed", "cancelled", "pending"}:
             raise ValueError("Reverse shipment is not allowed for this order state.")
 
+        if order.status == "delivered" and not order.exchange_approved:
+            raise ValueError(
+                "Reverse shipment for a delivered order requires exchange approval."
+            )
+
         shipment_payload = build_delhivery_shipment_payload(order, reverse=True)
         payload = DelhiveryService().create_shipment(data=shipment_payload)
 

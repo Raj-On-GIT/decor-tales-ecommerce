@@ -26,6 +26,11 @@
       </form>
     </li>
   {% endif %}
+  {% if show_approve_exchange_button and approve_exchange_url %}
+    <li>
+      <button type="button" class="button" onclick="openReasonModal('approve-exchange-modal')">Approve Exchange</button>
+    </li>
+  {% endif %}
   {% if show_create_reverse_shipment_button and create_reverse_shipment_url %}
     <li>
       <form action="{{ create_reverse_shipment_url }}" method="post" style="display:inline;">
@@ -40,6 +45,11 @@
         {% csrf_token %}
         <button type="submit" class="button">Refresh Reverse Tracking</button>
       </form>
+    </li>
+  {% endif %}
+  {% if show_approve_refund_button and approve_refund_url %}
+    <li>
+      <button type="button" class="button" onclick="openReasonModal('approve-refund-modal')">Approve Refund</button>
     </li>
   {% endif %}
   {% if show_refund_order_button and refund_order_url %}
@@ -58,4 +68,114 @@
       </form>
     </li>
   {% endif %}
+{% endblock %}
+
+{% block content %}
+  {{ block.super }}
+
+  {% if show_approve_exchange_button and approve_exchange_url and exchange_reason_options %}
+    <div id="approve-exchange-modal" class="reason-modal-overlay" style="display:none;" onclick="if (event.target === this) closeReasonModals()">
+      <div class="reason-modal" role="dialog" aria-modal="true" aria-labelledby="approve-exchange-title">
+        <div class="reason-modal-header">
+          <h2 id="approve-exchange-title">Approve Exchange</h2>
+          <button type="button" class="reason-modal-close" onclick="closeReasonModals()" aria-label="Close">&times;</button>
+        </div>
+        <p class="reason-modal-intro">
+          Select at least one reason why this order is being marked for exchange. The selected reasons will be recorded for reference.
+        </p>
+        <form method="post" action="{{ approve_exchange_url }}">
+          {% csrf_token %}
+          <div class="reason-modal-options">
+            {% for reason in exchange_reason_options %}
+              <label class="reason-option">
+                <input type="checkbox" name="exchange_reasons" value="{{ reason }}" onchange="updateReasonSubmit('approve-exchange-modal')" />
+                <span>{{ reason }}</span>
+              </label>
+            {% endfor %}
+          </div>
+          <div class="reason-modal-actions">
+            <button type="button" class="button reason-modal-cancel" onclick="closeReasonModals()">Cancel</button>
+            <button type="submit" class="button default reason-modal-submit" onclick="return validateReasons('approve-exchange-modal', 'exchange_reasons', 'at least one exchange reason')">Approve Exchange</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if show_approve_refund_button and approve_refund_url and refund_reason_options %}
+    <div id="approve-refund-modal" class="reason-modal-overlay" style="display:none;" onclick="if (event.target === this) closeReasonModals()">
+      <div class="reason-modal" role="dialog" aria-modal="true" aria-labelledby="approve-refund-title">
+        <div class="reason-modal-header">
+          <h2 id="approve-refund-title">Approve Refund</h2>
+          <button type="button" class="reason-modal-close" onclick="closeReasonModals()" aria-label="Close">&times;</button>
+        </div>
+        <p class="reason-modal-intro">
+          Select at least one reason why this order is eligible for a refund. The selected reasons will be recorded for reference.
+        </p>
+        <form method="post" action="{{ approve_refund_url }}">
+          {% csrf_token %}
+          <div class="reason-modal-options">
+            {% for reason in refund_reason_options %}
+              <label class="reason-option">
+                <input type="checkbox" name="refund_reasons" value="{{ reason }}" onchange="updateReasonSubmit('approve-refund-modal')" />
+                <span>{{ reason }}</span>
+              </label>
+            {% endfor %}
+          </div>
+          <div class="reason-modal-actions">
+            <button type="button" class="button reason-modal-cancel" onclick="closeReasonModals()">Cancel</button>
+            <button type="submit" class="button default reason-modal-submit" onclick="return validateReasons('approve-refund-modal', 'refund_reasons', 'at least one refund reason')">Approve Refund</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+
+  <script>
+    (function () {
+      var modalIds = ["approve-exchange-modal", "approve-refund-modal"];
+
+      window.openReasonModal = function (modalId) {
+        var overlay = document.getElementById(modalId);
+        if (overlay) {
+          updateReasonSubmit(modalId);
+          overlay.style.display = "flex";
+        }
+      };
+
+      window.closeReasonModals = function () {
+        modalIds.forEach(function (modalId) {
+          var overlay = document.getElementById(modalId);
+          if (overlay) {
+            overlay.style.display = "none";
+          }
+        });
+      };
+
+      window.updateReasonSubmit = function (modalId) {
+        var overlay = document.getElementById(modalId);
+        if (!overlay) {
+          return;
+        }
+        var checked = overlay.querySelectorAll('input[type="checkbox"]:checked').length;
+        var submitButton = overlay.querySelector(".reason-modal-submit");
+        if (submitButton) {
+          submitButton.disabled = checked === 0;
+        }
+      };
+
+      window.validateReasons = function (modalId, fieldName, message) {
+        var overlay = document.getElementById(modalId);
+        if (!overlay) {
+          return false;
+        }
+        var checked = overlay.querySelectorAll('input[name="' + fieldName + '"]:checked').length;
+        if (checked === 0) {
+          alert("Select " + message + " before approving.");
+          return false;
+        }
+        return true;
+      };
+    })();
+  </script>
 {% endblock %}

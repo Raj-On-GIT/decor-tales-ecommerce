@@ -32,6 +32,26 @@ from .payment_services import PaymentError, refund_order
 from utils.delhivery_service import DelhiveryServiceError
 
 
+EXCHANGE_REASONS = [
+    "Item damaged / broken in transit",
+    "Wrong item delivered",
+    "Item missing from parcel",
+    "Size or fit issue",
+    "Quality defect",
+    "Other",
+]
+
+REFUND_REASONS = [
+    "Order not delivered",
+    "Item lost in transit",
+    "Wrong item delivered",
+    "Defective / damaged item",
+    "Item missing from parcel",
+    "Order cancelled after payment",
+    "Other",
+]
+
+
 @admin.register(Coupon)
 class CouponAdmin(admin.ModelAdmin):
     list_display = (
@@ -221,6 +241,14 @@ class OrderAdmin(admin.ModelAdmin):
         "reverse_tracking_raw_response",
         "replacement_of",
         "reverse_summary",
+        "exchange_approved",
+        "exchange_approved_at",
+        "exchange_approved_by",
+        "exchange_reasons",
+        "refund_approved",
+        "refund_approved_at",
+        "refund_approved_by",
+        "refund_reasons",
     )
     inlines = [OrderItemInline]
     fieldsets = (
@@ -302,6 +330,14 @@ class OrderAdmin(admin.ModelAdmin):
                     "reverse_last_scan_location",
                     "reverse_tracking_synced_at",
                     "replacement_of",
+                    "exchange_approved",
+                    "exchange_approved_at",
+                    "exchange_approved_by",
+                    "exchange_reasons",
+                    "refund_approved",
+                    "refund_approved_at",
+                    "refund_approved_by",
+                    "refund_reasons",
                 ),
             },
         ),
@@ -348,6 +384,17 @@ class OrderAdmin(admin.ModelAdmin):
 
         return bool(obj.delhivery_waybill)
 
+    def can_approve_exchange(self, obj):
+        if not obj:
+            return False
+
+        return (
+            obj.status == "delivered"
+            and bool(obj.delhivery_waybill)
+            and not obj.reverse_waybill
+            and not obj.exchange_approved
+        )
+
     def can_create_reverse_shipment(self, obj):
         if not obj:
             return False
@@ -356,6 +403,7 @@ class OrderAdmin(admin.ModelAdmin):
             bool(obj.delhivery_waybill)
             and not obj.reverse_waybill
             and obj.status not in {"failed", "cancelled", "pending"}
+            and (obj.exchange_approved or obj.status != "delivered")
         )
 
     def can_refresh_reverse_tracking(self, obj):
@@ -363,6 +411,18 @@ class OrderAdmin(admin.ModelAdmin):
             return False
 
         return bool(obj.reverse_waybill)
+
+    def can_approve_refund(self, obj):
+        if not obj:
+            return False
+
+        return (
+            obj.payment_processed
+            and not obj.refund_id
+            and bool(obj.razorpay_payment_id)
+            and obj.status not in {"failed"}
+            and not obj.refund_approved
+        )
 
     def can_refund_order(self, obj):
         if not obj:
@@ -373,6 +433,7 @@ class OrderAdmin(admin.ModelAdmin):
             and not obj.refund_id
             and bool(obj.razorpay_payment_id)
             and obj.status not in {"failed"}
+            and obj.refund_approved
         )
 
     def can_create_replacement_order(self, obj):
@@ -459,6 +520,24 @@ class OrderAdmin(admin.ModelAdmin):
             obj.replacement_orders.values_list("order_number", flat=True)[:1]
         )
 
+        exchange_approval = "Not approved"
+        if obj.exchange_approved_at:
+            approved_by = obj.exchange_approved_by.get_full_name().strip() if obj.exchange_approved_by else ""
+            exchange_approval = f"Approved on {display_dt(obj.exchange_approved_at)}"
+            if approved_by:
+                exchange_approval += f" by {approved_by}"
+            if obj.exchange_reasons:
+                exchange_approval += f" — {', '.join(obj.exchange_reasons)}"
+
+        refund_approval = "Not approved"
+        if obj.refund_approved_at:
+            approved_by = obj.refund_approved_by.get_full_name().strip() if obj.refund_approved_by else ""
+            refund_approval = f"Approved on {display_dt(obj.refund_approved_at)}"
+            if approved_by:
+                refund_approval += f" by {approved_by}"
+            if obj.refund_reasons:
+                refund_approval += f" — {', '.join(obj.refund_reasons)}"
+
         rows = (
             ("Reverse AWB", display(obj.reverse_waybill, "Not created")),
             ("Reverse State", display(obj.reverse_shipment_status, "Not created")),
@@ -469,6 +548,8 @@ class OrderAdmin(admin.ModelAdmin):
             ("Reverse Last Scan Time", display_dt(obj.reverse_last_scan_at, "No scans yet")),
             ("Reverse Tracking Synced", display_dt(obj.reverse_tracking_synced_at, "Never synced")),
             ("Reverse Created", display_dt(obj.reverse_created_at, "Not created")),
+            ("Exchange Approval", exchange_approval),
+            ("Refund Approval", refund_approval),
             ("Refund ID", display(obj.refund_id)),
             ("Refund Status", refund_status),
             ("Refund Amount", display(obj.refund_amount)),
@@ -514,6 +595,16 @@ class OrderAdmin(admin.ModelAdmin):
                 "<path:object_id>/create-reverse-shipment/",
                 self.admin_site.admin_view(self.create_reverse_shipment_view),
                 name="orders_order_create_reverse_shipment",
+            ),
+            path(
+                "<path:object_id>/approve-exchange/",
+                self.admin_site.admin_view(self.approve_exchange_view),
+                name="orders_order_approve_exchange",
+            ),
+            path(
+                "<path:object_id>/approve-refund/",
+                self.admin_site.admin_view(self.approve_refund_view),
+                name="orders_order_approve_refund",
             ),
             path(
                 "<path:object_id>/refresh-reverse-tracking/",
@@ -562,6 +653,14 @@ class OrderAdmin(admin.ModelAdmin):
                     "admin:orders_order_create_reverse_shipment",
                     args=[obj.pk],
                 )
+            if obj and self.can_approve_exchange(obj):
+                extra_context["show_approve_exchange_button"] = True
+                extra_context["approve_exchange_url"] = reverse(
+                    "admin:orders_order_approve_exchange",
+                    args=[obj.pk],
+                )
+            extra_context["exchange_reason_options"] = EXCHANGE_REASONS
+            extra_context["refund_reason_options"] = REFUND_REASONS
             if obj and self.can_refresh_reverse_tracking(obj):
                 extra_context["show_refresh_reverse_tracking_button"] = True
                 extra_context["refresh_reverse_tracking_url"] = reverse(
@@ -572,6 +671,12 @@ class OrderAdmin(admin.ModelAdmin):
                 extra_context["show_refund_order_button"] = True
                 extra_context["refund_order_url"] = reverse(
                     "admin:orders_order_refund_order",
+                    args=[obj.pk],
+                )
+            if obj and self.can_approve_refund(obj):
+                extra_context["show_approve_refund_button"] = True
+                extra_context["approve_refund_url"] = reverse(
+                    "admin:orders_order_approve_refund",
                     args=[obj.pk],
                 )
             if obj and self.can_create_replacement_order(obj):
@@ -769,6 +874,65 @@ class OrderAdmin(admin.ModelAdmin):
         )
         return redirect("admin:orders_order_change", order.pk)
 
+    def approve_exchange_view(self, request, object_id):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+
+        if not self.has_change_permission(request, obj):
+            self.message_user(
+                request,
+                "You do not have permission to update this order.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        if not self.can_approve_exchange(obj):
+            self.message_user(
+                request,
+                "Exchange approval is only available for delivered orders without an approved exchange or reverse waybill.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        selected_reasons = [
+            str(reason).strip()
+            for reason in request.POST.getlist("exchange_reasons")
+            if str(reason).strip()
+        ]
+        if not selected_reasons:
+            self.message_user(
+                request,
+                "Select at least one reason to approve the exchange.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        obj.exchange_approved = True
+        obj.exchange_approved_at = timezone.now()
+        obj.exchange_approved_by = request.user
+        obj.exchange_reasons = selected_reasons
+        obj.save(
+            update_fields=[
+                "exchange_approved",
+                "exchange_approved_at",
+                "exchange_approved_by",
+                "exchange_reasons",
+                "updated_at",
+            ]
+        )
+
+        self.message_user(
+            request,
+            f"Exchange approved for order {obj.order_number}. Reasons: {', '.join(selected_reasons)}.",
+            level=messages.SUCCESS,
+        )
+        return redirect("admin:orders_order_change", obj.pk)
+
     def refresh_reverse_tracking_view(self, request, object_id):
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])
@@ -852,6 +1016,65 @@ class OrderAdmin(admin.ModelAdmin):
             level=messages.SUCCESS,
         )
         return redirect("admin:orders_order_change", order.pk)
+
+    def approve_refund_view(self, request, object_id):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+
+        if not self.has_change_permission(request, obj):
+            self.message_user(
+                request,
+                "You do not have permission to update this order.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        if not self.can_approve_refund(obj):
+            self.message_user(
+                request,
+                "Refund approval is only available for paid orders without an existing refund.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        selected_reasons = [
+            str(reason).strip()
+            for reason in request.POST.getlist("refund_reasons")
+            if str(reason).strip()
+        ]
+        if not selected_reasons:
+            self.message_user(
+                request,
+                "Select at least one reason to approve the refund.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        obj.refund_approved = True
+        obj.refund_approved_at = timezone.now()
+        obj.refund_approved_by = request.user
+        obj.refund_reasons = selected_reasons
+        obj.save(
+            update_fields=[
+                "refund_approved",
+                "refund_approved_at",
+                "refund_approved_by",
+                "refund_reasons",
+                "updated_at",
+            ]
+        )
+
+        self.message_user(
+            request,
+            f"Refund approved for order {obj.order_number}. Reasons: {', '.join(selected_reasons)}.",
+            level=messages.SUCCESS,
+        )
+        return redirect("admin:orders_order_change", obj.pk)
 
     def create_replacement_order_view(self, request, object_id):
         if request.method != "POST":

@@ -984,6 +984,9 @@ def refund_order(*, order, amount=None, reason=""):
     if order.refund_id:
         return order, {"skipped": True, "refund_id": order.refund_id, "reason": "already_refunded"}
 
+    if not order.refund_approved:
+        raise PaymentError("Order is not approved for a refund.")
+
     if order.status == "failed" or not order.payment_processed:
         raise PaymentError("Order is not eligible for a refund.")
 
