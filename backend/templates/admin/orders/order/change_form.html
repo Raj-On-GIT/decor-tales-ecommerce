@@ -26,4 +26,36 @@
       </form>
     </li>
   {% endif %}
+  {% if show_create_reverse_shipment_button and create_reverse_shipment_url %}
+    <li>
+      <form action="{{ create_reverse_shipment_url }}" method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="button">Create Reverse Pickup</button>
+      </form>
+    </li>
+  {% endif %}
+  {% if show_refresh_reverse_tracking_button and refresh_reverse_tracking_url %}
+    <li>
+      <form action="{{ refresh_reverse_tracking_url }}" method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="button">Refresh Reverse Tracking</button>
+      </form>
+    </li>
+  {% endif %}
+  {% if show_refund_order_button and refund_order_url %}
+    <li>
+      <form action="{{ refund_order_url }}" method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="button" onclick="return confirm('Initiate a full refund for this order via Razorpay?')">Refund Order</button>
+      </form>
+    </li>
+  {% endif %}
+  {% if show_create_replacement_order_button and create_replacement_order_url %}
+    <li>
+      <form action="{{ create_replacement_order_url }}" method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="button">Create Replacement Order</button>
+      </form>
+    </li>
+  {% endif %}
 {% endblock %}

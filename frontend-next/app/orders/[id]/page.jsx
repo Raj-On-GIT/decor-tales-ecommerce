@@ -202,7 +202,7 @@ function getEffectiveProgressStatus(order) {
   return "pending";
 }
 
-function ShipmentStatusCard({ shipmentTracking }) {
+function ShipmentStatusCard({ shipmentTracking, eyebrow = "Shipment status", title = "Delivery tracking" }) {
   if (!shipmentTracking) {
     return null;
   }
@@ -219,12 +219,12 @@ function ShipmentStatusCard({ shipmentTracking }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
-              Shipment status
+              {eyebrow}
             </p>
             <h2
               className={`${orderNumberFont.className} mt-2 text-3xl font-medium tracking-[0.02em] tabular-nums text-gray-900 sm:text-4xl`}
             >
-              Delivery tracking
+              {title}
             </h2>
           </div>
           <span
@@ -243,7 +243,7 @@ function ShipmentStatusCard({ shipmentTracking }) {
             AWB / Tracking ID
           </p>
           <p className="mt-2 text-sm font-semibold text-gray-900">
-            {shipmentTracking.waybill || "Will appear after dispatch"}
+            {shipmentTracking.waybill || "Will appear once created"}
           </p>
         </div>
 
@@ -576,6 +576,12 @@ export default function OrderDetailPage() {
 
           <div className="space-y-6 xl:sticky xl:top-24 xl:h-fit">
             <ShipmentStatusCard shipmentTracking={order.shipment_tracking} />
+
+            <ShipmentStatusCard
+              eyebrow="Reverse shipment"
+              title="Return pickup"
+              shipmentTracking={order.reverse_shipment_tracking}
+            />
 
             <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8">
               <h2 className={`${orderNumberFont.className} text-3xl font-medium tracking-[0.02em] tabular-nums text-gray-900 sm:text-4xl`}>

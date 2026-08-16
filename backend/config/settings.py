@@ -426,6 +426,14 @@ DELHIVERY_API_KEY = os.getenv("DELHIVERY_API_KEY", "").strip()
 DELHIVERY_PICKUP_LOCATION = os.getenv("DELHIVERY_PICKUP_LOCATION", "").strip()
 DELHIVERY_ORIGIN_PIN = os.getenv("DELHIVERY_ORIGIN_PIN", "110077").strip()
 DELHIVERY_WEBHOOK_SECRET = os.getenv("DELHIVERY_WEBHOOK_SECRET", "").strip()
+# Optional reverse-return warehouse address. When any of these are configured,
+# reverse (RVP) shipments will deliver to this address instead of the pickup
+# location. Delhivery requires the full set, so configure all five together.
+DELHIVERY_RETURN_NAME = os.getenv("DELHIVERY_RETURN_NAME", "").strip()
+DELHIVERY_RETURN_ADDRESS = os.getenv("DELHIVERY_RETURN_ADDRESS", "").strip()
+DELHIVERY_RETURN_CITY = os.getenv("DELHIVERY_RETURN_CITY", "").strip()
+DELHIVERY_RETURN_STATE = os.getenv("DELHIVERY_RETURN_STATE", "").strip()
+DELHIVERY_RETURN_PIN = os.getenv("DELHIVERY_RETURN_PIN", "").strip()
 
 TRENDING_CACHE_TTL_SECONDS = int(os.getenv("TRENDING_CACHE_TTL_SECONDS", "120"))
 DELHIVERY_SERVICEABILITY_CACHE_TTL_SECONDS = int(

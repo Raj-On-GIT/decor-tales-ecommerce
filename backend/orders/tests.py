@@ -18,7 +18,12 @@ from PIL import Image
 from rest_framework.test import APIClient
 
 from orders.models import Cart, CartItem, Coupon, CouponUsage, Order, OrderItem, OrderItemImage, StockReservation
-from orders.payment_services import reconcile_order_payment
+from orders.payment_services import PaymentError, reconcile_order_payment, refund_order
+from orders.views import (
+    build_delhivery_shipment_payload,
+    create_delhivery_reverse_shipment_for_order_id,
+    create_replacement_order_for_order_id,
+)
 from products.models import Category, Color, Product, ProductVariant, Size, SubCategory
 from utils.delhivery_service import DelhiveryServiceError
 
@@ -3552,3 +3557,443 @@ class OrderFlowThrottleTests(TestCase):
 
         throttled_response = self.client.post(self.url, {}, format="json")
         self.assertEqual(throttled_response.status_code, 429)
+
+
+class ReverseShipmentServiceTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="reverse-service-user",
+            email="reverse-service@example.com",
+            password="testpass123",
+        )
+        self.category = Category.objects.create(name="Reverse Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Reverse Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Reverse Frame",
+            mrp=Decimal("800.00"),
+            slashed_price=Decimal("700.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("700.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("700.00"),
+            status="delivered",
+            shipping_email="reverse-service@example.com",
+            shipping_full_name="Reverse Customer",
+            shipping_address="123 Reverse Street",
+            city="Delhi",
+            shipping_state="Delhi",
+            shipping_country="India",
+            postal_code="110001",
+            phone="9999999999",
+            delhivery_waybill="85172510000022",
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("700.00"),
+            product_title=self.product.title,
+        )
+
+    def test_reverse_payload_uses_pickup_payment_mode(self):
+        payload = build_delhivery_shipment_payload(self.order, reverse=True)
+        shipment = payload["shipments"][0]
+
+        self.assertEqual(shipment["payment_mode"], "Pickup")
+
+    def test_forward_payload_uses_prepaid_payment_mode(self):
+        payload = build_delhivery_shipment_payload(self.order)
+        shipment = payload["shipments"][0]
+
+        self.assertEqual(shipment["payment_mode"], "Prepaid")
+
+    @override_settings(
+        DELHIVERY_RETURN_NAME="Decor Tales",
+        DELHIVERY_RETURN_ADDRESS="1 Test Road",
+        DELHIVERY_RETURN_CITY="Delhi",
+        DELHIVERY_RETURN_STATE="Delhi",
+        DELHIVERY_RETURN_PIN="110001",
+    )
+    def test_reverse_payload_includes_configured_return_address(self):
+        payload = build_delhivery_shipment_payload(self.order, reverse=True)
+        shipment = payload["shipments"][0]
+
+        self.assertEqual(shipment["return_pin"], "110001")
+        self.assertEqual(shipment["return_city"], "Delhi")
+        self.assertEqual(shipment["return_state"], "Delhi")
+
+    @override_settings(DELHIVERY_RETURN_PIN="")
+    def test_reverse_payload_omits_return_address_when_not_configured(self):
+        payload = build_delhivery_shipment_payload(self.order, reverse=True)
+        shipment = payload["shipments"][0]
+
+        self.assertNotIn("return_pin", shipment)
+        self.assertNotIn("return_add", shipment)
+
+    def test_reverse_shipment_requires_forward_waybill(self):
+        self.order.delhivery_waybill = ""
+        self.order.save(update_fields=["delhivery_waybill"])
+
+        with self.assertRaisesMessage(ValueError, "shipped forward"):
+            create_delhivery_reverse_shipment_for_order_id(self.order.pk)
+
+    @patch("orders.views.DelhiveryService.create_shipment")
+    def test_reverse_shipment_created_without_mutating_order_status(self, mock_create_shipment):
+        mock_create_shipment.return_value = {
+            "success": True,
+            "packages": [
+                {
+                    "waybill": "RW987654321",
+                    "status": "Pickup Scheduled",
+                }
+            ],
+        }
+
+        order, payload = create_delhivery_reverse_shipment_for_order_id(self.order.pk)
+
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.reverse_waybill, "RW987654321")
+        self.assertEqual(self.order.reverse_shipment_status, "Pickup Scheduled")
+        self.assertIsNotNone(self.order.reverse_created_at)
+        self.assertEqual(self.order.status, "delivered")
+        self.assertEqual(payload["packages"][0]["waybill"], "RW987654321")
+        self.assertEqual(order.pk, self.order.pk)
+
+    @patch("orders.views.DelhiveryService.create_shipment")
+    def test_reverse_shipment_blocks_duplicate(self, mock_create_shipment):
+        self.order.reverse_waybill = "RW123456789"
+        self.order.save(update_fields=["reverse_waybill"])
+
+        with self.assertRaisesMessage(ValueError, "already created"):
+            create_delhivery_reverse_shipment_for_order_id(self.order.pk)
+
+        mock_create_shipment.assert_not_called()
+
+
+@override_settings(
+    DELHIVERY_WEBHOOK_SECRET="dt-webhook-prod-test-secret",
+    SECURE_SSL_REDIRECT=False,
+)
+class ReverseScanPushWebhookTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="reverse-webhook-user",
+            email="reverse-webhook@example.com",
+            password="testpass123",
+        )
+        self.category = Category.objects.create(name="Reverse Webhook Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Reverse Webhook Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Reverse Webhook Frame",
+            mrp=Decimal("800.00"),
+            slashed_price=Decimal("700.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("700.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("700.00"),
+            status="delivered",
+            shipping_email="reverse-webhook@example.com",
+            shipping_full_name="Reverse Webhook Customer",
+            shipping_address="123 Webhook Street",
+            city="Delhi",
+            shipping_state="Delhi",
+            shipping_country="India",
+            postal_code="110001",
+            phone="9999999999",
+            delhivery_waybill="85172510000022",
+            reverse_waybill="85172510000055",
+        )
+
+    def post_webhook(self, payload):
+        return self.client.post(
+            reverse("delhivery_scan_push_webhook"),
+            payload,
+            format="json",
+            HTTP_X_DELHIVERY_WEBHOOK_SECRET="dt-webhook-prod-test-secret",
+        )
+
+    def test_reverse_scan_push_updates_reverse_fields_without_mutating_status(self):
+        payload = {
+            "Shipment": {
+                "AWB": "85172510000055",
+                "ReferenceNo": str(self.order.order_number),
+                "Status": {
+                    "Status": "Pickup Done",
+                    "StatusCode": "PU",
+                    "StatusType": "UD",
+                    "StatusLocation": "Delhi Local",
+                    "StatusDateTime": "2026-05-01T10:00:00+05:30",
+                },
+            }
+        }
+
+        response = self.post_webhook(payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.reverse_tracking_status_code, "PU")
+        self.assertEqual(self.order.reverse_tracking_status_label, "Pickup Done")
+        self.assertEqual(self.order.reverse_tracking_status_type, "UD")
+        self.assertEqual(self.order.reverse_last_scan_location, "Delhi Local")
+        self.assertIsNotNone(self.order.reverse_last_scan_at)
+        self.assertIsNotNone(self.order.reverse_tracking_synced_at)
+        self.assertEqual(self.order.status, "delivered")
+        self.assertEqual(self.order.delhivery_tracking_status_code, "")
+
+
+class ReplacementOrderServiceTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="replacement-user",
+            email="replacement@example.com",
+            password="testpass123",
+        )
+        self.category = Category.objects.create(name="Replacement Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Replacement Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Replacement Frame",
+            mrp=Decimal("800.00"),
+            slashed_price=Decimal("700.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("700.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("700.00"),
+            status="delivered",
+            shipping_email="replacement@example.com",
+            shipping_full_name="Replacement Customer",
+            shipping_address="123 Replacement Street",
+            city="Delhi",
+            shipping_state="Delhi",
+            shipping_country="India",
+            postal_code="110001",
+            phone="9999999999",
+        )
+        self.item = OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=2,
+            price=Decimal("700.00"),
+            product_title=self.product.title,
+        )
+
+    def test_replacement_clones_order_and_deducts_stock(self):
+        replacement = create_replacement_order_for_order_id(self.order.pk)
+
+        self.order.refresh_from_db()
+        self.product.refresh_from_db()
+
+        self.assertEqual(self.order.replacement_orders.count(), 1)
+        self.assertEqual(replacement.replacement_of_id, self.order.pk)
+        self.assertEqual(replacement.status, "processing")
+        self.assertEqual(replacement.payment_provider, "replacement")
+        self.assertTrue(replacement.payment_processed)
+        self.assertEqual(self.product.stock, 3)
+        self.assertEqual(replacement.total_amount, self.order.total_amount)
+
+        replacement_item = replacement.items.get()
+        self.assertEqual(replacement_item.quantity, 2)
+        self.assertEqual(replacement_item.product_title, self.product.title)
+
+    def test_replacement_blocks_duplicates(self):
+        create_replacement_order_for_order_id(self.order.pk)
+
+        with self.assertRaisesMessage(ValueError, "already exists"):
+            create_replacement_order_for_order_id(self.order.pk)
+
+    def test_replacement_requires_delivered_order(self):
+        self.order.status = "paid"
+        self.order.save(update_fields=["status"])
+
+        with self.assertRaisesMessage(ValueError, "delivered"):
+            create_replacement_order_for_order_id(self.order.pk)
+
+    def test_replacement_blocks_customized_items(self):
+        self.item.custom_text = "Custom"
+        self.item.save(update_fields=["custom_text"])
+
+        with self.assertRaisesMessage(ValueError, "Customized items cannot be replaced"):
+            create_replacement_order_for_order_id(self.order.pk)
+
+    def test_replacement_blocks_when_stock_insufficient(self):
+        self.product.stock = 1
+        self.product.save(update_fields=["stock"])
+
+        with self.assertRaisesMessage(ValueError, "not have enough stock"):
+            create_replacement_order_for_order_id(self.order.pk)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class RefundOrderServiceTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="refund-user",
+            email="refund@example.com",
+            password="testpass123",
+        )
+        self.category = Category.objects.create(name="Refund Frames")
+        self.subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="Refund Wall Frames",
+        )
+        self.product = Product.objects.create(
+            title="Refund Frame",
+            mrp=Decimal("800.00"),
+            slashed_price=Decimal("700.00"),
+            stock=5,
+            category=self.category,
+            sub_category=self.subcategory,
+        )
+        self.order = Order.objects.create(
+            user=self.user,
+            subtotal_amount=Decimal("700.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("700.00"),
+            status="delivered",
+            payment_processed=True,
+            razorpay_order_id="order_refund_1",
+            razorpay_payment_id="pay_refund_1",
+            shipping_email="refund@example.com",
+            shipping_full_name="Refund Customer",
+            shipping_address="123 Refund Street",
+            city="Delhi",
+            shipping_state="Delhi",
+            shipping_country="India",
+            postal_code="110001",
+            phone="9999999999",
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            quantity=1,
+            price=Decimal("700.00"),
+            product_title=self.product.title,
+        )
+
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_refund_order_initiates_razorpay_refund(self, mock_get_client):
+        mock_client = mock_get_client.return_value
+        mock_client.payment.fetch.return_value = {"id": "pay_refund_1", "status": "captured"}
+        mock_client.payment.refund.return_value = {
+            "id": "rfnd_123",
+            "status": "processed",
+            "amount": 70000,
+        }
+
+        order, refund_response = refund_order(order=self.order)
+
+        self.assertEqual(order.refund_id, "rfnd_123")
+        self.assertEqual(order.refund_status, "processed")
+        self.assertEqual(order.refund_amount, Decimal("700.00"))
+        self.assertTrue(order.refund_processed)
+        self.assertIsNotNone(order.refunded_at)
+        self.assertEqual(refund_response["id"], "rfnd_123")
+
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_refund_order_is_idempotent(self, mock_get_client):
+        self.order.refund_id = "rfnd_existing"
+        self.order.save(update_fields=["refund_id"])
+
+        order, result = refund_order(order=self.order)
+
+        self.assertTrue(result.get("skipped"))
+        mock_get_client.assert_not_called()
+
+    @patch("orders.payment_services.get_razorpay_client")
+    def test_refund_order_blocks_orders_without_payment(self, mock_get_client):
+        self.order.razorpay_payment_id = ""
+        self.order.save(update_fields=["razorpay_payment_id"])
+
+        with self.assertRaises(PaymentError):
+            refund_order(order=self.order)
+
+        mock_get_client.assert_not_called()
+
+    @patch("orders.payment_services.verify_razorpay_webhook_signature", return_value=True)
+    def test_refund_webhook_marks_order_refunded(self, mock_verify_signature):
+        webhook_payload = {
+            "event": "refund.processed",
+            "payload": {
+                "refund": {
+                    "entity": {
+                        "id": "rfnd_456",
+                        "payment_id": "pay_refund_1",
+                        "status": "processed",
+                        "amount": 70000,
+                    }
+                }
+            },
+        }
+
+        response = self.client.post(
+            reverse("razorpay_webhook"),
+            webhook_payload,
+            format="json",
+            HTTP_X_RAZORPAY_SIGNATURE="sig",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.refund_id, "rfnd_456")
+        self.assertEqual(self.order.refund_status, "processed")
+        self.assertEqual(self.order.refund_amount, Decimal("700.00"))
+        self.assertTrue(self.order.refund_processed)
+        self.assertIsNotNone(self.order.refunded_at)
+        self.assertEqual(self.order.status, "delivered")
+
+    @patch("orders.payment_services.verify_razorpay_webhook_signature", return_value=True)
+    def test_refund_failed_webhook_resets_refund_processed(self, mock_verify_signature):
+        self.order.refund_id = "rfnd_789"
+        self.order.refund_status = "pending"
+        self.order.refund_processed = True
+        self.order.save(update_fields=["refund_id", "refund_status", "refund_processed"])
+
+        webhook_payload = {
+            "event": "refund.failed",
+            "payload": {
+                "refund": {
+                    "entity": {
+                        "id": "rfnd_789",
+                        "payment_id": "pay_refund_1",
+                        "status": "failed",
+                    }
+                }
+            },
+        }
+
+        response = self.client.post(
+            reverse("razorpay_webhook"),
+            webhook_payload,
+            format="json",
+            HTTP_X_RAZORPAY_SIGNATURE="sig",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.refund_status, "failed")
+        self.assertFalse(self.order.refund_processed)

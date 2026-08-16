@@ -328,7 +328,7 @@ def build_delhivery_products_description(order):
     return ", ".join(unique_titles)[:250]
 
 
-def build_delhivery_shipment_payload(order):
+def build_delhivery_shipment_payload(order, reverse=False):
     pickup_location = getattr(settings, "DELHIVERY_PICKUP_LOCATION", "").strip()
     if not pickup_location:
         raise ImproperlyConfigured("DELHIVERY_PICKUP_LOCATION must be configured.")
@@ -356,28 +356,45 @@ def build_delhivery_shipment_payload(order):
             + "."
         )
 
-    return {
-        "shipments": [
-            {
-                "name": order.shipping_full_name.strip(),
-                "add": order.shipping_address.strip(),
-                "pin": str(order.postal_code).strip(),
-                "city": order.city.strip(),
-                "state": order.shipping_state.strip(),
-                "country": order.shipping_country.strip(),
-                "phone": str(order.phone).strip(),
-                "order": order.order_number,
-                "payment_mode": "Prepaid",
-                "products_desc": build_delhivery_products_description(order),
-                # A static fallback keeps the payload aligned with the verified
-                # Postman sample until shipment-specific weights are modeled.
-                "weight": "1",
-                "shipping_mode": "Surface",
-                "total_amount": str(order.total_amount),
-                "pickup_location": pickup_location,
-            }
-        ]
+    shipment = {
+        "name": order.shipping_full_name.strip(),
+        "add": order.shipping_address.strip(),
+        "pin": str(order.postal_code).strip(),
+        "city": order.city.strip(),
+        "state": order.shipping_state.strip(),
+        "country": order.shipping_country.strip(),
+        "phone": str(order.phone).strip(),
+        "order": order.order_number,
+        "payment_mode": "Pickup" if reverse else "Prepaid",
+        "products_desc": build_delhivery_products_description(order),
+        # A static fallback keeps the payload aligned with the verified
+        # Postman sample until shipment-specific weights are modeled.
+        "weight": "1",
+        "shipping_mode": "Surface",
+        "total_amount": str(order.total_amount),
+        "pickup_location": pickup_location,
     }
+
+    if reverse:
+        return_fields = {
+            "return_name": getattr(settings, "DELHIVERY_RETURN_NAME", "").strip(),
+            "return_add": getattr(settings, "DELHIVERY_RETURN_ADDRESS", "").strip(),
+            "return_city": getattr(settings, "DELHIVERY_RETURN_CITY", "").strip(),
+            "return_state": getattr(settings, "DELHIVERY_RETURN_STATE", "").strip(),
+            "return_pin": getattr(settings, "DELHIVERY_RETURN_PIN", "").strip(),
+        }
+        configured_return_fields = {
+            key: value
+            for key, value in return_fields.items()
+            if value
+        }
+        # Delhivery requires a complete return address when any return key is
+        # provided; when none are provided the warehouse (pickup location) is
+        # used as the reverse destination by default.
+        if configured_return_fields:
+            shipment.update(configured_return_fields)
+
+    return {"shipments": [shipment]}
 
 
 def summarize_delhivery_shipment(order, payload):
@@ -448,6 +465,241 @@ def create_delhivery_shipment_for_order_id(order_id):
         )
 
     return order, payload
+
+
+def create_delhivery_reverse_shipment_for_order_id(order_id):
+    with transaction.atomic():
+        order = (
+            Order.objects.select_for_update()
+            .select_related("user")
+            .get(id=order_id)
+        )
+
+        if order.reverse_waybill:
+            raise ValueError("Reverse shipment already created for this order.")
+
+        if not order.delhivery_waybill:
+            raise ValueError(
+                "Reverse shipment can only be created for orders that were shipped forward."
+            )
+
+        if order.status in {"failed", "cancelled", "pending"}:
+            raise ValueError("Reverse shipment is not allowed for this order state.")
+
+        shipment_payload = build_delhivery_shipment_payload(order, reverse=True)
+        payload = DelhiveryService().create_shipment(data=shipment_payload)
+
+        if not payload.get("success"):
+            raise DelhiveryServiceError("Delhivery reverse shipment creation failed.")
+
+        packages = payload.get("packages") or []
+        package = packages[0] if packages and isinstance(packages[0], dict) else {}
+        waybill = str(package.get("waybill") or "").strip()
+
+        if not waybill:
+            raise DelhiveryServiceError(
+                "Delhivery reverse shipment response did not include a waybill."
+            )
+
+        order.reverse_waybill = waybill
+        order.reverse_shipment_status = str(package.get("status") or "").strip()
+        order.reverse_created_at = timezone.now()
+        order.save(
+            update_fields=[
+                "reverse_waybill",
+                "reverse_shipment_status",
+                "reverse_created_at",
+                "updated_at",
+            ]
+        )
+
+    return order, payload
+
+
+def apply_reverse_delhivery_tracking_snapshot(
+    order,
+    *,
+    raw_payload,
+    status,
+    synced_at=None,
+):
+    """Write reverse shipment tracking snapshots without mutating order.status."""
+    status = status or {}
+    update_fields = [
+        "reverse_tracking_raw_response",
+        "reverse_tracking_synced_at",
+        "updated_at",
+    ]
+
+    order.reverse_tracking_raw_response = raw_payload
+    order.reverse_tracking_synced_at = synced_at or timezone.now()
+
+    status_code = str(status.get("code") or "").strip()
+    if status_code:
+        order.reverse_tracking_status_code = status_code
+        update_fields.append("reverse_tracking_status_code")
+
+    status_label = str(status.get("label") or "").strip()
+    if status_label:
+        order.reverse_tracking_status_label = status_label
+        update_fields.append("reverse_tracking_status_label")
+
+    status_type = str(status.get("type") or "").strip()
+    if status_type:
+        order.reverse_tracking_status_type = status_type
+        update_fields.append("reverse_tracking_status_type")
+
+    status_location = str(status.get("location") or "").strip()
+    if status_location:
+        order.reverse_last_scan_location = status_location
+        update_fields.append("reverse_last_scan_location")
+
+    status_timestamp = status.get("timestamp")
+    if status_timestamp:
+        parsed_timestamp = parse_datetime(str(status_timestamp).strip())
+        if parsed_timestamp is not None:
+            order.reverse_last_scan_at = parsed_timestamp
+            update_fields.append("reverse_last_scan_at")
+
+    if status_label:
+        order.reverse_shipment_status = status_label
+        update_fields.append("reverse_shipment_status")
+
+    order.save(update_fields=list(dict.fromkeys(update_fields)))
+    return order
+
+
+def refresh_reverse_delhivery_tracking_for_order_id(order_id):
+    order = Order.objects.get(id=order_id)
+
+    if not order.reverse_waybill:
+        raise ValueError("Reverse shipment has not been created for this order yet.")
+
+    payload = DelhiveryService().track_shipment(
+        waybill=order.reverse_waybill,
+        ref_ids=order.order_number,
+    )
+    summary = summarize_tracking_response(order, payload)
+
+    apply_reverse_delhivery_tracking_snapshot(
+        order,
+        raw_payload=payload,
+        status=summary.get("status"),
+    )
+    return order, summary
+
+
+def create_replacement_order_for_order_id(order_id):
+    with transaction.atomic():
+        order = (
+            Order.objects.select_for_update()
+            .select_related("user")
+            .prefetch_related("items", "items__product", "items__variant")
+            .get(id=order_id)
+        )
+
+        if order.replacement_orders.exists():
+            raise ValueError("A replacement order already exists for this order.")
+
+        if order.status != "delivered":
+            raise ValueError(
+                "A replacement order can only be created after the original order is delivered."
+            )
+
+        order_items = list(
+            order.items.select_related("product", "variant").all()
+        )
+        if not order_items:
+            raise ValueError("Original order has no items to replace.")
+
+        for item in order_items:
+            if (
+                item.custom_text
+                or item.custom_image
+                or item.custom_images.exists()
+            ):
+                raise ValueError("Customized items cannot be replaced.")
+
+        resolved_items = []
+        for item in order_items:
+            product = item.product
+            if not product or not product.is_active:
+                raise ValueError(
+                    f"{item.product_title} is no longer available for replacement."
+                )
+            if product.stock_type == "variants":
+                variant = item.variant or find_matching_variant_for_snapshot(item)
+                if variant is None:
+                    raise ValueError(
+                        f"A variant of {item.product_title} is no longer available for replacement."
+                    )
+                if variant.stock < item.quantity:
+                    raise ValueError(
+                        f"{item.product_title} does not have enough stock for a replacement."
+                    )
+            elif product.stock < item.quantity:
+                raise ValueError(
+                    f"{item.product_title} does not have enough stock for a replacement."
+                )
+            resolved_items.append((item, variant if product.stock_type == "variants" else None))
+
+        replacement = Order.objects.create(
+            user=order.user,
+            subtotal_amount=order.subtotal_amount,
+            discount_amount=order.discount_amount,
+            total_amount=order.total_amount,
+            coupon_code=order.coupon_code,
+            shipping_email=order.shipping_email,
+            shipping_full_name=order.shipping_full_name,
+            shipping_address=order.shipping_address,
+            city=order.city,
+            shipping_state=order.shipping_state,
+            shipping_country=order.shipping_country,
+            postal_code=order.postal_code,
+            phone=order.phone,
+            status="processing",
+            payment_provider="replacement",
+            payment_processed=True,
+            replacement_of=order,
+        )
+
+        for item, variant in resolved_items:
+            product = item.product
+            replacement_item = OrderItem.objects.create(
+                order=replacement,
+                product=product,
+                variant=variant,
+                quantity=item.quantity,
+                price=item.price,
+                custom_text=None,
+                custom_image=None,
+            )
+            replacement_item.capture_product_snapshot(product=product, variant=variant)
+            replacement_item.save(
+                update_fields=[
+                    "product_title",
+                    "product_slug",
+                    "product_image",
+                    "product_category_name",
+                    "product_category_slug",
+                    "product_sub_category_name",
+                    "product_sub_category_slug",
+                    "variant_size_name",
+                    "variant_color_name",
+                    "variant_sku",
+                ]
+            )
+
+            if product.stock_type == "variants":
+                ProductVariant.objects.filter(id=variant.id).update(
+                    stock=F("stock") - item.quantity
+                )
+            else:
+                Product.objects.filter(id=product.id).update(
+                    stock=F("stock") - item.quantity
+                )
+
+    return replacement
 
 
 def validate_shipping_label_pdf_size(value):
@@ -682,6 +934,10 @@ def process_delhivery_scan_push_payload(payload):
 
     reference_number = str(shipment.get("ReferenceNo") or "").strip()
     order = Order.objects.filter(delhivery_waybill=awb).first()
+    is_reverse = False
+    if not order:
+        order = Order.objects.filter(reverse_waybill=awb).first()
+        is_reverse = bool(order)
     if not order:
         logger.warning("delhivery_scan_push_unmatched_awb awb=%s reference=%s", awb, reference_number)
         return None, "order_not_found"
@@ -704,16 +960,24 @@ def process_delhivery_scan_push_payload(payload):
         "timestamp": status_data.get("StatusDateTime"),
     }
 
-    apply_delhivery_tracking_snapshot(
-        order,
-        raw_payload=payload,
-        status=status,
-    )
+    if is_reverse:
+        apply_reverse_delhivery_tracking_snapshot(
+            order,
+            raw_payload=payload,
+            status=status,
+        )
+    else:
+        apply_delhivery_tracking_snapshot(
+            order,
+            raw_payload=payload,
+            status=status,
+        )
     logger.info(
-        "delhivery_scan_push_updated order_id=%s awb=%s reference=%s status=%s",
+        "delhivery_scan_push_updated order_id=%s awb=%s reference=%s reverse=%s status=%s",
         order.id,
         awb,
         reference_number,
+        is_reverse,
         str(status.get("label") or "").strip(),
     )
     return order, "updated"
@@ -1960,7 +2224,7 @@ def delhivery_scan_push_webhook(request):
             "result": result,
             "order_id": order.id,
             "order_number": order.order_number,
-            "waybill": order.delhivery_waybill,
+            "waybill": (payload.get("Shipment") or {}).get("AWB", "") or "",
         },
         status=200,
     )
@@ -2013,6 +2277,7 @@ def get_my_orders(request):
                 "total": str(order.total_amount),
                 "status": order.status,
                 "shipment_tracking": serialize_order_shipment_tracking(order),
+                "reverse_shipment_tracking": serialize_reverse_shipment_tracking(order),
                 "created_at": order.created_at,
                 "items_count": order.items.count(),
                 "items": items,
@@ -2074,6 +2339,33 @@ def serialize_order_shipment_tracking(order):
     }
 
 
+def serialize_reverse_shipment_tracking(order):
+    has_waybill = bool(str(order.reverse_waybill or "").strip())
+    status_label = str(order.reverse_tracking_status_label or "").strip()
+
+    return {
+        "has_shipment": has_waybill,
+        "waybill": order.reverse_waybill or "",
+        "shipment_status": order.reverse_shipment_status or "",
+        "status": {
+            "label": status_label,
+            "code": order.reverse_tracking_status_code or "",
+            "type": order.reverse_tracking_status_type or "",
+            "location": order.reverse_last_scan_location or "",
+            "timestamp": order.reverse_last_scan_at,
+        },
+        "tracking_synced_at": order.reverse_tracking_synced_at,
+        "created_at": order.reverse_created_at,
+        "message": (
+            "A return pickup will be arranged only for confirmed damage or wrong-item claims."
+            if not has_waybill
+            else "Latest reverse pickup updates are shown from the last stored Delhivery sync."
+            if status_label
+            else "Reverse pickup created. Scans will appear once the courier picks up the item."
+        ),
+    }
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_order_detail(request, order_id):
@@ -2125,6 +2417,7 @@ def get_order_detail(request, order_id):
                 "postal_code": order.postal_code,
                 "phone": order.phone,
                 "shipment_tracking": serialize_order_shipment_tracking(order),
+                "reverse_shipment_tracking": serialize_reverse_shipment_tracking(order),
                 "items": items,
             }
         }

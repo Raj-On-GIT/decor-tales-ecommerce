@@ -21,10 +21,14 @@ from .models import (
 )
 from .views import (
     create_delhivery_shipment_for_order_id,
+    create_delhivery_reverse_shipment_for_order_id,
+    create_replacement_order_for_order_id,
     generate_delhivery_shipping_label_for_order_id,
     refresh_delhivery_tracking_for_order_id,
+    refresh_reverse_delhivery_tracking_for_order_id,
     summarize_delhivery_shipping_label,
 )
+from .payment_services import PaymentError, refund_order
 from utils.delhivery_service import DelhiveryServiceError
 
 
@@ -201,6 +205,22 @@ class OrderAdmin(admin.ModelAdmin):
         "delhivery_tracking_synced_at",
         "delhivery_raw_response",
         "delhivery_tracking_raw_response",
+        "refund_id",
+        "refund_status",
+        "refund_amount",
+        "refunded_at",
+        "reverse_waybill",
+        "reverse_shipment_status",
+        "reverse_created_at",
+        "reverse_tracking_status_label",
+        "reverse_tracking_status_code",
+        "reverse_tracking_status_type",
+        "reverse_last_scan_at",
+        "reverse_last_scan_location",
+        "reverse_tracking_synced_at",
+        "reverse_tracking_raw_response",
+        "replacement_of",
+        "reverse_summary",
     )
     inlines = [OrderItemInline]
     fieldsets = (
@@ -229,6 +249,10 @@ class OrderAdmin(admin.ModelAdmin):
                     "payment_verified_at",
                     "payment_processed",
                     "refund_processed",
+                    "refund_id",
+                    "refund_status",
+                    "refund_amount",
+                    "refunded_at",
                 )
             },
         ),
@@ -256,12 +280,39 @@ class OrderAdmin(admin.ModelAdmin):
             },
         ),
         (
+            "Reverse Shipment Summary",
+            {
+                "fields": (
+                    "reverse_summary",
+                )
+            },
+        ),
+        (
+            "Reverse Shipment (Return Pickup)",
+            {
+                "classes": ("collapse",),
+                "fields": (
+                    "reverse_waybill",
+                    "reverse_shipment_status",
+                    "reverse_created_at",
+                    "reverse_tracking_status_label",
+                    "reverse_tracking_status_code",
+                    "reverse_tracking_status_type",
+                    "reverse_last_scan_at",
+                    "reverse_last_scan_location",
+                    "reverse_tracking_synced_at",
+                    "replacement_of",
+                ),
+            },
+        ),
+        (
             "Delhivery Raw Data",
             {
                 "classes": ("collapse",),
                 "fields": (
                     "delhivery_raw_response",
                     "delhivery_tracking_raw_response",
+                    "reverse_tracking_raw_response",
                 ),
             },
         ),
@@ -296,6 +347,39 @@ class OrderAdmin(admin.ModelAdmin):
             return False
 
         return bool(obj.delhivery_waybill)
+
+    def can_create_reverse_shipment(self, obj):
+        if not obj:
+            return False
+
+        return (
+            bool(obj.delhivery_waybill)
+            and not obj.reverse_waybill
+            and obj.status not in {"failed", "cancelled", "pending"}
+        )
+
+    def can_refresh_reverse_tracking(self, obj):
+        if not obj:
+            return False
+
+        return bool(obj.reverse_waybill)
+
+    def can_refund_order(self, obj):
+        if not obj:
+            return False
+
+        return (
+            obj.payment_processed
+            and not obj.refund_id
+            and bool(obj.razorpay_payment_id)
+            and obj.status not in {"failed"}
+        )
+
+    def can_create_replacement_order(self, obj):
+        if not obj:
+            return False
+
+        return obj.status == "delivered" and not obj.replacement_orders.exists()
 
     @admin.display(description="Shipment Summary")
     def shipment_summary(self, obj):
@@ -346,6 +430,68 @@ class OrderAdmin(admin.ModelAdmin):
             ),
         )
 
+    @admin.display(description="Reverse Shipment Summary")
+    def reverse_summary(self, obj):
+        if not obj:
+            return "-"
+
+        def display(value, empty="Not available"):
+            normalized = str(value or "").strip()
+            return normalized or empty
+
+        def display_dt(value, empty="Not available"):
+            if not value:
+                return empty
+
+            local_value = timezone.localtime(value) if timezone.is_aware(value) else value
+            return local_value.strftime("%d %b %Y, %I:%M %p")
+
+        latest_status = display(
+            obj.reverse_tracking_status_label or obj.reverse_shipment_status,
+            "No reverse shipment",
+        )
+
+        refund_status = display(obj.refund_status, "Not initiated")
+        replacement_ref = ""
+        if obj.replacement_of_id:
+            replacement_ref = str(obj.replacement_of.order_number)
+        replacement_orders = list(
+            obj.replacement_orders.values_list("order_number", flat=True)[:1]
+        )
+
+        rows = (
+            ("Reverse AWB", display(obj.reverse_waybill, "Not created")),
+            ("Reverse State", display(obj.reverse_shipment_status, "Not created")),
+            ("Latest Reverse Tracking", latest_status),
+            ("Reverse Tracking Code", display(obj.reverse_tracking_status_code)),
+            ("Reverse Tracking Type", display(obj.reverse_tracking_status_type)),
+            ("Reverse Last Scan Location", display(obj.reverse_last_scan_location, "No scans yet")),
+            ("Reverse Last Scan Time", display_dt(obj.reverse_last_scan_at, "No scans yet")),
+            ("Reverse Tracking Synced", display_dt(obj.reverse_tracking_synced_at, "Never synced")),
+            ("Reverse Created", display_dt(obj.reverse_created_at, "Not created")),
+            ("Refund ID", display(obj.refund_id)),
+            ("Refund Status", refund_status),
+            ("Refund Amount", display(obj.refund_amount)),
+            ("Refunded At", display_dt(obj.refunded_at, "Not refunded")),
+            ("Replacement Of", display(replacement_ref)),
+            ("Replacement Order", display(
+                replacement_orders[0] if replacement_orders else ""
+            )),
+        )
+
+        return format_html(
+            '<div class="shipment-summary-grid">{}</div>',
+            format_html_join(
+                "",
+                (
+                    '<div class="shipment-summary-card">'
+                    '<div class="shipment-summary-label">{}</div>'
+                    '<div class="shipment-summary-value">{}</div></div>'
+                ),
+                ((label, value) for label, value in rows),
+            ),
+        )
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -363,6 +509,26 @@ class OrderAdmin(admin.ModelAdmin):
                 "<path:object_id>/refresh-tracking/",
                 self.admin_site.admin_view(self.refresh_tracking_view),
                 name="orders_order_refresh_tracking",
+            ),
+            path(
+                "<path:object_id>/create-reverse-shipment/",
+                self.admin_site.admin_view(self.create_reverse_shipment_view),
+                name="orders_order_create_reverse_shipment",
+            ),
+            path(
+                "<path:object_id>/refresh-reverse-tracking/",
+                self.admin_site.admin_view(self.refresh_reverse_tracking_view),
+                name="orders_order_refresh_reverse_tracking",
+            ),
+            path(
+                "<path:object_id>/refund-order/",
+                self.admin_site.admin_view(self.refund_order_view),
+                name="orders_order_refund_order",
+            ),
+            path(
+                "<path:object_id>/create-replacement-order/",
+                self.admin_site.admin_view(self.create_replacement_order_view),
+                name="orders_order_create_replacement_order",
             ),
         ]
         return custom_urls + urls
@@ -388,6 +554,30 @@ class OrderAdmin(admin.ModelAdmin):
                 extra_context["show_refresh_tracking_button"] = True
                 extra_context["refresh_tracking_url"] = reverse(
                     "admin:orders_order_refresh_tracking",
+                    args=[obj.pk],
+                )
+            if obj and self.can_create_reverse_shipment(obj):
+                extra_context["show_create_reverse_shipment_button"] = True
+                extra_context["create_reverse_shipment_url"] = reverse(
+                    "admin:orders_order_create_reverse_shipment",
+                    args=[obj.pk],
+                )
+            if obj and self.can_refresh_reverse_tracking(obj):
+                extra_context["show_refresh_reverse_tracking_button"] = True
+                extra_context["refresh_reverse_tracking_url"] = reverse(
+                    "admin:orders_order_refresh_reverse_tracking",
+                    args=[obj.pk],
+                )
+            if obj and self.can_refund_order(obj):
+                extra_context["show_refund_order_button"] = True
+                extra_context["refund_order_url"] = reverse(
+                    "admin:orders_order_refund_order",
+                    args=[obj.pk],
+                )
+            if obj and self.can_create_replacement_order(obj):
+                extra_context["show_create_replacement_order_button"] = True
+                extra_context["create_replacement_order_url"] = reverse(
+                    "admin:orders_order_create_replacement_order",
                     args=[obj.pk],
                 )
 
@@ -537,6 +727,172 @@ class OrderAdmin(admin.ModelAdmin):
             level=messages.SUCCESS,
         )
         return redirect("admin:orders_order_change", order.pk)
+
+    def create_reverse_shipment_view(self, request, object_id):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+
+        if not self.has_change_permission(request, obj):
+            self.message_user(
+                request,
+                "You do not have permission to update this order.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        if not self.can_create_reverse_shipment(obj):
+            self.message_user(
+                request,
+                "Reverse shipment can only be created for shipped orders without an existing reverse waybill.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        try:
+            order, _ = create_delhivery_reverse_shipment_for_order_id(obj.pk)
+        except Order.DoesNotExist:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+        except (ValueError, ImproperlyConfigured, DelhiveryServiceError) as exc:
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return redirect("admin:orders_order_change", obj.pk)
+
+        self.message_user(
+            request,
+            f"Reverse shipment created for order {order.order_number}. Reverse waybill: {order.reverse_waybill}.",
+            level=messages.SUCCESS,
+        )
+        return redirect("admin:orders_order_change", order.pk)
+
+    def refresh_reverse_tracking_view(self, request, object_id):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+
+        if not self.has_change_permission(request, obj):
+            self.message_user(
+                request,
+                "You do not have permission to update this order.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        if not self.can_refresh_reverse_tracking(obj):
+            self.message_user(
+                request,
+                "Reverse tracking refresh is only available for orders with an existing reverse waybill.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        try:
+            order, summary = refresh_reverse_delhivery_tracking_for_order_id(obj.pk)
+        except Order.DoesNotExist:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+        except (ValueError, ImproperlyConfigured, DelhiveryServiceError) as exc:
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return redirect("admin:orders_order_change", obj.pk)
+
+        status_label = str((summary.get("status") or {}).get("label") or "").strip()
+        status_suffix = f" Latest status: {status_label}." if status_label else ""
+        self.message_user(
+            request,
+            f"Reverse tracking refreshed for order {order.order_number}.{status_suffix}",
+            level=messages.SUCCESS,
+        )
+        return redirect("admin:orders_order_change", order.pk)
+
+    def refund_order_view(self, request, object_id):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+
+        if not self.has_change_permission(request, obj):
+            self.message_user(
+                request,
+                "You do not have permission to update this order.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        if not self.can_refund_order(obj):
+            self.message_user(
+                request,
+                "Refunds are only available for paid orders without an existing refund.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        try:
+            order, _ = refund_order(order=obj)
+        except Order.DoesNotExist:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+        except PaymentError as exc:
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return redirect("admin:orders_order_change", obj.pk)
+
+        self.message_user(
+            request,
+            f"Refund initiated for order {order.order_number}. Refund ID: {order.refund_id}. Status: {order.refund_status}.",
+            level=messages.SUCCESS,
+        )
+        return redirect("admin:orders_order_change", order.pk)
+
+    def create_replacement_order_view(self, request, object_id):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+
+        if not self.has_change_permission(request, obj):
+            self.message_user(
+                request,
+                "You do not have permission to update this order.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        if not self.can_create_replacement_order(obj):
+            self.message_user(
+                request,
+                "A replacement order can only be created once the original order is delivered.",
+                level=messages.ERROR,
+            )
+            return redirect("admin:orders_order_change", obj.pk)
+
+        try:
+            replacement = create_replacement_order_for_order_id(obj.pk)
+        except Order.DoesNotExist:
+            self.message_user(request, "Order not found.", level=messages.ERROR)
+            return redirect("admin:orders_order_changelist")
+        except ValueError as exc:
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return redirect("admin:orders_order_change", obj.pk)
+
+        self.message_user(
+            request,
+            f"Replacement order {replacement.order_number} created. You can now create a forward shipment for it.",
+            level=messages.SUCCESS,
+        )
+        return redirect("admin:orders_order_change", replacement.pk)
 
     @admin.display(description="Customer Name")
     def customer_name(self, obj):

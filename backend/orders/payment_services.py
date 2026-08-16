@@ -699,6 +699,72 @@ def verify_razorpay_webhook_signature(*, body, signature):
     return hmac.compare_digest(expected_signature, signature or "")
 
 
+def get_refund_entity(payload):
+    payload_object = payload.get("payload", {}) if isinstance(payload, dict) else {}
+    return (
+        payload_object.get("refund", {}).get("entity", {})
+        or payload.get("refund", {}).get("entity", {})
+    )
+
+
+def process_refund_webhook(payload):
+    refund_entity = get_refund_entity(payload)
+    if not isinstance(refund_entity, dict):
+        raise PaymentError("Webhook payload missing refund entity.")
+
+    payment_id = _normalize_entity_identifier(refund_entity.get("payment_id"))
+    refund_id = _normalize_entity_identifier(refund_entity.get("id"))
+
+    if not payment_id and not refund_id:
+        raise PaymentError("Webhook payload missing refund identifiers.")
+
+    order = None
+    if payment_id:
+        order = (
+            Order.objects.select_for_update()
+            .filter(razorpay_payment_id=payment_id)
+            .first()
+        )
+    if order is None and refund_id:
+        order = (
+            Order.objects.select_for_update()
+            .filter(refund_id=refund_id)
+            .first()
+        )
+    if order is None:
+        raise PaymentError("Order not found.")
+
+    refund_status = _normalize_entity_identifier(refund_entity.get("status")).lower()
+    update_fields = ["updated_at"]
+
+    if refund_status:
+        order.refund_status = refund_status
+        update_fields.append("refund_status")
+
+    if refund_id:
+        order.refund_id = refund_id
+        update_fields.append("refund_id")
+
+    if refund_status in {"processed", "refunded"}:
+        order.refund_processed = True
+        order.refunded_at = timezone.now()
+        update_fields.extend(["refund_processed", "refunded_at"])
+    elif refund_status == "failed":
+        order.refund_processed = False
+        update_fields.append("refund_processed")
+
+    refund_amount = refund_entity.get("amount")
+    if refund_amount is not None:
+        try:
+            order.refund_amount = Decimal(str(refund_amount)) / PAISE_MULTIPLIER
+            update_fields.append("refund_amount")
+        except (TypeError, ValueError, ArithmeticError):
+            pass
+
+    order.save(update_fields=list(dict.fromkeys(update_fields)))
+    return order
+
+
 def process_razorpay_webhook(*, body, signature):
     if not verify_razorpay_webhook_signature(body=body, signature=signature):
         raise PaymentError("Webhook signature verification failed.")
@@ -709,6 +775,23 @@ def process_razorpay_webhook(*, body, signature):
         raise PaymentError("Invalid webhook payload.") from exc
 
     event = payload.get("event") or ""
+    if event in {"refund.created", "refund.processed", "refund.failed"}:
+        with transaction.atomic():
+            order = process_refund_webhook(payload)
+        logger.info(
+            "Processed Razorpay refund webhook event=%s order_id=%s refund_id=%s status=%s",
+            event,
+            order.id,
+            order.refund_id,
+            order.refund_status,
+        )
+        return {
+            "ignored": False,
+            "event": event,
+            "order_id": order.id,
+            "refund_id": order.refund_id,
+        }
+
     if event not in {"payment.captured", "order.paid"}:
         logger.info("Ignoring Razorpay webhook event=%s", event)
         return {"ignored": True, "event": event}
@@ -894,3 +977,70 @@ def mark_order_payment_failed(*, user, order_id, message=None):
             return message or "Payment failed."
 
     return message or "Payment status remains pending until server verification completes."
+
+
+def refund_order(*, order, amount=None, reason=""):
+    """Initiate an idempotent refund for an order via Razorpay."""
+    if order.refund_id:
+        return order, {"skipped": True, "refund_id": order.refund_id, "reason": "already_refunded"}
+
+    if order.status == "failed" or not order.payment_processed:
+        raise PaymentError("Order is not eligible for a refund.")
+
+    if not order.razorpay_payment_id:
+        raise PaymentError("Order has no captured payment to refund.")
+
+    client = get_razorpay_client()
+    payment_response = client.payment.fetch(order.razorpay_payment_id)
+    payment_status = str((payment_response or {}).get("status") or "").lower()
+    if payment_status != "captured":
+        raise PaymentError("Payment is not in a refundable (captured) state.")
+
+    refund_options = {}
+    if amount is not None:
+        refund_options["amount"] = amount_to_paise(amount)
+    if str(reason or "").strip():
+        refund_options["notes"] = {"reason": str(reason).strip()}
+
+    try:
+        refund_response = client.payment.refund(
+            order.razorpay_payment_id,
+            **refund_options,
+        )
+    except Exception as exc:
+        logger.error(
+            "Refund API call failed order_id=%s payment_id=%s error=%s",
+            order.id,
+            order.razorpay_payment_id,
+            str(exc),
+        )
+        raise PaymentError("Unable to initiate refund.") from exc
+
+    refund_id = str((refund_response or {}).get("id") or "").strip()
+    if not refund_id:
+        raise PaymentError("Razorpay refund response did not include a refund id.")
+
+    refund_status = str((refund_response or {}).get("status") or "").strip() or "pending"
+
+    try:
+        refund_amount = Decimal(str(refund_response.get("amount") or "0")) / PAISE_MULTIPLIER
+    except (TypeError, ValueError, ArithmeticError):
+        refund_amount = amount or order.total_amount
+
+    order.refund_id = refund_id
+    order.refund_status = refund_status
+    order.refund_amount = refund_amount
+    order.refund_processed = True
+    if refund_status in {"processed", "refunded"}:
+        order.refunded_at = timezone.now()
+    order.save(
+        update_fields=[
+            "refund_id",
+            "refund_status",
+            "refund_amount",
+            "refund_processed",
+            "refunded_at",
+            "updated_at",
+        ]
+    )
+    return order, refund_response

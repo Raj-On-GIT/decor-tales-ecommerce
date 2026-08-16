@@ -165,6 +165,15 @@ class Order(models.Model):
     payment_verified_at = models.DateTimeField(blank=True, null=True)
     payment_processed = models.BooleanField(default=False)
     refund_processed = models.BooleanField(default=False)
+    refund_id = models.CharField(max_length=120, blank=True)
+    refund_status = models.CharField(max_length=50, blank=True)
+    refund_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    refunded_at = models.DateTimeField(blank=True, null=True)
     customization_media_purged_at = models.DateTimeField(blank=True, null=True)
     confirmation_email_sent_at = models.DateTimeField(blank=True, null=True)
     
@@ -192,6 +201,27 @@ class Order(models.Model):
     delhivery_last_scan_location = models.CharField(max_length=255, blank=True)
     delhivery_tracking_raw_response = models.JSONField(blank=True, null=True)
     delhivery_tracking_synced_at = models.DateTimeField(blank=True, null=True)
+
+    # Reverse shipment (replacement/return pickup) fields
+    reverse_waybill = models.CharField(max_length=120, blank=True)
+    reverse_shipment_status = models.CharField(max_length=50, blank=True)
+    reverse_created_at = models.DateTimeField(blank=True, null=True)
+    reverse_tracking_status_code = models.CharField(max_length=50, blank=True)
+    reverse_tracking_status_label = models.CharField(max_length=255, blank=True)
+    reverse_tracking_status_type = models.CharField(max_length=50, blank=True)
+    reverse_last_scan_at = models.DateTimeField(blank=True, null=True)
+    reverse_last_scan_location = models.CharField(max_length=255, blank=True)
+    reverse_tracking_raw_response = models.JSONField(blank=True, null=True)
+    reverse_tracking_synced_at = models.DateTimeField(blank=True, null=True)
+
+    # Replacement order linkage
+    replacement_of = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="replacement_orders",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
