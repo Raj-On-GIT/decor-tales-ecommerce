@@ -143,7 +143,7 @@ export default function ProductCard({ product, className = "" }) {
           <Heart
             size={22}
             className={`transition-colors drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)] ${
-              wishlisted ? "fill-[#B91C1C] text-[#78716C]" : "fill-white text-[#78716C]"
+              wishlisted ? "fill-[#B91C1C] text-[#B91C1C]" : "fill-white text-[#78716C]"
             }`}
           />
         )}
