@@ -4,6 +4,7 @@ import { useState } from "react";
 import ProductCard from "@/components/ProductCard";
 import ViewportReveal from "@/components/ViewportReveal";
 import { BACKEND, normalizeProductImages } from "@/lib/api";
+import { PRODUCT_GRID_CLASS } from "@/lib/utils";
 
 const PRODUCTS_PER_PAGE = 12;
 
@@ -53,10 +54,7 @@ export default function ProductGridWithLoadMore({
 
   return (
     <div>
-      <ViewportReveal
-        stagger
-        className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-8 md:gap-10 lg:grid-cols-4"
-      >
+      <ViewportReveal stagger className={PRODUCT_GRID_CLASS}>
         {products.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}

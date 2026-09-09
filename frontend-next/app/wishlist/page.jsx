@@ -6,6 +6,7 @@ import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
 import ProductCard from "@/components/ProductCard";
 import ViewportReveal from "@/components/ViewportReveal";
+import { PRODUCT_GRID_CLASS } from "@/lib/utils";
 
 export default function WishlistPage() {
   const { wishlist, wishlistReady, wishlistCount } = useWishlist();
@@ -48,10 +49,7 @@ export default function WishlistPage() {
             </Link>
           </div>
         ) : (
-          <ViewportReveal
-            stagger
-            className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-8 md:gap-10 lg:grid-cols-4"
-          >
+          <ViewportReveal stagger className={PRODUCT_GRID_CLASS}>
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

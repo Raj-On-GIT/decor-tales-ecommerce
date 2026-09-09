@@ -19,7 +19,7 @@ import PriceDisplay from "@/components/PriceDisplay";
 import ProductDetailSkeleton from "@/components/ProductDetailSkeleton";
 import ProductImageZoom from "@/components/ProductImageZoom";
 import ProductReviews from "@/components/reviews/ProductReviews";
-import { isProductOutOfStock } from "@/lib/utils";
+import { isProductOutOfStock, PRODUCT_GRID_CLASS } from "@/lib/utils";
 
 const MAX_CUSTOM_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_CUSTOM_TEXT_LENGTH = 120;
@@ -1120,7 +1120,7 @@ export default function ProductDetailPage() {
                   <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 sm:gap-4 md:gap-6 lg:grid-cols-4">
+                <div className={PRODUCT_GRID_CLASS}>
                   {Array.from({ length: 4 }).map((_, index) => (
                     <ProductCardSkeleton key={index} />
                   ))}
@@ -1150,7 +1150,7 @@ export default function ProductDetailPage() {
                 </div>
 
                 {/* Product Grid */}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 sm:gap-4 md:gap-6 lg:grid-cols-4">
+                <div className={PRODUCT_GRID_CLASS}>
                   {relatedProducts.map((p) => (
                     <ProductCard key={p.id} product={p} />
                   ))}

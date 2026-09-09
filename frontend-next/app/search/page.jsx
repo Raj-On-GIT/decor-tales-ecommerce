@@ -1,7 +1,7 @@
 import ProductCard from "@/components/ProductCard";
 import BrowseByCategoryClient from "@/components/BrowseByCategoryClient";
 import { MIN_SEARCH_QUERY_LENGTH, searchProducts } from "@/lib/api";
-import { sortProductsInStockFirst } from "@/lib/utils";
+import { sortProductsInStockFirst, PRODUCT_GRID_CLASS } from "@/lib/utils";
 import Link from "next/link";
 
 export default async function SearchPage({ searchParams }) {
@@ -109,7 +109,7 @@ export default async function SearchPage({ searchParams }) {
                   {results.meta?.products_total || sortedProducts.length} matching products
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 sm:gap-4 md:gap-6 lg:grid-cols-4">
+              <div className={PRODUCT_GRID_CLASS}>
                 {sortedProducts.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}

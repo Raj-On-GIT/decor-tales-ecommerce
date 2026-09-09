@@ -9,7 +9,7 @@ const SWIPE_THRESHOLD = 50;
 
 function getPerView() {
   if (typeof window === "undefined") return 4;
-  if (window.matchMedia("(max-width: 639px)").matches) return 2;
+  if (window.matchMedia("(max-width: 767px)").matches) return 2;
   if (window.matchMedia("(max-width: 1023px)").matches) return 3;
   return 4;
 }
@@ -62,7 +62,7 @@ export default function TrendingClient({ products, interval = 3000 }) {
 
   useEffect(() => {
     const mediaQueries = [
-      window.matchMedia("(max-width: 639px)"),
+      window.matchMedia("(max-width: 767px)"),
       window.matchMedia("(max-width: 1023px)"),
     ];
 
@@ -132,7 +132,7 @@ export default function TrendingClient({ products, interval = 3000 }) {
         {slides.map((product, slideIndex) => (
           <div
             key={`${product.id}-${slideIndex}`}
-            className="w-1/2 shrink-0 px-2 sm:w-1/3 sm:px-3 lg:w-1/4"
+            className="w-1/2 shrink-0 px-1.5 sm:w-1/2 sm:px-2 md:w-1/3 md:px-3 lg:w-1/4"
             aria-hidden={slideIndex >= count}
           >
             <ProductCard product={product} />

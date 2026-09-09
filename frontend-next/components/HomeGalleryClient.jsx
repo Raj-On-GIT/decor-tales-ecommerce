@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import ProductCard from "./ProductCard";
+import { PRODUCT_GRID_CLASS } from "@/lib/utils";
 
 export default function HomeGalleryClient({ products }) {
   // Filter products to show first 8
@@ -13,18 +14,7 @@ export default function HomeGalleryClient({ products }) {
   return (
     <>
       {/* Product Grid */}
-      <div
-        className="
-          grid
-
-          grid-cols-2
-          sm:grid-cols-2
-          md:grid-cols-3
-          lg:grid-cols-4
-
-          gap-3 sm:gap-4 md:gap-6
-        "
-      >
+      <div className={PRODUCT_GRID_CLASS}>
         {filteredProducts.length > 0 ? (
           filteredProducts.map((p, index) => (
             <ProductCard
