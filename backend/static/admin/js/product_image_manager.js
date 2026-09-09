@@ -156,6 +156,8 @@
     // ---------------------------------------------------------------
     fileInput.addEventListener("change", function () {
       var files = Array.prototype.slice.call(fileInput.files);
+      var hadMainBefore = !!checkedRow();
+      var firstNewRow = null;
       files.forEach(function (file) {
         if (!isValidFile(file)) return;
         nextKey += 1;
@@ -167,9 +169,20 @@
         } catch (e) {
           url = "";
         }
-        addRow(key, file.name, url, false);
+        var li = addRow(key, file.name, url, false);
+        if (!firstNewRow) firstNewRow = li;
       });
       fileInput.value = "";
+
+      // Auto-select the first uploaded image as main when no main exists yet.
+      if (!hadMainBefore && firstNewRow) {
+        var radio = firstNewRow.querySelector('input[name="product_images_main"]');
+        if (radio) {
+          radio.checked = true;
+          moveToFront(firstNewRow);
+        }
+      }
+
       refreshMainClasses();
       saveState();
     });

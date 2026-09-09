@@ -3,7 +3,7 @@
 import { useState } from "react";
 import ProductCard from "@/components/ProductCard";
 import ViewportReveal from "@/components/ViewportReveal";
-import { BACKEND } from "@/lib/api";
+import { BACKEND, normalizeProductImages } from "@/lib/api";
 
 const PRODUCTS_PER_PAGE = 12;
 
@@ -14,7 +14,9 @@ export default function ProductGridWithLoadMore({
   apiPath,
   emptyMessage = "No products found.",
 }) {
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState(() =>
+    (initialProducts || []).map(normalizeProductImages),
+  );
   const [moreAvailable, setMoreAvailable] = useState(hasMore);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
@@ -35,7 +37,8 @@ export default function ProductGridWithLoadMore({
       }
 
       const data = await res.json();
-      setProducts((prev) => [...prev, ...(data.products || [])]);
+      const loadedProducts = (data.products || []).map(normalizeProductImages);
+      setProducts((prev) => [...prev, ...loadedProducts]);
       setMoreAvailable(Boolean(data.has_more));
     } catch {
       setError("Couldn't load more products. Please try again.");

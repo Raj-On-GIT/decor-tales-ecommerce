@@ -16,7 +16,10 @@ export default function ProductImageModal({ product, isOpen, onClose }) {
   const [isImageLoading, setIsImageLoading] = useState(true);
   const carouselRef = useRef(null);
   
-  const images = product.images || [];
+  const images = [
+    ...(product.image ? [{ id: "main", image: product.image }] : []),
+    ...(product.images?.filter((img) => img?.image && img.image !== product.image) || []),
+  ];
   const variants = product.variants || [];
   const hasVariants = product.stock_type === 'variants' && variants.length > 0;
 

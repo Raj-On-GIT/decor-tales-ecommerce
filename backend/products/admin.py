@@ -588,7 +588,11 @@ class ProductAdmin(admin.ModelAdmin):
                     )
                 break
 
-        # Resolve the selected main image.
+        # Resolve the selected main image. If the widget submitted no explicit
+        # main (e.g. cached old JS), fall back to the first listed image so the
+        # product never loses its card image on save.
+        if not main_key and order_keys:
+            main_key = order_keys[0]
         main_resolved = False
         for key, position, source in slots:
             if key != main_key:

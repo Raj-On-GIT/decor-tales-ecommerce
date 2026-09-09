@@ -2,6 +2,36 @@ import { fetchWithAuth as authFetchWithAuth } from "./auth";
 import { apiFetch } from "./auth";
 import { API_BASE, BACKEND, RAZORPAY_KEY } from "./config";
 
+function buildAbsoluteUrl(url) {
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${BACKEND}${url}`;
+}
+
+export function normalizeProductImages(product) {
+  const mainImageUrl = buildAbsoluteUrl(product.image);
+
+  const galleryImages = [];
+  if (mainImageUrl) {
+    galleryImages.push({ id: `main-${product.id}`, image: mainImageUrl });
+  }
+
+  if (product.images && Array.isArray(product.images)) {
+    product.images.forEach((img) => {
+      const url = buildAbsoluteUrl(img.image);
+      if (url) galleryImages.push({ ...img, image: url });
+    });
+  }
+
+  const cardImageUrl =
+    mainImageUrl || (galleryImages.length > 0 ? galleryImages[0].image : null);
+
+  return {
+    ...product,
+    image: cardImageUrl,
+    images: galleryImages,
+  };
+}
+
 export async function getProducts(filters = {}) {
   if (!API_BASE) {
     console.error("API_BASE is undefined. Check your .env.local file.");
@@ -23,52 +53,8 @@ export async function getProducts(filters = {}) {
     // ✅ Handle paginated response
     const products = Array.isArray(data) ? data : data.results || [];
 
-    // Transform image URLs
-    return products.map((product) => {
-      // The main image for the card should be product.image
-      const mainImageUrl =
-        product.image && product.image.startsWith("http")
-          ? product.image
-          : product.image
-            ? `${BACKEND}${product.image}`
-            : null;
-
-      // Start the gallery with the main image if it exists
-      const galleryImages = [];
-      if (product.image) {
-        galleryImages.push({
-          id: `main-${product.id}`,
-          image: mainImageUrl,
-        });
-      }
-
-      // Add the rest of the gallery images
-      if (product.images && Array.isArray(product.images)) {
-        product.images.forEach((img) => {
-          const galleryImageUrl =
-            img.image && img.image.startsWith("http")
-              ? img.image
-              : img.image
-                ? `${BACKEND}${img.image}`
-                : null;
-
-          if (galleryImageUrl) {
-            galleryImages.push({ ...img, image: galleryImageUrl });
-          }
-        });
-      }
-
-      // If there's no main image, use the first gallery image for the card.
-      const cardImageUrl =
-        mainImageUrl ||
-        (galleryImages.length > 0 ? galleryImages[0].image : null);
-
-      return {
-        ...product,
-        image: cardImageUrl,
-        images: galleryImages,
-      };
-    });
+    // Transform image URLs (adds main-image-first gallery + card fallback)
+    return products.map(normalizeProductImages);
   } catch (error) {
     console.error("Failed to fetch products:", error.message);
     console.error("Full error:", error);
@@ -169,36 +155,7 @@ export async function getTrendingProducts() {
 
     const products = Array.isArray(data) ? data : data.results || [];
 
-    return products.map((product) => {
-      const mainImageUrl =
-        product.image && product.image.startsWith("http")
-          ? product.image
-          : product.image
-            ? `${BACKEND}${product.image}`
-            : null;
-
-      const galleryImages = [];
-      if (product.image) {
-        galleryImages.push({ id: `main-${product.id}`, image: mainImageUrl });
-      }
-      if (product.images && Array.isArray(product.images)) {
-        product.images.forEach((img) => {
-          const url =
-            img.image && img.image.startsWith("http")
-              ? img.image
-              : img.image
-                ? `${BACKEND}${img.image}`
-                : null;
-          if (url) galleryImages.push({ ...img, image: url });
-        });
-      }
-
-      return {
-        ...product,
-        image: mainImageUrl || (galleryImages[0]?.image ?? null),
-        images: galleryImages,
-      };
-    });
+    return products.map(normalizeProductImages);
   } catch (error) {
     console.error("Failed to fetch trending products:", error.message);
     return [];
@@ -303,24 +260,9 @@ export async function searchProducts(query, options = {}) {
 
   const data = await res.json();
 
-  // Transform image URLs for products (same as getProducts)
+  // Transform image URLs for products (main-image-first gallery + card fallback)
   if (data.products) {
-    data.products = data.products.map((product) => ({
-      ...product,
-      image: product.image
-        ? product.image.startsWith("http")
-          ? product.image
-          : `${BACKEND}${product.image}`
-        : null,
-      images: product.images?.map((img) => ({
-        ...img,
-        image: img.image
-          ? img.image.startsWith("http")
-            ? img.image
-            : `${BACKEND}${img.image}`
-          : null,
-      })),
-    }));
+    data.products = data.products.map(normalizeProductImages);
   }
 
   return data;

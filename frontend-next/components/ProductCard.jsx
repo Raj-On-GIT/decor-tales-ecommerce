@@ -17,6 +17,11 @@ export default function ProductCard({ product, className = "" }) {
   const toast = useGlobalToast();
   const [isAdding, setIsAdding] = useState(false);
 
+  const displayImage =
+    product.image ||
+    product.images?.find((img) => img.image)?.image ||
+    null;
+
   const wishlisted = isWishlisted(product.id);
   const wishlistPending = isWishlistPending(product.id);
 
@@ -71,7 +76,7 @@ export default function ProductCard({ product, className = "" }) {
       product_id: product.id,
       title: product.title,
       price: Number(price),
-      image: product.image,
+      image: displayImage,
       category: product.category,
       stock: hasVariants ? primaryVariant?.stock : product.stock,
       stock_type: product.stock_type,
@@ -91,9 +96,9 @@ export default function ProductCard({ product, className = "" }) {
     <div className={`premium-card group relative p-1 sm:p-1.5 transition-all duration-500 ease-out hover:-translate-y-1 bg-[#FAFAF9] hover:bg-[#F0F0EF] rounded-xl border-[#E7E5E4] ${className}`}>
       <Link href={`/products/${product.id}`} className="block">
         <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-[#F5F5F4]">
-          {product.image ? (
+          {displayImage ? (
             <Image
-              src={product.image}
+              src={displayImage}
               alt={product.title}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
