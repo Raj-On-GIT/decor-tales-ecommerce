@@ -9,6 +9,7 @@ const apiUrl = rawApiUrl ? new URL(rawApiUrl) : null;
 
 const nextConfig: NextConfig = {
   images: {
+    loaderFile: "./lib/imageLoader.js",
     remotePatterns: [
       ...(apiUrl
         ? [
